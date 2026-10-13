@@ -1,5 +1,18 @@
 # CHANGELOG
 
+## 1.11.0 — 2026-10-13 · Komputer ikut makmal
+### Ditambah
+- Panel baharu **Komputer ikut makmal** di Executive Overview. Bagi setiap makmal, panel ini memaparkan:
+  - jumlah komputer, dipecahkan kepada meja, riba dan workstation
+  - bilangan beroperasi (dengan %), rosak dan perlu diganti
+  - umur purata dan tahun perolehan tertua
+  - indeks kesihatan makmal
+  - jumlah keseluruhan
+- Klik nama makmal untuk membuka senarai aset makmal itu.
+
+### Diperbaiki
+- **Pengesanan jenis aset**: nama item kini diutamakan berbanding deskripsi perolehan. Sebelum ini, deskripsi tender seperti "PC DESKTOP, LAPTOP …" menyebabkan desktop dikira sebagai komputer riba. `MIGRATION_007` membetulkan rekod sedia ada yang terjejas; rekod yang jenisnya diisi secara manual tidak diubah.
+
 ## 1.10.0 — 2026-10-13 · Jenis permohonan: penggantian / penambahan berasingan
 ### Ditambah
 - Borang Penilaian Keperluan ICT Makmal kini ada medan **Jenis permohonan** dengan empat pilihan: *Penggantian sahaja*, *Penambahan sahaja*, *Penggantian dan penambahan*, *Tiada permohonan (banci sahaja)*. Medan ini wajib dalam borang awam.

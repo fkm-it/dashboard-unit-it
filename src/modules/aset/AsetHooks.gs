@@ -530,6 +530,7 @@ const AsetHooks = {
 
     const nv = AsetHooks.reportValue({}).total;
     const rp = AsetHooks.reportReplacement({}).ringkasan;
+    const pcLabs = AsetHooks.computersByLab_(assets, labs);
     return {
       generatedAt: nowIso,
       tahun: year,
@@ -560,7 +561,53 @@ const AsetHooks = {
         withoutCost: needs.filter(function (r) { return (Number(r.bilangan_ganti) + Number(r.bilangan_tambahan)) > 0 && !(Number(r.harga_seunit) > 0); }).length,
         top: topLabs
       },
+      komputerMakmal: pcLabs,
       issues: issues
+    };
+  },
+
+  /**
+   * Komputer (meja / riba / workstation, bukan dilupus) bagi setiap makmal aktif + ringkasan kesihatan.
+   * @return {{items:Object[], jumlah:Object, tanpaMakmal:number, makmalTanpaPc:number}}
+   */
+  computersByLab_: function (assets, labs) {
+    const now = new Date();
+    const dcfg = AsetHooks.depConfig();
+    const health = {};
+    try { AsetHooks.reportLabHealth().items.forEach(function (h) { health[h.id] = h; }); } catch (e) { /* tiada */ }
+    const by = {};
+    labs.forEach(function (l) {
+      by[l.id] = { id: l.id, label: l.kod ? l.kod + ' · ' + l.nama : l.nama, jenis: l.jenis_makmal || '', tempat: Number(l.tempat_komputer) || 0,
+        pc: 0, desktop: 0, laptop: 0, workstation: 0, beroperasi: 0, rosak: 0, umurSum: 0, umurN: 0, tertua: null };
+    });
+    let tanpa = 0;
+    const BROKEN = ['PERLU_BAIKI', 'MENUNGGU_ALAT_GANTI', 'TIDAK_BOLEH_GUNA'];
+    assets.forEach(function (r) {
+      if (AsetHooks.COMPUTERS.indexOf(r.jenis) < 0) return;
+      const L = by[r.makmal];
+      if (!L) { tanpa++; return; }
+      L.pc++;
+      if (r.jenis === 'LAPTOP') L.laptop++; else if (r.jenis === 'WORKSTATION') L.workstation++; else L.desktop++;
+      if (AsetHooks.OPERATIONAL.indexOf(r.status) >= 0) L.beroperasi++;
+      if (BROKEN.indexOf(r.status) >= 0) L.rosak++;
+      const d = AsetHooks.depreciation(r, now, dcfg);
+      if (d && d.umurTahun !== null) { L.umurSum += d.umurTahun; L.umurN++; }
+      const y = Number(r.tahun_perolehan);
+      if (y && (!L.tertua || y < L.tertua)) L.tertua = y;
+    });
+    const all = Object.keys(by).map(function (k) { return by[k]; });
+    const items = all.filter(function (L) { return L.pc > 0; }).map(function (L) {
+      const h = health[L.id] || {};
+      return {
+        id: L.id, label: L.label, jenis: L.jenis, pc: L.pc, desktop: L.desktop, laptop: L.laptop, workstation: L.workstation, tempat: L.tempat,
+        beroperasi: L.beroperasi, rosak: L.rosak, umurPurata: L.umurN ? Math.round((L.umurSum / L.umurN) * 10) / 10 : null, tahunTertua: L.tertua,
+        perluGanti: h.perluGanti || 0, indeks: h.skor === undefined ? null : h.skor, tahap: h.tahap || ''
+      };
+    }).sort(function (a, b) { return b.pc - a.pc; });
+    const sum = function (k) { return items.reduce(function (s2, i) { return s2 + (i[k] || 0); }, 0); };
+    return {
+      items: items, tanpaMakmal: tanpa, makmalTanpaPc: all.length - items.length,
+      jumlah: { makmal: items.length, pc: sum('pc'), beroperasi: sum('beroperasi'), rosak: sum('rosak'), perluGanti: sum('perluGanti'), tempat: sum('tempat') }
     };
   },
 
@@ -616,7 +663,15 @@ const AsetHooks = {
     if (/SWITCH|ROUTER/.test(t)) return 'SWITCH';
     if (/ACCESS POINT/.test(t)) return 'AP';
     if (/DESKTOP|KOMPUTER|COMPUTER|\bCPU\b|\bPC\b|PRODESK|ELITE ?DESK|OPTIPLEX|COMPAQ|PAVIL+ION|SLIMLINE|ALL.IN.ONE/.test(t)) return 'DESKTOP';
-    return fallback || 'LAIN';
+    return fallback === null ? null : (fallback || 'LAIN');
+  },
+
+  /**
+   * Jenis daripada nama item dahulu; deskripsi perolehan hanya jika nama item tidak jelas.
+   * (Deskripsi tender selalunya menyenaraikan beberapa jenis, cth. "PC DESKTOP, LAPTOP ..." — tidak boleh diutamakan.)
+   */
+  jenisFor: function (item, desc, fallback) {
+    return AsetHooks.jenisOf(item, null) || AsetHooks.jenisOf(String(item || '') + ' ' + String(desc || ''), fallback);
   },
 
   jenamaOf: function (text) {
@@ -653,7 +708,7 @@ const AsetHooks = {
       condition = AsetHooks.CONDITION[String(src.statusPengesahan).trim().toLowerCase()];
       delete src.statusPengesahan;
     }
-    if (!src.jenis && (src.model || src.namaAlat) && !cur.id) src.jenis = AsetHooks.jenisOf((src.model || src.namaAlat) + ' ' + (src.deskripsiPerolehan || ''), /^B3[56]2/.test(String(src.kodSodo || '')) ? 'DESKTOP' : 'LAIN');
+    if (!src.jenis && (src.model || src.namaAlat) && !cur.id) src.jenis = AsetHooks.jenisFor(src.model || src.namaAlat, src.deskripsiPerolehan, /^B3[56]2/.test(String(src.kodSodo || '')) ? 'DESKTOP' : 'LAIN');
     if (!src.jenama && (src.model || src.namaAlat) && !cur.jenama) { const j = AsetHooks.jenamaOf(src.namaAlat || src.model); if (j) src.jenama = j; }
     if (!src.model && src.namaAlat && !cur.model) src.model = src.namaAlat;
     if (src.lokasiFizikal) {
@@ -665,7 +720,7 @@ const AsetHooks = {
       }
       if (src.disahkanFizikal === undefined) src.disahkanFizikal = true; /* ditemui semasa semakan makmal */
     }
-    if (!src.jenis && src.model) src.jenis = AsetHooks.jenisOf(src.model + ' ' + (src.deskripsiPerolehan || ''));
+    if (!src.jenis && src.model) src.jenis = AsetHooks.jenisFor(src.model, src.deskripsiPerolehan);
     if (!src.jenama && src.model) { const j = AsetHooks.jenamaOf(src.model); if (j) src.jenama = j; }
     if (src.kodLokasi) {
       src.kodLokasi = String(src.kodLokasi).trim().toUpperCase();

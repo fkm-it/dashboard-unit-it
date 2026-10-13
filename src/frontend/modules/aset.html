@@ -162,6 +162,25 @@
   const PENGESAHAN_LABEL = { AKTIF: 'Aktif (penjaga)', MAKMAL: 'Penggunaan makmal', GUNA_SAMA: 'Guna sama', BERTUKAR_PENJAGA: 'Bertukar penjaga', TIDAK_DISAHKAN: 'Tidak dapat disahkan', PELUPUSAN: 'Dalam pelupusan', LUPUS_REKOD_AKTIF: 'Lupus, rekod aktif', BUKAN_KOMPUTER: 'Bukan aset komputer' };
   const SHORT = { PERLAHAN: 'Berfungsi, tidak memadai', PERLU_BAIKI: 'Perlu dibaiki' };
 
+  const HEALTH_T = { BAIK: ['Baik', 'success'], SEDERHANA: ['Sederhana', 'warn'], KRITIKAL: ['Kritikal', 'danger'] };
+  /** Panel: jumlah komputer bagi setiap makmal + status ringkas. */
+  function pcLabPanel(k) {
+    if (!k || !k.items || !k.items.length) return '';
+    const j = k.jumlah;
+    const mix = (i) => [i.desktop ? i.desktop + ' meja' : '', i.laptop ? i.laptop + ' riba' : '', i.workstation ? i.workstation + ' workstation' : ''].filter(Boolean).join(' · ');
+    const opBar = (i) => { const p = i.pc ? Math.round((i.beroperasi / i.pc) * 100) : 0; return html`<div style="display:flex;align-items:center;gap:8px;min-width:110px"><div class="xo-meter__track" style="flex:1"><div class="xo-meter__fill ${p >= 90 ? 'is-ok' : p >= 70 ? 'is-warn' : ''}" style="width:${p}%;${p < 70 ? 'background:var(--danger)' : ''}"></div></div><span class="xs" style="min-width:58px;text-align:right">${fmtNum(i.beroperasi)} (${p}%)</span></div>`; };
+    return html`<section class="panel mt-4"><div class="panel-head"><h3>Komputer ikut makmal</h3><span class="xs muted">${fmtNum(j.pc)} komputer · ${fmtNum(j.makmal)} makmal</span></div>
+      <div class="im-scroll"><table class="xo-table" style="min-width:720px"><thead><tr><th>Makmal</th><th class="num">Komputer</th><th>Beroperasi</th><th class="num">Rosak</th><th class="num">Perlu ganti</th><th class="num">Umur purata</th><th>Indeks makmal</th></tr></thead>
+      <tbody>${k.items.map((i) => html`<tr><td><a href="#/admin/aset?f_makmal=${i.id}">${i.label}</a>${i.tempat && i.tempat !== i.pc ? html`<div class="xs muted">Tempat komputer: ${fmtNum(i.tempat)}</div>` : ''}</td>
+        <td class="num"><b>${fmtNum(i.pc)}</b><div class="xs muted">${mix(i)}</div></td><td>${opBar(i)}</td>
+        <td class="num">${i.rosak ? html`<span style="color:var(--danger);font-weight:600">${fmtNum(i.rosak)}</span>` : '0'}</td>
+        <td class="num">${i.perluGanti ? html`<span style="color:var(--warn);font-weight:600">${fmtNum(i.perluGanti)}</span>` : '0'}</td>
+        <td class="num">${i.umurPurata === null ? '—' : i.umurPurata + ' thn'}${i.tahunTertua ? html`<div class="xs muted">tertua ${i.tahunTertua}</div>` : ''}</td>
+        <td>${i.tahap ? html`${toneBadge((HEALTH_T[i.tahap] || [i.tahap])[0] + ' · ' + i.indeks, (HEALTH_T[i.tahap] || [])[1] || 'muted')}` : html`<span class="muted xs">—</span>`}</td></tr>`)}
+        <tr><td><b>Jumlah</b></td><td class="num"><b>${fmtNum(j.pc)}</b></td><td>${opBar({ pc: j.pc, beroperasi: j.beroperasi })}</td><td class="num"><b>${fmtNum(j.rosak)}</b></td><td class="num"><b>${fmtNum(j.perluGanti)}</b></td><td></td><td></td></tr></tbody></table></div>
+      <p class="xs muted mt-2">Komputer = komputer meja, riba dan workstation yang dipautkan ke makmal (tidak termasuk dilupus).${k.tanpaMakmal ? ' ' + fmtNum(k.tanpaMakmal) + ' komputer lain tidak dipautkan ke mana-mana makmal (pejabat / staf).' : ''}${k.makmalTanpaPc ? ' ' + fmtNum(k.makmalTanpaPc) + ' makmal belum ada komputer dalam daftar aset.' : ''} Klik nama makmal untuk senarai aset.</p></section>`;
+  }
+
   function view(o) {
     const a = o.assets, t = o.tickets, l = o.labs;
     const faulty = (a.byStatus.PERLU_BAIKI || 0) + (a.byStatus.MENUNGGU_ALAT_GANTI || 0) + (a.byStatus.TIDAK_BOLEH_GUNA || 0);
@@ -187,6 +206,7 @@
         <a class="lp-card ${o.ganti.segera ? 'is-danger' : ''}" href="#/admin/laporan-aset?t=ganti" style="text-decoration:none;color:inherit"><span class="xs muted">Cadangan ganti segera</span><b>${fmtNum(o.ganti.segera)} komputer</b><span class="xs muted">+ ${fmtNum(o.ganti.tahunDepan)} tahun depan</span></a>
         <a class="lp-card" href="#/admin/laporan-aset?t=ganti" style="text-decoration:none;color:inherit"><span class="xs muted">Anggaran kos penggantian</span><b>RM ${rmx(o.ganti.kos)}</b><span class="xs muted">Segera + tahun depan</span></a>
       </div>` : ''}
+      ${pcLabPanel(o.komputerMakmal)}
       <div class="xo-grid4">
         <section class="panel"><div class="panel-head"><h3>Pematuhan SLA</h3><span class="xs muted">6 bulan</span></div>
           ${lastSla ? html`<div class="xo-big">${pctTxt(lastSla.value)}</div><div class="xs muted mt-1 mb-4">${monthName(lastSla.label)}: ${fmtNum(lastSla.within)} daripada ${fmtNum(lastSla.total)} tiket selesai dalam sasaran</div>

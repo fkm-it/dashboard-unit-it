@@ -4,7 +4,7 @@
  * Dalam Apps Script: runTestsPart5. Dalam Node: npm test.
  */
 const AppTests = {
-  suites: function () { return [TestSuiteDashboardIT, TestSuiteUtmfin, TestSuiteMaintenance, TestSuiteNilai, TestSuitePengurusan, TestSuiteKewpa, TestSuiteTrend, TestSuiteBanci, TestSuiteDataMakmal, TestSuitePrestasi, TestSuiteAkaun, TestSuiteJenisPermohonan]; }
+  suites: function () { return [TestSuiteDashboardIT, TestSuiteUtmfin, TestSuiteMaintenance, TestSuiteNilai, TestSuitePengurusan, TestSuiteKewpa, TestSuiteTrend, TestSuiteBanci, TestSuiteDataMakmal, TestSuitePrestasi, TestSuiteAkaun, TestSuiteJenisPermohonan, TestSuiteKomputerMakmal]; }
 };
 
 const AppFx = {
@@ -935,6 +935,38 @@ const TestSuiteJenisPermohonan = {
       const u = TestAssert.apiOk(api({ action: 'keperluan.awamKemaskini', payload: { t: tok, namaPemohon: 'Dr. Pemilik Contoh', noStaf: 'S1234', peranan: 'PEMILIK', jumlahSediaAda: 20, berfungsi: 18, tidakSesuai: 5, rosakBolehBaiki: 1, rosakLupus: 1, keutamaan: 'TINGGI', justifikasi: 'Kemas kini bilangan tidak sesuai selepas semakan.' } }));
       t.eq(u.computed.jenis, 'GANTI'); t.eq(u.computed.ganti, 6); t.eq(u.computed.tambahan, 0);
       t.ok(res.refNo);
+    }]
+  ]
+};
+
+const TestSuiteKomputerMakmal = {
+  name: 'Overview: komputer ikut makmal',
+  tests: [
+    ['Kiraan komputer setiap makmal: jenis, beroperasi, rosak; bukan komputer & dilupus dikecualikan', function (t) {
+      AppFx.real();
+      const a = TestHelpers.admin(ROLES.ADMIN);
+      const lab = AppFx.lab(a, 'KM-01');
+      TestAssert.apiOk(TestHelpers.call(a.token, 'aset.import', { rows: [
+        { noAset: 'KM-1', jenis: 'DESKTOP', makmal: 'KM-01', tahunPerolehan: '2018' },
+        { noAset: 'KM-2', jenis: 'DESKTOP', makmal: 'KM-01', tahunPerolehan: '2020', status: 'Tidak boleh digunakan' },
+        { noAset: 'KM-3', jenis: 'LAPTOP', makmal: 'KM-01', tahunPerolehan: '2022' },
+        { noAset: 'KM-4', jenis: 'PROJEKTOR', makmal: 'KM-01' },
+        { noAset: 'KM-5', jenis: 'DESKTOP', makmal: 'KM-01', status: 'Dilupus' }
+      ] }));
+      const o = TestAssert.apiOk(TestHelpers.call(a.token, 'aset.overview', { tahun: 2026 }));
+      const it = o.komputerMakmal.items.filter(function (i) { return i.id === lab.id; })[0];
+      t.eq(it.pc, 3); t.eq(it.desktop, 2); t.eq(it.laptop, 1); t.eq(it.beroperasi, 2); t.eq(it.rosak, 1); t.eq(it.tahunTertua, 2018);
+      t.ok(it.indeks !== null && it.tahap, 'indeks makmal');
+      t.ok(o.komputerMakmal.jumlah.pc >= 3);
+      /* Nama item diutamakan berbanding deskripsi tender */
+      t.eq(AsetHooks.jenisFor('DESKTOP (PAKEJ 2 - FKM)', 'TENDER: PC DESKTOP, LAPTOP, RUGGED NOTEBOOK DAN LCD PROJECTOR'), 'DESKTOP');
+      t.eq(AsetHooks.jenisFor('PAKEJ 3', 'BEKALAN KOMPUTER RIBA / LAPTOP'), 'LAPTOP');
+      const r = AsetHooks.importRows({ rows: [{ noAset: 'KM-T1', model: 'DESKTOP (PAKEJ 2 - FKM)', deskripsiPerolehan: 'TENDER: PC DESKTOP, LAPTOP DAN LCD PROJECTOR' }] }, TestHelpers.admin(ROLES.ADMIN).ctx);
+      t.eq(r.created, 1);
+      t.eq(Repo.of('ASET').all().filter(function (x) { return x.no_aset === 'KM-T1'; })[0].jenis, 'DESKTOP');
+      Repo.of('ASET').updateMany((function () { const p = {}; Repo.of('ASET').all().filter(function (x) { return x.no_aset === 'KM-T1'; }).forEach(function (x) { p[x.id] = { jenis: 'LAPTOP' }; }); return p; })());
+      Migration.LIST.filter(function (m) { return m.id === 'MIGRATION_007'; })[0].up();
+      t.eq(Repo.of('ASET').all().filter(function (x) { return x.no_aset === 'KM-T1'; })[0].jenis, 'DESKTOP', 'migrasi membetulkan');
     }]
   ]
 };

@@ -76,6 +76,23 @@ const Migration = {
         return { updated: Object.keys(patch).length ? repo.updateMany(patch) : 0 };
       }
     },
+    {
+      id: 'MIGRATION_007',
+      description: 'Aset: betulkan jenis yang tersilap dikesan daripada deskripsi tender (cth. desktop dikira komputer riba)',
+      up: function () {
+        const repo = CrudEngine.repo(CrudEngine.get('aset'));
+        const patch = {};
+        repo.all().forEach(function (r) {
+          if (r.state !== 'ACTIVE') return;
+          const item = r.model || r.nama_alat;
+          const byItem = AsetHooks.jenisOf(item, null);
+          const derivedOld = AsetHooks.jenisOf(String(item || '') + ' ' + String(r.deskripsi_perolehan || ''), null);
+          /* Hanya rekod yang jenisnya sama dengan pengesanan lama (bukan diisi tangan) dan nama item jelas berbeza */
+          if (byItem && derivedOld && r.jenis === derivedOld && byItem !== r.jenis) patch[r.id] = { jenis: byItem, updated_at: DateUtils.nowIso() };
+        });
+        return { updated: Object.keys(patch).length ? repo.updateMany(patch) : 0 };
+      }
+    },
   ],
 
   applied: function () {
