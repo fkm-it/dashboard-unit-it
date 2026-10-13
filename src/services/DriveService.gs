@@ -9,6 +9,9 @@
 const DriveService = {
   folderOverride: null, // untuk ujian
 
+  /** Pelayan Supabase: lampiran dihantar ke / dibaca daripada Google Drive melalui Apps Script (EDGE_FILES). */
+  edge_: function () { return typeof EDGE_FILES !== 'undefined' && EDGE_FILES ? EDGE_FILES : null; },
+
   attachmentRoot: function () {
     if (DriveService.folderOverride) return DriveService.folderOverride;
     const id = Env.get('ATTACHMENT_FOLDER_ID');
@@ -42,6 +45,7 @@ const DriveService = {
    * @return {{id:string, size:number}}
    */
   upload: function (file, recordId) {
+    if (DriveService.edge_()) return DriveService.edge_().upload(file, recordId);
     const blob = Utilities.newBlob(file.bytes, file.mimeType, recordId + '__' + file.filename);
     const created = DriveService.monthFolder().createFile(blob);
     try {
@@ -56,6 +60,7 @@ const DriveService = {
 
   /** Baca fail sebagai base64 (dengan had saiz). */
   readBase64: function (fileId) {
+    if (DriveService.edge_()) return DriveService.edge_().read(fileId);
     const file = DriveApp.getFileById(fileId);
     const maxBytes = (SettingsService.get('MAX_ATTACHMENT_MB') + 1) * 1024 * 1024;
     if (file.getSize() > maxBytes) throw Errors.validation('Fail terlalu besar untuk dipaparkan.');
@@ -63,6 +68,7 @@ const DriveService = {
   },
 
   trash: function (fileId) {
+    if (DriveService.edge_()) return DriveService.edge_().trash(fileId);
     try { DriveApp.getFileById(fileId).setTrashed(true); } catch (e) { AppLogger.warn('Gagal buang fail', { error: String(e) }); }
   },
 
@@ -94,6 +100,7 @@ const DriveService = {
   },
 
   health: function () {
+    if (DriveService.edge_()) return { ok: true, folderName: 'Google Drive (melalui Apps Script)', sharing: 'PRIVATE', isPrivate: true };
     try {
       const f = DriveService.attachmentRoot();
       const access = f.getSharingAccess();

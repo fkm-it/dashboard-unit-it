@@ -34,6 +34,7 @@ const SettingsService = {
     out.VERSION = CONFIG.VERSION;
     out.ENV = Env.isProduction() ? '' : Env.name();
     out.PUSH_ENABLED = PushService.enabled();
+    out.VAPID_PUBLIC_KEY = PushService.vapidPublicKey();
     out.SHORT_NAME = CONFIG.SHORT_NAME;
     // Persediaan awal: pendaftaran Super Admin pertama dibenarkan walaupun ALLOW_REGISTRATION ditutup
     try { out.SETUP_PENDING = !!Env.get('BOOTSTRAP_SUPER_ADMIN_EMAIL') && UserRepository.countByRole(ROLES.SUPER_ADMIN) === 0; } catch (e) { out.SETUP_PENDING = false; }
@@ -45,7 +46,7 @@ const SettingsService = {
     const s = SettingsService.all();
     const rows = {};
     SettingsRepository.rows().forEach(function (r) { rows[r.setting_key] = r; });
-    return Object.keys(SETTINGS_DEFS).map(function (k) {
+    return Object.keys(SETTINGS_DEFS).filter(function (k) { return !SETTINGS_DEFS[k].hidden; }).map(function (k) {
       const def = SETTINGS_DEFS[k];
       return {
         key: k,
@@ -79,7 +80,9 @@ const SettingsService = {
       if (ROLE_LEVEL[ctx.role] < ROLE_LEVEL[def.minRole]) { errors[k] = 'Memerlukan peranan ' + def.minRole + '.'; return; }
       try {
         const v = Validator.coerce(changes[k], SettingModel.rule(k, def), k);
-        if (k === 'ADMIN_EMAIL' && v && !Validator.EMAIL_RE.test(v)) throw new Error('Email tidak sah.');
+        /* ADMIN_EMAIL: satu atau beberapa alamat dipisah koma */
+        if (k === 'ADMIN_EMAIL' && v && String(v).split(',').some(function (e) { return !Validator.EMAIL_RE.test(e.trim()); })) throw new Error('Email tidak sah.');
+        if (def.check) { const msg = def.check(v); if (msg) throw new Error(msg); }
         values[k] = SettingModel.serialize(def, v);
       } catch (e) {
         errors[k] = e.message;

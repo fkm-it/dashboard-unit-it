@@ -87,6 +87,7 @@ class MockSheet {
   getMaxRows() { return this.maxRows; }
   getMaxColumns() { return this.maxCols; }
   insertRowsAfter(after, n) { this.maxRows += n; return this; }
+  insertColumnsAfter(after, n) { this.maxCols += n; return this; }
   deleteRow(row) { this.data.splice(row - 1, 1); this.maxRows -= 1; return this; }
   setFrozenRows(n) { this.frozen = n; }
   hideSheet() { this.hidden = true; return this; }
@@ -175,6 +176,7 @@ function makeDrive(state) {
     getId() { return this.id; }
     getName() { return this.name; }
     createFolder(n) { const f = new MockFolder(n, this); this.folders.push(f); return f; }
+    getParents() { return iter(this.parent ? [this.parent] : []); }
     getFoldersByName(n) { return iter(this.folders.filter((f) => f.name === n)); }
     createFile(blob) { const f = new MockFile(blob, this); this.files.push(f); return f; }
     getFilesByType(mime) { return iter(this.files.filter((f) => !f.trashed && f.getMimeType() === mime)); }
@@ -301,7 +303,7 @@ function createGasEnvironment(options = {}) {
     getProjectTriggers: () => state.triggers.slice(),
     deleteTrigger: (t) => { state.triggers = state.triggers.filter((x) => x !== t); },
     newTrigger: (fn) => {
-      const b = { timeBased: () => b, everyDays: () => b, everyHours: () => b, atHour: () => b, create: () => { const t = { getHandlerFunction: () => fn }; state.triggers.push(t); return t; } };
+      const b = { timeBased: () => b, everyDays: () => b, everyHours: () => b, everyMinutes: () => b, atHour: () => b, create: () => { const t = { getHandlerFunction: () => fn }; state.triggers.push(t); return t; } };
       return b;
     }
   };

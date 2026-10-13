@@ -13,6 +13,14 @@
 
 /** Web App: hidangkan SPA. */
 function doGet(e) {
+  if (WorkerService.active()) {
+    /* Mod Supabase: aplikasi dihoskan di GitHub Pages; halaman ini hanya memberi pautan. */
+    const base = Env.get('PUBLIC_BASE_URL', '') || (typeof DEPLOY_INFO !== 'undefined' ? DEPLOY_INFO.publicBaseUrl : '');
+    const esc = function (v) { return String(v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+    return HtmlService.createHtmlOutput('<div style="font-family:system-ui,sans-serif;padding:32px;text-align:center"><h2>' + esc(CONFIG.APP_NAME) +
+      '</h2><p>Sistem kini dibuka di alamat baharu:</p><p><a target="_top" href="' + esc(base) + '" style="font-size:18px">' + esc(base) + '</a></p></div>')
+      .setTitle(CONFIG.APP_NAME);
+  }
   const template = HtmlService.createTemplateFromFile('frontend/index');
   // Nilai disuntik melalui <?= ?> (auto-escape).
   template.appName = CONFIG.APP_NAME;
@@ -56,7 +64,13 @@ function doPost(e) {
     if (body.length > CONFIG.MAX_REQUEST_CHARS + 4096) {
       res = ApiResponse.fail('VALIDATION_ERROR', 'Permintaan terlalu besar.');
     } else {
-      res = Router.dispatch(JSON.parse(body));
+      const request = JSON.parse(body);
+      if (request && request.poke) res = ApiResponse.ok(WorkerService.active() ? WorkerService.tick() : { skipped: true });
+      else if (request && request.verifyImport) res = ApiResponse.ok(WorkerService.verifyImport(request.verifyImport));
+      else if (request && request.fileRelay) {
+        try { res = ApiResponse.ok(WorkerService.fileRelay(request.fileRelay)); } catch (fe) { res = ApiResponse.fail(fe && fe.code || 'FORBIDDEN', fe && fe.code ? fe.message : 'Ditolak.'); }
+      }
+      else res = api(request);
     }
   } catch (err) {
     res = ApiResponse.fail('BAD_REQUEST', 'Permintaan tidak sah.');
@@ -69,6 +83,14 @@ function doPost(e) {
  * @param {{action:string, payload?:Object, token?:string, meta?:Object}} request
  */
 function api(request) {
+  const st = WorkerService.state();
+  if (st === 'migrating' || st === 'returning') return ApiResponse.fail(ERROR_CODES.MAINTENANCE, 'Sistem sedang dinaik taraf. Sila cuba semula dalam seminit.');
+  /* Mod Supabase: teruskan klien lama ke pelayan baharu (kecuali permintaan yang datang DARIPADA pelayan itu) */
+  if (st === '1') {
+    /* Data kini di Supabase: Google Sheets tidak lagi dilayan (elak tulisan hilang) */
+    if (request && request.meta && request.meta.via === 'edge') return ApiResponse.fail(ERROR_CODES.MAINTENANCE, 'Pelayan sedang bertukar. Sila muat semula halaman.');
+    return WorkerService.proxy(request);
+  }
   return Router.dispatch(request);
 }
 
@@ -163,6 +185,7 @@ function installTriggers() {
 /** Dipanggil oleh pencetus setiap jam (dipasang automatik jika ada modul dengan hook hourly). */
 function hourlyMaintenance(e) {
   if (!(e && e.triggerUid)) requireOwner_();
+  if (WorkerService.active()) return { skipped: 'Supabase aktif — penyelenggaraan dijalankan oleh workerTick' };
   return MaintenanceService.hourly();
 }
 
@@ -170,6 +193,7 @@ function hourlyMaintenance(e) {
 function dailyMaintenance(e) {
   // Pencetus masa menghantar objek acara dengan triggerUid; panggilan manual mesti pemilik.
   if (!(e && e.triggerUid)) requireOwner_();
+  if (WorkerService.active()) return { skipped: 'Supabase aktif — penyelenggaraan dijalankan oleh workerTick' };
   return MaintenanceService.daily();
 }
 
@@ -311,4 +335,67 @@ function requireOwner_() {
   if (!active || !effective || active.toLowerCase() !== effective.toLowerCase()) {
     throw new Error('Dilarang: fungsi ini hanya untuk pemilik skrip.');
   }
+}
+
+// ============================================================================
+// Supabase (lihat WorkerService.gs & supabase/functions/api)
+// ============================================================================
+
+/**
+ * SEKALI SAHAJA: pindahkan semua data (Google Sheets) + Script Properties ke Supabase, kemudian aktifkan mod Supabase.
+ * Jalankan dari editor Apps Script (Run ▶). Mengambil masa ±10–30 saat. Spreadsheet asal TIDAK diubah (kekal sebagai sandaran).
+ */
+function pindahKeSupabase() {
+  requireOwner_();
+  const r = WorkerService.migrate();
+  console.log('✔ Data dipindahkan ke Supabase: ' + r.sheets + ' sheet, ' + r.rows + ' baris, ' + r.props + ' tetapan. Mod Supabase AKTIF.');
+  const t = WorkerService.tick({ force: true });
+  console.log('✔ Pekerja berfungsi (email dihantar: ' + t.sent + '). Pencetus workerTick dipasang (setiap minit).');
+  return r;
+}
+
+/**
+ * BERPATAH BALIK: pulangkan semua data daripada Supabase ke spreadsheet asal dan kembali ke mod Google Sheets.
+ * Jalankan dari editor Apps Script (Run ▶). Salinan spreadsheet sebelum ditulis ganti disimpan dalam folder Backup.
+ * Selepas ini: tetapkan "webUsesEdge": false dalam backend.json (atau padam fail itu) dan push — laman web kembali ke Apps Script.
+ * (Sementara itu pelayan Supabase meneruskan semua permintaan ke Apps Script — tiada gangguan.)
+ */
+function pindahKeSheets() {
+  requireOwner_();
+  const r = WorkerService.restore();
+  console.log('✔ Data dipulangkan ke Google Sheets: ' + r.sheets + ' sheet, ' + r.rows + ' baris. Email tertunggak dihantar: ' + r.emailDihantar +
+    '. Salinan sebelum ditulis ganti: ' + (r.salinanSebelum || '(tiada)') + '. Mod Google Sheets AKTIF.');
+  return r;
+}
+
+/**
+ * SEKALI SAHAJA sebelum pindahKeSupabase(): jana kunci penyulitan data (DATA_KEY).
+ * Salinan disimpan dalam Script Properties (DATA_KEY_SALINAN). Salin nilai yang dicetak ke GitHub Secret SUPABASE_DATA_KEY
+ * dan simpan juga di tempat selamat (pengurus kata laluan). Tanpa kunci ini, data di Supabase tidak boleh dibaca.
+ */
+function janaKunciData() {
+  requireOwner_();
+  let k = Env.get(WorkerService.KEY_PROP, '');
+  const baru = !k;
+  if (baru) { k = WorkerService.newDataKey(); Env.set(WorkerService.KEY_PROP, k); }
+  console.log((baru ? '✔ Kunci baharu dijana.' : 'ℹ Kunci sedia ada (tidak ditukar).') + '\n\nSUPABASE_DATA_KEY = ' + k +
+    '\n\nCap jari: ' + WorkerService.keyFingerprint(k) + '\nJANGAN kongsi kunci ini. Jangan padam Script Property ' + WorkerService.KEY_PROP + '.');
+  return { baru: baru, capJari: WorkerService.keyFingerprint(k) };
+}
+
+/** Dipanggil oleh pencetus setiap minit: hantar email & cetus penyelenggaraan berkala. */
+function workerTick(e) {
+  if (!(e && e.triggerUid)) requireOwner_();
+  return WorkerService.tick();
+}
+
+/** Semak status sambungan Supabase & baris gilir email. */
+function statusSupabase() {
+  requireOwner_();
+  const local = Env.get(WorkerService.KEY_PROP, '');
+  const s = { state: WorkerService.state() || '(Google Sheets)', apiUrl: WorkerService.apiUrl(),
+    kunciSalinan: local ? WorkerService.keyFingerprint(local) : '(tiada — jalankan janaKunciData)', kunciPelayan: WorkerService.apiUrl() ? WorkerService.serverKeyFp() || '(tiada)' : '' };
+  if (WorkerService.active()) s.outbox = WorkerService.call('system.status', {});
+  console.log(JSON.stringify(s, null, 2));
+  return s;
 }

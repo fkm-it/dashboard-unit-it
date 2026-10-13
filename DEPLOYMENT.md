@@ -91,6 +91,43 @@ Jangan sesekali letak fail akaun servis dalam repo atau dalam chat. `scan-secret
 ## 4. Email
 Panel → Tetapan → `NOTIFY_EMAIL_ENABLED` (rekod baharu kepada `ADMIN_EMAIL`, perubahan status kepada pemohon). Kuota MailApp: 100/hari (akaun biasa) atau 1,500/hari (Workspace).
 
+## 5A. Backend Supabase tersulit (pilihan, belum aktif)
+
+Kod sudah sedia; **tiada apa berubah** selagi fail `backend.json` tidak wujud (CI melangkau deploy Supabase).
+Aktifkan hanya selepas kelulusan UTMD.
+
+**Apa yang berada di Supabase:** semua data disulitkan AES-256-GCM sebelum masuk ke Postgres (`crypto-store.mjs`).
+Pangkalan data, sandaran dan konsol SQL Supabase hanya melihat nama sheet, tajuk lajur, ID rekod, bilangan baris dan cap masa.
+Lampiran (gambar/PDF) **tidak** disimpan di Supabase: kekal dalam Google Drive UTM melalui Apps Script.
+Kandungan email dibuang daripada baris gilir sebaik sahaja dihantar. Kunci `DATA_KEY` berada dalam rahsia Edge Function
+(bukan pangkalan data) dan salinannya dalam Script Properties (`DATA_KEY_SALINAN`, akaun Google UTM).
+Had: kod Edge Function memegang kunci semasa berjalan, jadi ini melindungi daripada kebocoran pangkalan data / sandaran,
+bukan daripada pihak yang mengawal pelayan fungsi itu sendiri.
+
+**Aktifkan (sekali):**
+1. Editor Apps Script → jalankan **`janaKunciData`**. Salin nilai yang dicetak; simpan juga dalam pengurus kata laluan.
+2. GitHub → Settings → Secrets → Actions: `SUPABASE_DATA_KEY` = nilai itu; `SUPABASE_ACCESS_TOKEN` = token `sbp_…`
+   (Supabase → Account → Access Tokens).
+3. Cipta projek Supabase (wilayah Singapura). Jalankan `supabase/migrations/*.sql` (SQL Editor atau MCP).
+4. Cipta `backend.json`:
+   `{"provider":"supabase","projectRef":"<ref>","apiUrl":"https://<ref>.supabase.co/functions/v1/api","gasUrl":"<URL /exec>","webUsesEdge":false}`
+   Push → CI deploy fungsi dan menyemak kunci dimuat (`keyFp`).
+5. Editor Apps Script → **`pindahKeSupabase`** (menyemak cap jari kunci dahulu; spreadsheet asal tidak diubah). Semak dengan `statusSupabase`.
+6. Tukar `"webUsesEdge": true` dan push → laman web memanggil Supabase terus.
+
+**Berpatah balik ke Google Sheets (bila-bila masa):**
+1. Editor Apps Script → **`pindahKeSheets`**. Supabase berhenti menerima tulisan, semua data dipulangkan ke spreadsheet asal
+   (salinan spreadsheet lama disimpan dahulu sebagai `<slug>_SebelumPulih_…`), email tertunggak dihantar, mod Google Sheets aktif.
+   Sementara itu Supabase meneruskan semua permintaan ke Apps Script, jadi pengguna tidak terganggu.
+2. Tukar `"webUsesEdge": false` (atau padam `backend.json`) dan push.
+3. Pilihan: padam projek Supabase. Data di sana tersulit dan tidak boleh dibaca tanpa kunci.
+Pindah semula kemudian: jalankan `pindahKeSupabase` sekali lagi (import dibuka semula secara automatik selepas `pindahKeSheets`).
+
+**Jangan:** tukar atau padam `DATA_KEY_SALINAN` / `SUPABASE_DATA_KEY` semasa Supabase aktif (data tidak boleh dibaca),
+atau tukar `AUTH_PEPPER` (kata laluan, tandatangan pekerja & langganan notifikasi telefon bergantung padanya).
+Supabase percuma: projek dijeda selepas 7 hari tanpa aktiviti dan tiada sandaran automatik. Sandaran harian ke Google Drive
+dibuat oleh pekerja Apps Script (`workerTick`), dan setiap minit pekerja itu juga mengekalkan projek aktif.
+
 ## 5. Tanpa CI (manual)
 ```bash
 npm run push                                   # ujian + clasp push
@@ -112,6 +149,8 @@ npm run build:web -- --api https://script.google.com/macros/s/<ID>/exec
 | Notifikasi telefon tidak sampai | Jalankan `testPushConfig` dalam editor. Pastikan app dipasang melalui **Chrome**/**Safari**, bukan Brave |
 | `Konfigurasi sistem belum lengkap` | `setupDatabase` belum dijalankan |
 | Ralat dengan ID `E-…` | Panel → Kesihatan Sistem / Pangkalan Data → log sistem |
+| Supabase: `DATA_KEY … tidak sama` semasa `pindahKeSupabase` | Secret `SUPABASE_DATA_KEY` ≠ `DATA_KEY_SALINAN`. Betulkan secret dan push semula |
+| Supabase: `Pelayan belum dikonfigurasi (DATA_KEY)` | Secret `SUPABASE_DATA_KEY` tiada; CI gagal di langkah deploy fungsi |
 
 ## 7. Senarai semak sebelum produksi
 - [ ] Script Property `APP_ENV` = `PRODUCTION`

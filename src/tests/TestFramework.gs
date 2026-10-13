@@ -8,7 +8,7 @@
 const TestRunner = {
   /** Senarai suite — diselesaikan semasa panggilan (tiada kebergantungan susunan muat). */
   suites: function () {
-    return [TestSuiteUtils, TestSuiteSecurity, TestSuiteRepository, TestSuiteAuth, TestSuiteCrud, TestSuitePush, TestSuiteAdmin]
+    return [TestSuiteUtils, TestSuiteSecurity, TestSuiteRepository, TestSuiteAuth, TestSuiteCrud, TestSuitePush, TestSuiteAdmin, TestSuiteWorker]
       .concat(TestRunner.appSuites());
   },
 
@@ -27,7 +27,7 @@ const TestRunner = {
     1: ['Utils', 'Security', 'Repository'],
     2: ['Auth'],
     3: ['Modul (CrudEngine)'],
-    4: ['Kategori & Notifikasi telefon', 'Admin & API']
+    4: ['Kategori & Notifikasi telefon', 'Admin & API', 'Pekerja Supabase']
   },
 
   /**
@@ -97,6 +97,8 @@ const TestRunner = {
     Migration.run({});
     // Ujian teras menganggap pendaftaran dibuka (lalai projek mungkin menutupnya)
     SettingsRepository.setMany({ ALLOW_REGISTRATION: 'TRUE' }, 'TEST');
+    /* Projek boleh menyediakan keadaan asas ujian domain: const AppTests = { setup: function (sandbox) {…}, suites: … } */
+    if (typeof AppTests !== 'undefined' && AppTests.setup) AppTests.setup(sandbox);
     return sandbox;
   },
 

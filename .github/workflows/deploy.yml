@@ -61,6 +61,7 @@ jobs:
           /** DITULIS oleh CI — jangan sunting. */
           const DEPLOY_INFO = Object.freeze({
             publicBaseUrl: '${{ steps.url.outputs.base_url }}',
+            apiUrl: '$(node -p "(()=>{try{return require('./backend.json').apiUrl||''}catch(e){return ''}})()")',
             commit: '${GITHUB_SHA::7}',
             builtAt: '$(date -u +%Y-%m-%dT%H:%M:%SZ)'
           });
@@ -85,10 +86,59 @@ jobs:
         if: always()
         run: rm -f "$HOME/.clasprc.json" .clasp.json
 
+  edge:
+    name: Supabase Edge Function
+    needs: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Deploy fungsi api (jika backend.json & SUPABASE_ACCESS_TOKEN wujud)
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DATA_KEY: ${{ secrets.SUPABASE_DATA_KEY }}
+        run: |
+          if [ ! -f backend.json ]; then echo "Tiada backend.json — dilangkau."; exit 0; fi
+          if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then echo "::error::Secret SUPABASE_ACCESS_TOKEN belum ditetapkan (Supabase → Account → Access Tokens)"; exit 1; fi
+          # Kunci penyulitan data: dijana oleh janaKunciData() di Apps Script. Tanpa kunci, fungsi menolak semua permintaan.
+          SUPABASE_DATA_KEY=$(printf '%s' "$SUPABASE_DATA_KEY" | tr -d '[:space:]')
+          if ! printf '%s' "$SUPABASE_DATA_KEY" | grep -Eq '^([A-Za-z0-9+/_-]{43}=?|[0-9a-fA-F]{64})$'; then echo "::error::Secret SUPABASE_DATA_KEY tiada / tidak sah (jalankan janaKunciData() di editor Apps Script)"; exit 1; fi
+          export SUPABASE_ACCESS_TOKEN=$(printf '%s' "$SUPABASE_ACCESS_TOKEN" | tr -d '[:space:]')
+          case "$SUPABASE_ACCESS_TOKEN" in
+            sbp_*) ;;
+            *) echo "::error::SUPABASE_ACCESS_TOKEN bukan Personal Access Token (mesti bermula 'sbp_', panjang ${#SUPABASE_ACCESS_TOKEN}, bermula '${SUPABASE_ACCESS_TOKEN:0:3}'). Jana di supabase.com/dashboard/account/tokens"; exit 1 ;;
+          esac
+          node tools/build-edge.js
+          REF=$(node -p "require('./backend.json').projectRef")
+          # Nilai melalui stdin (fail .env sementara), tidak dicetak ke log
+          umask 077; printf 'DATA_KEY=%s\n' "$SUPABASE_DATA_KEY" > .edge-secrets.env
+          npx --yes supabase@2 secrets set --project-ref "$REF" --env-file .edge-secrets.env > /dev/null; rm -f .edge-secrets.env
+          set +e
+          npx --yes supabase@2 functions deploy api --project-ref "$REF" --no-verify-jwt --use-api > deploy.log 2>&1
+          CODE=$?
+          cat deploy.log
+          if [ $CODE -ne 0 ]; then
+            # Log Actions tidak boleh dibaca melalui API — tunjuk punca sebagai anotasi
+            tail -n 15 deploy.log | sed 's/%/%25/g' | while IFS= read -r line; do echo "::error::$line"; done
+            exit $CODE
+          fi
+      - name: Semak fungsi hidup
+        run: |
+          if [ ! -f backend.json ]; then exit 0; fi
+          URL=$(node -p "require('./backend.json').apiUrl")
+          for i in 1 2 3 4 5; do
+            R=$(curl -sf "$URL") && echo "$R" | grep -q '"ok":true' && echo "$R" | grep -Eq '"keyFp":"[0-9a-f]{16}"' && { echo "$R"; exit 0; }
+            sleep 5
+          done
+          echo "::error::Fungsi tidak sihat atau DATA_KEY tidak dimuat: $R"; exit 1
+
   pages:
     name: GitHub Pages (web + PWA)
-    needs: [ci, gas]
-    if: ${{ always() && needs.ci.result == 'success' && needs.gas.result != 'failure' && vars.DEPLOYMENT_ID != '' }}
+    needs: [ci, gas, edge]
+    if: ${{ always() && needs.ci.result == 'success' && needs.gas.result != 'failure' && needs.edge.result != 'failure' && vars.DEPLOYMENT_ID != '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment:

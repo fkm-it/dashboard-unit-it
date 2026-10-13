@@ -1,5 +1,30 @@
 # CHANGELOG
 
+## 1.13.0 — 2026-10-14 · Backend Supabase tersulit (sedia, belum aktif)
+Pilihan A, "kurangkan + sulitkan". Tiada perubahan kepada sistem yang sedang berjalan: Supabase hanya aktif selepas `backend.json` dicipta dan `pindahKeSupabase` dijalankan, iaitu selepas kelulusan UTMD.
+
+### Ditambah
+- **Backend Supabase** (Edge Function + Postgres) menjalankan kod Apps Script yang sama. Apps Script kekal sebagai pekerja untuk email, sandaran harian ke Google Drive dan lampiran.
+- **Penyulitan semua data** sebelum disimpan di Supabase (AES-256-GCM):
+  - baris data, Script Properties (`AUTH_PEPPER`, `FORM_SECRET`) dan baris gilir email/notifikasi disulitkan
+  - nama kunci had kadar (mengandungi email) disamarkan
+  - hanya ID rekod, nama sheet dan tajuk lajur kekal boleh dibaca
+  - data yang diubah, dipindah antara sheet atau dibaca dengan kunci salah ditolak
+- **Kunci `DATA_KEY`** berada dalam rahsia fungsi (bukan pangkalan data). `janaKunciData()` menjana kunci dan menyimpan salinan dalam Script Properties. `pindahKeSupabase()` menyemak cap jari kunci pelayan sebelum menghantar sebarang data.
+- **Minimumkan data**:
+  - lampiran tidak disimpan di Supabase; ia kekal dalam Google Drive UTM melalui relay bertandatangan ke Apps Script, dan hanya fail dalam folder lampiran boleh dibaca
+  - kandungan email dibuang sebaik sahaja dihantar
+- **Berpatah balik pada bila-bila masa**: `pindahKeSheets()`.
+  - Supabase berhenti menerima tulisan dan memulangkan semua data.
+  - Salinan spreadsheet sedia ada dibuat dahulu, kemudian data ditulis semula ke spreadsheet asal.
+  - Email tertunggak dihantar dan mod Google Sheets diaktifkan semula.
+  - Jika gagal di tengah jalan, Supabase dibuka semula dan tiada data hilang.
+  - Selepas itu boleh dipindah semula ke Supabase dengan `pindahKeSupabase()`.
+- **CI**:
+  - ujian penyulitan, ujian integrasi Postgres (24 ujian, termasuk imbasan pangkalan data mentah untuk teks biasa) dan himpunan Edge
+  - deploy fungsi menetapkan `DATA_KEY` daripada secret `SUPABASE_DATA_KEY`
+  - pengimbas rahsia mengesan `DATA_KEY` dan token Supabase
+
 ## 1.12.0 — 2026-10-13 · Kesediaan Windows 11, kapasiti & status penilaian
 ### Ditambah
 - Tiga panel baharu di **Executive Overview**:

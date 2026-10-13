@@ -42,12 +42,21 @@ Pengguna (Za) biasanya hanya memberi **penerangan atau mockup**, contohnya "Saya
 - Paparan telefon mesti diuji pada 360px tanpa skrol mendatar. Butang dalam modal tidak boleh terpotong.
 - PWA: pasang melalui **Chrome** (Android) atau **Safari** (iPhone). Pemasangan melalui Brave atau pelayar lain hanya mencipta pintasan, dan lencana ikon tidak berfungsi.
 
+## Backend Supabase (jika `backend.json` wujud)
+
+- Kod `.gs` yang sama dijalankan di Supabase Edge Function (`supabase/functions/api`). Jangan tulis kod yang hanya berfungsi di Apps Script dalam laluan API (UrlFetchApp, ScriptApp tiada di sana; MailApp → baris gilir email; Drive → `DriveService` melalui `EDGE_FILES`, iaitu relay bertandatangan ke Apps Script).
+- **Semua data tersulit** (`crypto-store.mjs`, kunci `DATA_KEY` dalam rahsia fungsi + salinan `DATA_KEY_SALINAN` di Script Properties). Jangan baca/tulis `private.*` terus daripada kod baharu; sentiasa melalui store. Hanya lajur pertama (ID) kekal teks biasa, jadi jangan jadikan data peribadi sebagai ID.
+- Boleh berpatah balik: `pindahKeSheets()` (WorkerService.restore → `system.handback`). Kekalkan laluan ini berfungsi; ujiannya dalam `TestWorker.gs` dan `tools/test-edge-pg.mjs`.
+- Selepas mengubah `src/`: `npm run test:edge` (perlu `EDGE_TEST_PG` + `POSTGRES_JS` untuk ujian Postgres) dan E2E melalui runtime: `node tools/dev-server.js --seed --edge <postgres-url>`.
+- Perubahan skema sheet tetap automatik. Jadual `private.*` hanya berubah melalui `supabase/migrations/`.
+- Notifikasi telefon di Supabase = **Web Push VAPID** (`webpush.mjs`), kunci diterbitkan daripada `AUTH_PEPPER`; jangan tukar pepper.
+
 ## Rujukan pantas
 
 - Tambah laluan API khusus: tambah ke `Router.table()` (isytiharkan peranan) dan pengawal nipis dalam `Controllers.gs`. Logik diletakkan dalam service.
 - Tetapan yang boleh diubah admin: `SETTINGS_DEFS` (`src/models/SettingModel.gs`).
 - Notifikasi: `NotificationService.notify(userId, NOTIF_TYPE.X, title, message, refId, '#/path')` menghantar notifikasi dalam app, ke telefon (jika jenis dalam `PushService.PUSH_TYPES`) dan memaparkan lencana. Email: `NotificationService.email(to, subject, lines, {path})` (ikut tetapan `NOTIFY_EMAIL_ENABLED`).
-- Fungsi operasi pemilik (jalankan dari editor Apps Script): `setupDatabase`, `installTriggers`, `importFcmKeyFromDrive`, `testPushConfig`, `healthCheck`, `runBackup`, `runTestsPart1..5`, `promoteBootstrapAdmin`.
+- Fungsi operasi pemilik (jalankan dari editor Apps Script): `setupDatabase`, `installTriggers`, `importFcmKeyFromDrive`, `testPushConfig`, `healthCheck`, `runBackup`, `runTestsPart1..5`, `promoteBootstrapAdmin`; Supabase: `janaKunciData`, `pindahKeSupabase`, `statusSupabase`, `pindahKeSheets`.
 
 ## Definisi siap
 

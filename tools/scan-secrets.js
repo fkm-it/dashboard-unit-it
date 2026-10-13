@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * scan-secrets.js — gagalkan build/CI jika RAHSIA tersalah masuk ke repo.
- * Diperiksa: kunci peribadi PEM, fail akaun servis Firebase/GCP, .clasprc.json, token OAuth Google.
+ * Diperiksa: kunci peribadi PEM, fail akaun servis Firebase/GCP, .clasprc.json, token OAuth Google, DATA_KEY & token Supabase.
  * (Nilai awam seperti apiKey Firebase web & URL Web App BUKAN rahsia dan dibenarkan.)
  */
 'use strict';
@@ -15,7 +15,10 @@ const RULES = [
   [/"type"\s*:\s*"service_account"/, 'fail JSON akaun servis (Firebase/GCP)'],
   [/"refresh_token"\s*:\s*"1\/\/[A-Za-z0-9_-]{20,}/, 'refresh token Google (.clasprc.json)'],
   [/\bya29\.[A-Za-z0-9_-]{40,}/, 'token akses OAuth Google'],
-  [/\bAUTH_PEPPER\s*[:=]\s*['"][A-Za-z0-9_-]{20,}['"]/, 'nilai AUTH_PEPPER']
+  [/\bAUTH_PEPPER\s*[:=]\s*['"][A-Za-z0-9_-]{20,}['"]/, 'nilai AUTH_PEPPER'],
+  [/\b(SUPABASE_)?DATA_KEY(_SALINAN)?\s*[:=]\s*['"]?([A-Za-z0-9+\/_-]{43}=?|[0-9a-fA-F]{64})\b/, 'kunci penyulitan data Supabase (DATA_KEY)'],
+  [/\bsbp_[0-9a-f]{40}\b/, 'token akses Supabase (sbp_)'],
+  [/\bsb_secret_[A-Za-z0-9_-]{20,}/, 'kunci rahsia Supabase (sb_secret_)']
 ];
 const BAD_NAMES = [/firebase-adminsdk.*\.json$/i, /^\.clasprc\.json$/, /service[-_]?account.*\.json$/i];
 
