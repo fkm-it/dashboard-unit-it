@@ -175,7 +175,8 @@ function schemaEntry(m) {
   const types = {};
   m.fields.forEach((f) => {
     if (f.type === 'bool') types[f.column] = 'bool';
-    if (f.type === 'int' || f.type === 'files') types[f.column] = 'int';
+    if (f.type === 'files') types[f.column] = 'int';
+    if (f.type === 'int') types[f.column] = 'intOrNull'; /* medan int pilihan: sel kosong kekal kosong (bukan 0) */
   });
   return '  ' + m.sheet + ': {\n    sheet: \'' + m.sheet + '\', id: \'id\', prefix: \'' + m.prefix + '\', module: \'' + m.key + '\',\n' +
     '    columns: ' + JSON.stringify(cols).replace(/"/g, '\'').replace(/,/g, ', ') + ',\n' +

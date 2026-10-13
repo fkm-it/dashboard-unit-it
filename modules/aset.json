@@ -5,66 +5,439 @@
   "icon": "database",
   "prefix": "AS",
   "refFormat": "AST-{SEQ5}",
-  "description": "Inventori aset IT FKM: komputer, komputer riba, pencetak, projektor, pelayan dan peranti rangkaian.",
-  "access": { "create": "ADMIN", "list": "OWN", "edit": "ADMIN", "delete": "ADMIN" },
+  "description": "Inventori aset IT FKM (selaras UTMFin/KEWPA): komputer, komputer riba, pencetak, projektor, pelayan dan peranti rangkaian.",
+  "access": {
+    "create": "ADMIN",
+    "list": "OWN",
+    "edit": "ADMIN",
+    "delete": "ADMIN"
+  },
   "statuses": [
-    { "value": "BERFUNGSI", "label": "Berfungsi", "tone": "success" },
-    { "value": "PERLAHAN", "label": "Berfungsi tetapi tidak memenuhi keperluan", "tone": "brand" },
-    { "value": "PERLU_BAIKI", "label": "Bermasalah / perlu dibaiki", "tone": "warn" },
-    { "value": "MENUNGGU_ALAT_GANTI", "label": "Menunggu alat ganti", "tone": "warn" },
-    { "value": "TIDAK_BOLEH_GUNA", "label": "Tidak boleh digunakan", "tone": "danger" },
-    { "value": "DILUPUS", "label": "Dilupus", "tone": "muted" }
+    {
+      "value": "BERFUNGSI",
+      "label": "Berfungsi",
+      "tone": "success"
+    },
+    {
+      "value": "PERLAHAN",
+      "label": "Berfungsi tetapi tidak memenuhi keperluan",
+      "tone": "brand"
+    },
+    {
+      "value": "PERLU_BAIKI",
+      "label": "Bermasalah / perlu dibaiki",
+      "tone": "warn"
+    },
+    {
+      "value": "MENUNGGU_ALAT_GANTI",
+      "label": "Menunggu alat ganti",
+      "tone": "warn"
+    },
+    {
+      "value": "TIDAK_BOLEH_GUNA",
+      "label": "Tidak boleh digunakan",
+      "tone": "danger"
+    },
+    {
+      "value": "DILUPUS",
+      "label": "Dilupus",
+      "tone": "muted"
+    }
   ],
-  "notify": { "adminsOnCreate": false, "ownerOnStatus": false },
+  "notify": {
+    "adminsOnCreate": false,
+    "ownerOnStatus": false
+  },
   "titleField": "noAset",
   "subtitleField": "model",
-  "nav": { "user": false, "admin": true, "order": 20 },
+  "nav": {
+    "user": false,
+    "admin": true,
+    "order": 20
+  },
   "fields": [
-    { "key": "noAset", "label": "No. aset", "type": "string", "required": true, "max": 40, "list": true, "search": true, "placeholder": "cth. UTM/FKM/H/2021/0012" },
-    { "key": "noSiri", "label": "No. siri", "type": "string", "max": 60, "search": true },
-    { "key": "jenis", "label": "Jenis", "type": "enum", "required": true, "default": "DESKTOP", "list": true, "filter": true, "options": [
-      { "value": "DESKTOP", "label": "Komputer meja" },
-      { "value": "LAPTOP", "label": "Komputer riba" },
-      { "value": "WORKSTATION", "label": "Workstation" },
-      { "value": "PENCETAK", "label": "Pencetak / pengimbas" },
-      { "value": "PROJEKTOR", "label": "Projektor / AV" },
-      { "value": "PELAYAN", "label": "Pelayan (server)" },
-      { "value": "SWITCH", "label": "Switch / router" },
-      { "value": "AP", "label": "Access point" },
-      { "value": "LAIN", "label": "Lain-lain" }
-    ] },
-    { "key": "jenama", "label": "Jenama", "type": "string", "max": 60, "search": true },
-    { "key": "model", "label": "Model", "type": "string", "max": 80, "list": true, "search": true },
-    { "key": "makmal", "label": "Makmal", "type": "ref", "ref": "makmal", "list": true, "filter": true, "hint": "Kosongkan jika bukan aset makmal." },
-    { "key": "lokasi", "label": "Lokasi / bilik", "type": "string", "max": 120, "search": true },
-    { "key": "pegawaiBertanggungjawab", "label": "Pegawai bertanggungjawab", "type": "string", "max": 120, "search": true },
-    { "key": "tahunPerolehan", "label": "Tahun perolehan", "type": "int", "min": 1990, "max": 2100 },
-    { "key": "tamatWaranti", "label": "Tarikh tamat waranti", "type": "date" },
-    { "key": "cpu", "label": "Pemproses (CPU)", "type": "string", "max": 80 },
-    { "key": "ramGb", "label": "RAM (GB)", "type": "int", "min": 0, "max": 4096 },
-    { "key": "storan", "label": "Storan", "type": "string", "max": 80, "placeholder": "cth. SSD 512GB" },
-    { "key": "gpu", "label": "Kad grafik (GPU)", "type": "string", "max": 80 },
-    { "key": "sistemOperasi", "label": "Sistem operasi", "type": "string", "max": 60, "placeholder": "cth. Windows 11 Pro" },
-    { "key": "lesenOs", "label": "Status lesen OS", "type": "enum", "default": "SAH", "options": [
-      { "value": "SAH", "label": "Sah / berlesen" },
-      { "value": "TAMAT", "label": "Tamat / tidak berlesen" },
-      { "value": "TIDAK_PASTI", "label": "Tidak pasti" }
-    ] },
-    { "key": "perisian", "label": "Perisian utama", "type": "text", "max": 1000, "search": true },
-    { "key": "keadaanFizikal", "label": "Keadaan fizikal", "type": "enum", "default": "BAIK", "filter": true, "options": [
-      { "value": "BAIK", "label": "Baik" },
-      { "value": "SEDERHANA", "label": "Sederhana" },
-      { "value": "USANG", "label": "Usang" }
-    ] },
-    { "key": "cadangan", "label": "Cadangan tindakan", "type": "enum", "default": "KEKAL", "list": true, "filter": true, "options": [
-      { "value": "KEKAL", "label": "Kekal" },
-      { "value": "BAIKI", "label": "Baiki" },
-      { "value": "NAIK_TARAF", "label": "Naik taraf" },
-      { "value": "GANTI", "label": "Ganti" },
-      { "value": "LUPUS", "label": "Lupus" }
-    ] },
-    { "key": "disahkanFizikal", "label": "Disahkan secara fizikal", "type": "bool", "filter": true },
-    { "key": "tarikhSemakan", "label": "Tarikh semakan terakhir", "type": "date" },
-    { "key": "catatan", "label": "Catatan kerosakan / isu", "type": "text", "max": 2000, "search": true }
+    {
+      "key": "noAset",
+      "label": "No. aset / bar code",
+      "type": "string",
+      "required": true,
+      "max": 40,
+      "list": true,
+      "search": true,
+      "placeholder": "cth. HA0028148 (BAR_CODE UTMFin)"
+    },
+    {
+      "key": "noSiri",
+      "label": "No. siri",
+      "type": "string",
+      "max": 60,
+      "search": true
+    },
+    {
+      "key": "jenis",
+      "label": "Jenis",
+      "type": "enum",
+      "required": true,
+      "default": "DESKTOP",
+      "list": true,
+      "filter": true,
+      "options": [
+        {
+          "value": "DESKTOP",
+          "label": "Komputer meja"
+        },
+        {
+          "value": "LAPTOP",
+          "label": "Komputer riba"
+        },
+        {
+          "value": "WORKSTATION",
+          "label": "Workstation"
+        },
+        {
+          "value": "PENCETAK",
+          "label": "Pencetak / pengimbas"
+        },
+        {
+          "value": "PROJEKTOR",
+          "label": "Projektor / AV"
+        },
+        {
+          "value": "PELAYAN",
+          "label": "Pelayan (server)"
+        },
+        {
+          "value": "SWITCH",
+          "label": "Switch / router"
+        },
+        {
+          "value": "AP",
+          "label": "Access point"
+        },
+        {
+          "value": "LAIN",
+          "label": "Lain-lain"
+        }
+      ]
+    },
+    {
+      "key": "jenama",
+      "label": "Jenama",
+      "type": "string",
+      "max": 60,
+      "search": true
+    },
+    {
+      "key": "model",
+      "label": "Item aset / model",
+      "type": "string",
+      "max": 120,
+      "list": true,
+      "search": true
+    },
+    {
+      "key": "makmal",
+      "label": "Makmal",
+      "type": "ref",
+      "ref": "makmal",
+      "list": true,
+      "filter": true,
+      "hint": "Kosongkan jika bukan aset makmal."
+    },
+    {
+      "key": "lokasi",
+      "label": "Lokasi (bangunan · aras · bilik)",
+      "type": "string",
+      "max": 120,
+      "search": true
+    },
+    {
+      "key": "kodLokasi",
+      "label": "Kod lokasi (ID_LOKASI)",
+      "type": "string",
+      "max": 40,
+      "search": true,
+      "placeholder": "cth. J.C24.01.108-01"
+    },
+    {
+      "key": "pegawaiBertanggungjawab",
+      "label": "Penjaga aset (KEWPA)",
+      "type": "string",
+      "max": 120,
+      "search": true,
+      "list": true
+    },
+    {
+      "key": "noPekerjaPenjaga",
+      "label": "No. pekerja penjaga",
+      "type": "string",
+      "max": 20,
+      "search": true
+    },
+    {
+      "key": "emailPenjaga",
+      "label": "Email penjaga",
+      "type": "email",
+      "search": true
+    },
+    {
+      "key": "penjagaTerkini",
+      "label": "Penjaga terkini (jika bertukar)",
+      "type": "string",
+      "max": 120,
+      "search": true
+    },
+    {
+      "key": "statusPengesahan",
+      "label": "Status pengesahan aset",
+      "type": "enum",
+      "list": true,
+      "filter": true,
+      "options": [
+        {
+          "value": "AKTIF",
+          "label": "Aktif di bawah seliaan penjaga"
+        },
+        {
+          "value": "MAKMAL",
+          "label": "Penjaga - Penggunaan Makmal"
+        },
+        {
+          "value": "GUNA_SAMA",
+          "label": "Penjaga - Guna Sama"
+        },
+        {
+          "value": "BERTUKAR_PENJAGA",
+          "label": "Aset bertukar penjaga (tiada rekod pergerakan KEWPA)"
+        },
+        {
+          "value": "TIDAK_DISAHKAN",
+          "label": "Status aset tidak dapat disahkan oleh penjaga"
+        },
+        {
+          "value": "PELUPUSAN",
+          "label": "Dalam tindakan pelupusan oleh penjaga"
+        },
+        {
+          "value": "LUPUS_REKOD_AKTIF",
+          "label": "Telah lupus tetapi rekod aktif di UTMFin"
+        },
+        {
+          "value": "BUKAN_KOMPUTER",
+          "label": "Bukan aset komputer"
+        }
+      ]
+    },
+    {
+      "key": "disemakOleh",
+      "label": "Disemak / dikemas kini oleh",
+      "type": "string",
+      "max": 120,
+      "search": true
+    },
+    {
+      "key": "tahunPerolehan",
+      "label": "Tahun perolehan",
+      "type": "int",
+      "min": 1990,
+      "max": 2100
+    },
+    {
+      "key": "tarikhAset",
+      "label": "Tarikh aset",
+      "type": "date"
+    },
+    {
+      "key": "nilaiPerolehan",
+      "label": "Nilai pembelian (RM)",
+      "type": "number",
+      "min": 0,
+      "max": 10000000,
+      "decimals": 2
+    },
+    {
+      "key": "tamatWaranti",
+      "label": "Tarikh tamat waranti",
+      "type": "date"
+    },
+    {
+      "key": "cpu",
+      "label": "Pemproses (CPU)",
+      "type": "string",
+      "max": 80
+    },
+    {
+      "key": "ramGb",
+      "label": "RAM (GB)",
+      "type": "int",
+      "min": 0,
+      "max": 4096
+    },
+    {
+      "key": "storan",
+      "label": "Storan",
+      "type": "string",
+      "max": 80,
+      "placeholder": "cth. SSD 512GB"
+    },
+    {
+      "key": "gpu",
+      "label": "Kad grafik (GPU)",
+      "type": "string",
+      "max": 80
+    },
+    {
+      "key": "sistemOperasi",
+      "label": "Sistem operasi",
+      "type": "string",
+      "max": 60,
+      "placeholder": "cth. Windows 11 Pro"
+    },
+    {
+      "key": "lesenOs",
+      "label": "Status lesen OS",
+      "type": "enum",
+      "default": "SAH",
+      "options": [
+        {
+          "value": "SAH",
+          "label": "Sah / berlesen"
+        },
+        {
+          "value": "TAMAT",
+          "label": "Tamat / tidak berlesen"
+        },
+        {
+          "value": "TIDAK_PASTI",
+          "label": "Tidak pasti"
+        }
+      ]
+    },
+    {
+      "key": "perisian",
+      "label": "Perisian utama",
+      "type": "text",
+      "max": 1000,
+      "search": true
+    },
+    {
+      "key": "keadaanFizikal",
+      "label": "Keadaan fizikal",
+      "type": "enum",
+      "default": "BAIK",
+      "filter": true,
+      "options": [
+        {
+          "value": "BAIK",
+          "label": "Baik"
+        },
+        {
+          "value": "SEDERHANA",
+          "label": "Sederhana"
+        },
+        {
+          "value": "USANG",
+          "label": "Usang"
+        }
+      ]
+    },
+    {
+      "key": "cadangan",
+      "label": "Cadangan tindakan",
+      "type": "enum",
+      "default": "KEKAL",
+      "list": true,
+      "filter": true,
+      "options": [
+        {
+          "value": "KEKAL",
+          "label": "Kekal"
+        },
+        {
+          "value": "BAIKI",
+          "label": "Baiki"
+        },
+        {
+          "value": "NAIK_TARAF",
+          "label": "Naik taraf"
+        },
+        {
+          "value": "GANTI",
+          "label": "Ganti"
+        },
+        {
+          "value": "LUPUS",
+          "label": "Lupus"
+        }
+      ]
+    },
+    {
+      "key": "disahkanFizikal",
+      "label": "Disahkan secara fizikal",
+      "type": "bool",
+      "filter": true
+    },
+    {
+      "key": "tarikhSemakan",
+      "label": "Tarikh semakan terakhir",
+      "type": "date"
+    },
+    {
+      "key": "catatan",
+      "label": "Catatan kerosakan / isu",
+      "type": "text",
+      "max": 2000,
+      "search": true
+    },
+    {
+      "key": "deskripsiPerolehan",
+      "label": "Deskripsi perolehan",
+      "type": "text",
+      "max": 500,
+      "search": true
+    },
+    {
+      "key": "kodSodo",
+      "label": "Kod SODO",
+      "type": "string",
+      "max": 20
+    },
+    {
+      "key": "ptjPerolehan",
+      "label": "PTJ perolehan",
+      "type": "string",
+      "max": 20
+    },
+    {
+      "key": "chargeline",
+      "label": "Chargeline",
+      "type": "string",
+      "max": 40
+    },
+    {
+      "key": "noRujukanPerolehan",
+      "label": "No. rujukan perolehan (PD)",
+      "type": "string",
+      "max": 40,
+      "search": true
+    },
+    {
+      "key": "noPt",
+      "label": "No. PT",
+      "type": "string",
+      "max": 40
+    },
+    {
+      "key": "noRequisition",
+      "label": "Rujukan requisition (PM)",
+      "type": "string",
+      "max": 40
+    },
+    {
+      "key": "costCenter",
+      "label": "Cost center",
+      "type": "string",
+      "max": 40
+    }
   ]
 }

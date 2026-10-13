@@ -81,6 +81,10 @@ class RepositoryBase {
       const n = parseInt(v, 10);
       return isFinite(n) ? n : 0;
     }
+    if (type === 'intOrNull') {
+      const n = parseInt(v, 10);
+      return isFinite(n) ? n : '';
+    }
     if (v === null || v === undefined) return '';
     return StringUtils.sheetUnescape(String(v));
   }

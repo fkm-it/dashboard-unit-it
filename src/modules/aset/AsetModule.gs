@@ -10,7 +10,7 @@ const AsetModule = Object.freeze(Object.assign(
     "icon": "database",
     "prefix": "AS",
     "refFormat": "AST-{SEQ5}",
-    "description": "Inventori aset IT FKM: komputer, komputer riba, pencetak, projektor, pelayan dan peranti rangkaian.",
+    "description": "Inventori aset IT FKM (selaras UTMFin/KEWPA): komputer, komputer riba, pencetak, projektor, pelayan dan peranti rangkaian.",
     "access": {
       "create": "ADMIN",
       "list": "OWN",
@@ -64,13 +64,13 @@ const AsetModule = Object.freeze(Object.assign(
     "fields": [
       {
         "key": "noAset",
-        "label": "No. aset",
+        "label": "No. aset / bar code",
         "type": "string",
         "required": true,
         "max": 40,
         "list": true,
         "search": true,
-        "placeholder": "cth. UTM/FKM/H/2021/0012",
+        "placeholder": "cth. HA0028148 (BAR_CODE UTMFin)",
         "column": "no_aset"
       },
       {
@@ -139,9 +139,9 @@ const AsetModule = Object.freeze(Object.assign(
       },
       {
         "key": "model",
-        "label": "Model",
+        "label": "Item aset / model",
         "type": "string",
-        "max": 80,
+        "max": 120,
         "list": true,
         "search": true,
         "column": "model"
@@ -158,19 +158,102 @@ const AsetModule = Object.freeze(Object.assign(
       },
       {
         "key": "lokasi",
-        "label": "Lokasi / bilik",
+        "label": "Lokasi (bangunan · aras · bilik)",
         "type": "string",
         "max": 120,
         "search": true,
         "column": "lokasi"
       },
       {
+        "key": "kodLokasi",
+        "label": "Kod lokasi (ID_LOKASI)",
+        "type": "string",
+        "max": 40,
+        "search": true,
+        "placeholder": "cth. J.C24.01.108-01",
+        "column": "kod_lokasi"
+      },
+      {
         "key": "pegawaiBertanggungjawab",
-        "label": "Pegawai bertanggungjawab",
+        "label": "Penjaga aset (KEWPA)",
         "type": "string",
         "max": 120,
         "search": true,
+        "list": true,
         "column": "pegawai_bertanggungjawab"
+      },
+      {
+        "key": "noPekerjaPenjaga",
+        "label": "No. pekerja penjaga",
+        "type": "string",
+        "max": 20,
+        "search": true,
+        "column": "no_pekerja_penjaga"
+      },
+      {
+        "key": "emailPenjaga",
+        "label": "Email penjaga",
+        "type": "email",
+        "search": true,
+        "column": "email_penjaga"
+      },
+      {
+        "key": "penjagaTerkini",
+        "label": "Penjaga terkini (jika bertukar)",
+        "type": "string",
+        "max": 120,
+        "search": true,
+        "column": "penjaga_terkini"
+      },
+      {
+        "key": "statusPengesahan",
+        "label": "Status pengesahan aset",
+        "type": "enum",
+        "list": true,
+        "filter": true,
+        "options": [
+          {
+            "value": "AKTIF",
+            "label": "Aktif di bawah seliaan penjaga"
+          },
+          {
+            "value": "MAKMAL",
+            "label": "Penjaga - Penggunaan Makmal"
+          },
+          {
+            "value": "GUNA_SAMA",
+            "label": "Penjaga - Guna Sama"
+          },
+          {
+            "value": "BERTUKAR_PENJAGA",
+            "label": "Aset bertukar penjaga (tiada rekod pergerakan KEWPA)"
+          },
+          {
+            "value": "TIDAK_DISAHKAN",
+            "label": "Status aset tidak dapat disahkan oleh penjaga"
+          },
+          {
+            "value": "PELUPUSAN",
+            "label": "Dalam tindakan pelupusan oleh penjaga"
+          },
+          {
+            "value": "LUPUS_REKOD_AKTIF",
+            "label": "Telah lupus tetapi rekod aktif di UTMFin"
+          },
+          {
+            "value": "BUKAN_KOMPUTER",
+            "label": "Bukan aset komputer"
+          }
+        ],
+        "column": "status_pengesahan"
+      },
+      {
+        "key": "disemakOleh",
+        "label": "Disemak / dikemas kini oleh",
+        "type": "string",
+        "max": 120,
+        "search": true,
+        "column": "disemak_oleh"
       },
       {
         "key": "tahunPerolehan",
@@ -179,6 +262,21 @@ const AsetModule = Object.freeze(Object.assign(
         "min": 1990,
         "max": 2100,
         "column": "tahun_perolehan"
+      },
+      {
+        "key": "tarikhAset",
+        "label": "Tarikh aset",
+        "type": "date",
+        "column": "tarikh_aset"
+      },
+      {
+        "key": "nilaiPerolehan",
+        "label": "Nilai pembelian (RM)",
+        "type": "number",
+        "min": 0,
+        "max": 10000000,
+        "decimals": 2,
+        "column": "nilai_perolehan"
       },
       {
         "key": "tamatWaranti",
@@ -326,6 +424,64 @@ const AsetModule = Object.freeze(Object.assign(
         "max": 2000,
         "search": true,
         "column": "catatan"
+      },
+      {
+        "key": "deskripsiPerolehan",
+        "label": "Deskripsi perolehan",
+        "type": "text",
+        "max": 500,
+        "search": true,
+        "column": "deskripsi_perolehan"
+      },
+      {
+        "key": "kodSodo",
+        "label": "Kod SODO",
+        "type": "string",
+        "max": 20,
+        "column": "kod_sodo"
+      },
+      {
+        "key": "ptjPerolehan",
+        "label": "PTJ perolehan",
+        "type": "string",
+        "max": 20,
+        "column": "ptj_perolehan"
+      },
+      {
+        "key": "chargeline",
+        "label": "Chargeline",
+        "type": "string",
+        "max": 40,
+        "column": "chargeline"
+      },
+      {
+        "key": "noRujukanPerolehan",
+        "label": "No. rujukan perolehan (PD)",
+        "type": "string",
+        "max": 40,
+        "search": true,
+        "column": "no_rujukan_perolehan"
+      },
+      {
+        "key": "noPt",
+        "label": "No. PT",
+        "type": "string",
+        "max": 40,
+        "column": "no_pt"
+      },
+      {
+        "key": "noRequisition",
+        "label": "Rujukan requisition (PM)",
+        "type": "string",
+        "max": 40,
+        "column": "no_requisition"
+      },
+      {
+        "key": "costCenter",
+        "label": "Cost center",
+        "type": "string",
+        "max": 40,
+        "column": "cost_center"
       }
     ],
     "name": "Aset",

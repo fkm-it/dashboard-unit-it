@@ -4,7 +4,7 @@
  * Dalam Apps Script: runTestsPart5. Dalam Node: npm test.
  */
 const AppTests = {
-  suites: function () { return [TestSuiteDashboardIT]; }
+  suites: function () { return [TestSuiteDashboardIT, TestSuiteUtmfin]; }
 };
 
 const AppFx = {
@@ -148,6 +148,78 @@ const TestSuiteDashboardIT = {
       t.ok(up.updated === 1 && up.created === 0, 'upsert ikut No. aset: ' + JSON.stringify(up));
       t.eq(Repo.of('ASET').findById(r1.id).model, 'OptiPlex 7090 MT');
       TestAssert.apiFail(TestHelpers.call(TestHelpers.user('x').token, 'aset.import', { rows: rows }), ERROR_CODES.FORBIDDEN);
+    }]
+  ]
+};
+
+/** Import data DATA PC / UTMFin (KEWPA) & jana makmal. Nama/email di bawah ialah rekaan. */
+const TestSuiteUtmfin = {
+  name: 'Data UTMFin / KEWPA',
+  tests: [
+    ['Penghurai: kod bilik, label lokasi, jenis & jenama daripada nama item', function (t) {
+      t.eq(AsetHooks.roomOf('J.C24.01.108-01'), 'J.C24.01.108');
+      t.eq(AsetHooks.roomOf('j.n28.05.517-01/02'), 'J.N28.05.517');
+      t.eq(AsetHooks.lokasiLabel('J.C24.01.108-01'), 'C24 · Aras 01 · Bilik 108-01');
+      t.eq(AsetHooks.lokasiLabel('J.E07.04.04.02.02'), 'E07 · Aras 04 · Bilik 04.02.02');
+      t.eq(AsetHooks.jenisOf('HP PROBOOK 440 (LAPTOP TYPE L2 PAKEJ A)'), 'LAPTOP');
+      t.eq(AsetHooks.jenisOf('NOOTBOOK'), 'LAPTOP');
+      t.eq(AsetHooks.jenisOf('DESKTOP COMPUTER TYPE 2'), 'DESKTOP');
+      t.eq(AsetHooks.jenisOf('CPU'), 'DESKTOP');
+      t.eq(AsetHooks.jenamaOf('KOMPUTER DELL OPTIPLEX 3020 MT'), 'Dell');
+      t.eq(AsetHooks.jenamaOf('DESKTOP HP PRODESK 400 G3'), 'HP');
+      t.eq(AsetHooks.jenamaOf('PERSONAL COMPUTER'), '');
+    }],
+
+    ['Import lajur UTMFin: status pengesahan → status operasi/pengesahan fizikal, nilai, tarikh, "-" dikosongkan', function (t) {
+      AppFx.real();
+      const a = TestHelpers.admin(ROLES.ADMIN);
+      const base = { model: 'DESKTOP COMPUTER TYPE 2', tahunPerolehan: '2019.0', pegawaiBertanggungjawab: 'PENJAGA REKAAN A', emailPenjaga: 'penjaga.a@test.local', noPekerjaPenjaga: '90001', disemakOleh: '90009 - PEGAWAI IT REKAAN' };
+      const rows = [
+        Object.assign({}, base, { noAset: 'KW0001', kodLokasi: 'J.C24.01.108-01', statusPengesahan: 'Penjaga - Penggunaan Makmal', nilaiPerolehan: '3570', tarikhAset: '25/2/2019', noSiri: '-' }),
+        Object.assign({}, base, { noAset: 'KW0002', model: 'NOTEBOOK COMPUTER', kodLokasi: 'J.E01.02.216-01', statusPengesahan: 'Telah lupus tetapi rekod aktif di UTMFin' }),
+        Object.assign({}, base, { noAset: 'KW0003', kodLokasi: 'J.C24.01.108-01', statusPengesahan: 'Status aset tidak dapat disahkan oleh penjaga' }),
+        Object.assign({}, base, { noAset: 'KW0004', kodLokasi: 'J.C24.01.108-01', statusPengesahan: 'Penjaga - Penggunaan Makmal' }),
+        Object.assign({}, base, { noAset: 'KW0005', kodLokasi: 'J.C24.04.408-01', statusPengesahan: 'Penjaga - Penggunaan Makmal' }),
+        Object.assign({}, base, { noAset: 'KW0006', kodLokasi: 'J.E01.02.216-01', statusPengesahan: 'Dalam tindakan pelupusan oleh penjaga' })
+      ];
+      const r = TestAssert.apiOk(TestHelpers.call(a.token, 'aset.import', { rows: rows }));
+      t.ok(!r.dryRun && r.created === 6, JSON.stringify(r.errors));
+      const by = {};
+      Repo.of('ASET').all().forEach(function (x) { by[x.no_aset] = x; });
+      const k1 = by.KW0001;
+      t.eq(k1.status, 'BERFUNGSI'); t.eq(k1.status_pengesahan, 'MAKMAL'); t.eq(String(k1.disahkan_fizikal).toUpperCase(), 'TRUE');
+      t.eq(k1.jenis, 'DESKTOP'); t.eq(k1.lokasi, 'C24 · Aras 01 · Bilik 108-01'); t.eq(String(k1.tahun_perolehan), '2019');
+      t.eq(Number(k1.nilai_perolehan), 3570); t.eq(k1.tarikh_aset, '2019-02-25'); t.eq(k1.no_siri, '', '"-" dianggap kosong');
+      t.eq(by.KW0002.status, 'DILUPUS', 'lupus tetapi rekod aktif → Dilupus'); t.eq(by.KW0002.cadangan, 'LUPUS'); t.eq(by.KW0002.jenis, 'LAPTOP');
+      t.eq(String(by.KW0003.disahkan_fizikal).toUpperCase(), 'FALSE', 'tidak dapat disahkan');
+      t.eq(by.KW0006.status, 'TIDAK_BOLEH_GUNA');
+      const o = TestAssert.apiOk(TestHelpers.call(a.token, 'aset.overview', {}));
+      t.ok(o.assets.byPengesahan.LUPUS_REKOD_AKTIF >= 1, 'pengesahan termasuk rekod lupus');
+      t.ok(o.assets.byVerifier.some(function (v) { return v.label === 'PEGAWAI IT REKAAN'; }), 'nama pegawai tanpa no. pekerja');
+    }],
+
+    ['Jana makmal daripada lokasi aset: had minimum, tiada pendua, aset dipautkan, import seterusnya auto-paut', function (t) {
+      AppFx.real();
+      const a = TestHelpers.admin(ROLES.ADMIN);
+      const mk = function (no, loc, who) { return { noAset: no, model: 'DESKTOP (PAKEJ 2 - FKM)', kodLokasi: loc, statusPengesahan: 'Penjaga - Penggunaan Makmal', pegawaiBertanggungjawab: who }; };
+      TestAssert.apiOk(TestHelpers.call(a.token, 'aset.import', { rows: [
+        mk('LB1', 'J.C99.01.101-01', 'PENJAGA X'), mk('LB2', 'J.C99.01.101-01', 'PENJAGA X'), mk('LB3', 'J.C99.01.101-02', 'PENJAGA Y'),
+        mk('LB4', 'J.C99.02.205-01', 'PENJAGA Z')
+      ] }));
+      const prev = TestAssert.apiOk(TestHelpers.call(a.token, 'aset.janaMakmal', { min: 3, dryRun: true }));
+      const mine = prev.labs.filter(function (l) { return l.kod === 'C99-01-101'; });
+      t.ok(mine.length === 1 && mine[0].pc === 3 && mine[0].penyelaras === 'PENJAGA X', JSON.stringify(prev.labs));
+      t.ok(!prev.labs.some(function (l) { return l.kod === 'C99-02-205'; }), 'bawah minimum tidak dijana');
+      const run = TestAssert.apiOk(TestHelpers.call(a.token, 'aset.janaMakmal', { min: 3 }));
+      t.ok(run.created >= 1 && run.linked >= 3);
+      const lab = Repo.of('MAKMAL').all().filter(function (l) { return l.kod === 'C99-01-101' && l.state === 'ACTIVE'; });
+      t.eq(lab.length, 1); t.eq(lab[0].kod_lokasi, 'J.C99.01.101');
+      t.eq(Repo.of('ASET').all().filter(function (x) { return x.makmal === lab[0].id; }).length, 3);
+      const again = TestAssert.apiOk(TestHelpers.call(a.token, 'aset.janaMakmal', { min: 3 }));
+      t.ok(!again.labs.some(function (l) { return l.kod === 'C99-01-101'; }), 'tiada pendua');
+      TestAssert.apiOk(TestHelpers.call(a.token, 'aset.import', { rows: [mk('LB5', 'J.C99.01.101-03', 'PENJAGA X')] }));
+      t.eq(Repo.of('ASET').all().filter(function (x) { return x.no_aset === 'LB5'; })[0].makmal, lab[0].id, 'import baharu dipautkan automatik');
+      TestAssert.apiFail(TestHelpers.call(TestHelpers.user('z').token, 'aset.janaMakmal', {}), ERROR_CODES.FORBIDDEN);
     }]
   ]
 };

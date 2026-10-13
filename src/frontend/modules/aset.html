@@ -7,13 +7,14 @@
 .xo-kpi__ic { flex: none; width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; color: #fff; }
 .xo-kpi__ic .i { width: 22px; height: 22px; }
 .xo-kpi__label { font-size: var(--fs-sm); font-weight: 600; color: var(--ink); }
-.xo-kpi__value { font-size: var(--fs-2xl); font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; color: var(--ink); line-height: 1.15; margin-top: 2px; overflow-wrap: anywhere; }
+.xo-kpi__value { white-space: nowrap; font-size: clamp(1.15rem, 1.55vw, var(--fs-2xl)); font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; color: var(--ink); line-height: 1.15; margin-top: 2px; }
 .xo-kpi__note { font-size: var(--fs-xs); color: var(--muted); margin-top: 2px; }
 .xo-blue { background: #2563EB; } .xo-green { background: #15803D; } .xo-violet { background: #7C3AED; } .xo-amber { background: #D97706; } .xo-red { background: #DC2626; }
 .xo-kpi--alert { border-color: #FECACA; background: #FFF7F7; }
 .xo-grid4 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-4); margin-top: var(--sp-4); }
 .xo-grid2 { display: grid; grid-template-columns: 1.6fr 1fr; gap: var(--sp-4); margin-top: var(--sp-4); }
 .xo-grid2 > .panel { min-width: 0; }
+.xo-wide .hbar { grid-template-columns: minmax(130px, 210px) 1fr 44px; }
 .xo-big { font-size: var(--fs-3xl); font-weight: 700; letter-spacing: -.02em; color: var(--ink); line-height: 1; }
 .xo-grid3 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-4); margin-top: var(--sp-4); }
 .xo-grid4 > .panel, .xo-grid3 > .panel { min-width: 0; }
@@ -58,7 +59,7 @@
   .xo-kpi { padding: var(--sp-3); flex-direction: column; gap: var(--sp-2); }
   .xo-kpi__ic { width: 34px; height: 34px; border-radius: 10px; }
   .xo-kpi__ic .i { width: 18px; height: 18px; }
-  .xo-kpi__value { font-size: var(--fs-xl); }
+  .xo-kpi__value { font-size: 1.1rem; white-space: normal; overflow-wrap: anywhere; }
   .xo-grid4, .xo-grid2 { grid-template-columns: 1fr; }
   .xo-donut svg { width: 120px; height: 120px; }
   .im-steps { grid-template-columns: 1fr; }
@@ -128,6 +129,8 @@
 
   const MON = ['Jan', 'Feb', 'Mac', 'Apr', 'Mei', 'Jun', 'Jul', 'Ogo', 'Sep', 'Okt', 'Nov', 'Dis'];
   const monthName = (k) => { const p = String(k).split('-'); return MON[Number(p[1]) - 1] + ' ' + p[0]; };
+  const PENGESAHAN = ['AKTIF', 'MAKMAL', 'GUNA_SAMA', 'BERTUKAR_PENJAGA', 'TIDAK_DISAHKAN', 'PELUPUSAN', 'LUPUS_REKOD_AKTIF', 'BUKAN_KOMPUTER'];
+  const PENGESAHAN_LABEL = { AKTIF: 'Aktif (penjaga)', MAKMAL: 'Penggunaan makmal', GUNA_SAMA: 'Guna sama', BERTUKAR_PENJAGA: 'Bertukar penjaga', TIDAK_DISAHKAN: 'Tidak dapat disahkan', PELUPUSAN: 'Dalam pelupusan', LUPUS_REKOD_AKTIF: 'Lupus, rekod aktif', BUKAN_KOMPUTER: 'Bukan aset komputer' };
   const SHORT = { PERLAHAN: 'Berfungsi, tidak memadai', PERLU_BAIKI: 'Perlu dibaiki' };
 
   function view(o) {
@@ -166,6 +169,13 @@
           ${o.issues.length ? o.issues.map((i) => html`<a class="xo-issue xo-issue--${i.tone}" href="#/admin/${i.kind}/${i.id}">${icon('alert', 'i-sm')}<span><b class="small">${i.title}</b><div class="xs muted">${i.note}</div></span></a>`)
             : html`<p class="muted small">${icon('check', 'i-sm')} Tiada isu kritikal ketika ini.</p>`}</section>
       </div>
+      ${a.recordTotal && Object.keys(a.byPengesahan).length ? html`<div class="xo-grid3">
+        <section class="panel xo-wide"><div class="panel-head"><h3>Pengesahan aset (KEWPA)</h3><a class="small" href="#/admin/aset">Lihat</a></div>
+          ${C.hbars(PENGESAHAN.filter((k) => a.byPengesahan[k]).map((k) => ({ label: PENGESAHAN_LABEL[k], value: a.byPengesahan[k] })), { title: 'Status pengesahan aset' })}
+          <p class="xs muted mt-2">${fmtNum(a.recordTotal - (a.byPengesahan.TIDAK_DISAHKAN || 0))} daripada ${fmtNum(a.recordTotal)} rekod dapat disahkan penjaga.${a.nilai ? html` Nilai perolehan aset aktif: ${rm(a.nilai)}.` : ''}</p></section>
+        <section class="panel xo-wide"><div class="panel-head"><h3>Semakan oleh pegawai IT</h3><span class="xs muted">Rekod dikemas kini</span></div>
+          ${a.byVerifier.length ? C.hbars(a.byVerifier, { title: 'Rekod disemak mengikut pegawai' }) : html`<p class="muted small">Tiada rekod semakan.</p>`}</section>
+      </div>` : ''}
       <div class="xo-grid3">
         <section class="panel"><div class="panel-head"><h3>Beban kerja pegawai</h3><span class="xs muted">Tiket terbuka</span></div>
           ${t.workload.length ? html`<table class="xo-table"><thead><tr><th>Pegawai</th><th class="num">Terbuka</th><th class="num">Lewat SLA</th></tr></thead><tbody>${t.workload.map((w) => html`<tr><td>${w.name}</td><td class="num">${fmtNum(w.open)}</td><td class="num">${w.overdue ? html`<span style="color:var(--danger);font-weight:600">${fmtNum(w.overdue)}</span>` : '0'}</td></tr>`)}</tbody></table>`
@@ -203,6 +213,15 @@
     return rows.filter((r) => r.some((c) => String(c).trim() !== ''));
   }
 
+  /* Lajur eksport UTMFin / senarai DATA PC (KEWPA) → medan sistem */
+  const UTMFIN = {
+    BAR_CODE: 'noAset', SIRI_PRODUK: 'noSiri', ITEM_ASSET: 'model', DESKRIPSI_PEROLEHAN: 'deskripsiPerolehan', KOD_SODO: 'kodSodo',
+    PTJ: 'ptjPerolehan', TAHUN_BELI: 'tahunPerolehan', CHARGELINE: 'chargeline', NO_RUJUKAN: 'noRujukanPerolehan', NO_PT: 'noPt',
+    NO_IDENTITI: 'noPekerjaPenjaga', NAMA: 'pegawaiBertanggungjawab', EMAIL: 'emailPenjaga', NILAI_PEMBELIAN: 'nilaiPerolehan',
+    ID_LOKASI: 'kodLokasi', NEW_COST_CENTER: 'costCenter', TARIKH_ASET: 'tarikhAset', REFERENCE_REQUISITION: 'noRequisition',
+    'STATUS ALAT': 'statusPengesahan', 'NAMA PENJAGA TERKINI': 'penjagaTerkini', 'DIKEMASKINI OLEH': 'disemakOleh'
+  };
+  const IGNORE = ['PTJ_STAF'];
   const importFields = () => (KD.moduleOf('aset').fields || []).filter((f) => f.type !== 'files' && !f.readonly);
   const norm = (s) => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
 
@@ -211,12 +230,18 @@
       const fields = importFields();
       el.innerHTML = html`<div class="page-head"><div><h1>Import aset IT</h1><p>Muat naik daftar aset (CSV). Rekod dengan No. aset sedia ada akan dikemas kini; yang baharu akan ditambah.</p></div>
           <div class="xo-toolbar"><button class="btn btn-outline" data-act="tpl">${icon('download')}Templat CSV</button></div></div>
-        <div class="im-steps"><div class="im-step"><b>1 · Sediakan fail</b>Guna templat atau fail Excel sedia ada. Dalam Excel: <i>Fail → Simpan sebagai → CSV UTF-8</i>.</div>
+        <div class="im-steps"><div class="im-step"><b>1 · Sediakan fail</b>Guna templat, atau eksport UTMFin / DATA PC (lajur BAR_CODE, ITEM_ASSET, ID_LOKASI, STATUS ALAT… dikenali terus). Dalam Excel: <i>Fail → Simpan sebagai → CSV UTF-8</i>.</div>
           <div class="im-step"><b>2 · Semak</b>Sistem menyemak setiap baris dahulu (tiada data ditulis). Makmal boleh ditulis sebagai kod (cth. ME-01).</div>
           <div class="im-step"><b>3 · Import</b>Hanya apabila tiada ralat. Status boleh ditulis sebagai label, cth. <i>Berfungsi</i>.</div></div>
         <label class="im-drop mt-4" data-drop style="display:block;cursor:pointer"><div style="display:flex;justify-content:center">${icon('download')}</div><div class="mt-2"><b>Pilih fail CSV</b> atau seret ke sini</div><div class="xs muted mt-1">Maksimum 5,000 baris</div>
           <input type="file" accept=".csv,text/csv" data-file class="sr-only"></label>
-        <div data-out class="mt-4"></div>`.s;
+        <div data-out class="mt-4"></div>
+        <section class="panel mt-4" data-labs><div class="panel-head"><h3>Jana makmal daripada lokasi aset</h3></div>
+          <p class="small muted">Untuk aset berstatus <b>Penjaga - Penggunaan Makmal</b>: setiap bilik (kod lokasi UTMFin, cth. J.C24.01.108) dengan sekurang-kurangnya
+          <select class="select" data-labmin style="width:auto;display:inline-block;padding:2px 28px 2px 8px;height:auto" aria-label="Minimum PC">${[1, 2, 3, 5, 10].map((n) => html`<option value="${n}" ${n === 3 ? raw('selected') : ''}>${n}</option>`)}</select>
+          PC dijadikan rekod Makmal, kemudian aset dipautkan ke makmal itu. Makmal sedia ada (ikut kod lokasi) tidak diduplikasi. Nama makmal boleh dikemas kini kemudian.</p>
+          <div class="row row-wrap mt-2"><button class="btn btn-outline" data-act="labs-preview">${icon('eye')}Pratonton</button><button class="btn btn-primary" data-act="labs-run">${icon('plus')}Jana & pautkan</button></div>
+          <div data-labout class="mt-4"></div></section>`.s;
       const out = qs('[data-out]', el);
       let rows = [];
 
@@ -237,8 +262,10 @@
         const byName = {};
         fields.forEach((f) => { byName[norm(f.key)] = f.key; byName[norm(f.label)] = f.key; });
         byName.status = 'status';
-        const header = grid[0].map((h) => byName[norm(h)] || null);
-        const unknown = grid[0].filter((h, i) => !header[i] && String(h).trim());
+        Object.keys(UTMFIN).forEach((k) => { byName[norm(k)] = UTMFIN[k]; });
+        IGNORE.forEach((k) => { byName[norm(k)] = '__skip'; });
+        const header = grid[0].map((h) => { const k = byName[norm(h)] || null; return k === '__skip' ? null : k; });
+        const unknown = grid[0].filter((h, i) => !header[i] && String(h).trim() && byName[norm(h)] !== '__skip');
         if (!header.includes('noAset')) { out.innerHTML = empty('Lajur No. aset tiada', 'Pengepala mesti mengandungi noAset atau "No. aset". Muat turun templat untuk rujukan.').s; return; }
         rows = grid.slice(1).map((r) => { const o = {}; header.forEach((k, i) => { if (k && r[i] !== undefined && String(r[i]).trim() !== '') o[k] = String(r[i]).trim(); }); return o; });
         if (rows.length > 5000) { toastError('Maksimum 5,000 baris setiap fail.'); rows = []; return; }
@@ -279,8 +306,24 @@
           importBtn.disabled = true;
           toast('Import selesai.');
           res.innerHTML = html`<div class="small" style="color:var(--success)">${icon('check', 'i-sm')} <b>Import selesai.</b> ${fmtNum(total.created)} ditambah, ${fmtNum(total.updated)} dikemas kini. <a href="#/admin/aset">Lihat daftar aset</a></div>`.s;
+          qs('[data-labs]', el).scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
       };
+      const labs = async (dryRun, btn) => {
+        const out2 = qs('[data-labout]', el);
+        try {
+          await busy(btn, async () => {
+            const r = await KD.api.call('aset.janaMakmal', { min: Number(qs('[data-labmin]', el).value), dryRun });
+            out2.innerHTML = html`<div class="small"><b>${dryRun ? 'Akan dicipta' : 'Dicipta'}: ${fmtNum(r.created)} makmal</b>${dryRun ? '' : html` · ${fmtNum(r.linked)} aset dipautkan`}.</div>
+              ${r.labs.length ? html`<div class="im-scroll mt-2"><table class="xo-table"><thead><tr><th>Kod</th><th>Nama (sementara)</th><th class="num">PC</th><th>Penjaga utama</th></tr></thead><tbody>${r.labs.map((l) => html`<tr><td>${l.kod}</td><td>${l.nama}</td><td class="num">${fmtNum(l.pc)}</td><td>${l.penyelaras}</td></tr>`)}</tbody></table></div>`
+                : html`<p class="xs muted mt-1">Tiada bilik baharu yang memenuhi syarat${dryRun ? '' : '; aset tanpa makmal telah dipautkan jika kod lokasi sepadan'}.</p>`}
+              ${!dryRun && r.created ? html`<p class="small mt-2"><a href="#/admin/makmal">Kemas kini nama makmal →</a></p>` : ''}`.s;
+          });
+          if (!dryRun) toast('Makmal dijana.');
+        } catch (err) { toastError(err); }
+      };
+      on(el, 'click', '[data-act="labs-preview"]', (e, b) => labs(true, b));
+      on(el, 'click', '[data-act="labs-run"]', (e, b) => labs(false, b));
       on(el, 'change', '[data-file]', (e) => accept(e.target.files[0]));
       on(el, 'click', '[data-act="check"]', (e, b) => run(true, b));
       on(el, 'click', '[data-act="import"]', (e, b) => run(false, b));

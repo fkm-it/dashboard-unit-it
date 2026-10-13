@@ -256,7 +256,8 @@ const CrudEngine = {
   /** Nilai sel → nilai frontend mengikut jenis medan. */
   outValue: function (f, v) {
     if (f.type === 'number') { const n = parseFloat(v); return isFinite(n) ? n : null; }
-    if (f.type === 'int' || f.type === 'files') return typeof v === 'number' ? v : (parseInt(v, 10) || 0);
+    if (f.type === 'files') return typeof v === 'number' ? v : (parseInt(v, 10) || 0);
+    if (f.type === 'int') { if (typeof v === 'number') return v; const n = parseInt(v, 10); return isFinite(n) ? n : null; } /* kosong → null, bukan 0 */
     if (f.type === 'bool') return !!v;
     return v === undefined || v === null ? '' : v;
   },

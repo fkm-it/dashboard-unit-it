@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 1.1.0 — 2026-10-13 · Data aset UTMFin / KEWPA
+### Ditambah
+- **Medan aset selaras UTMFin / senarai DATA PC**: penjaga aset (KEWPA), no. pekerja & email penjaga, penjaga terkini, **status pengesahan aset** (8 status rasmi), disemak oleh, kod lokasi (ID_LOKASI), tarikh aset, nilai pembelian, serta maklumat perolehan (deskripsi, kod SODO, PTJ, chargeline, no. rujukan PD, no. PT, requisition PM, cost center).
+- **Import terus ikut lajur eksport UTMFin** (BAR_CODE, ITEM_ASSET, ID_LOKASI, STATUS ALAT, NAMA, EMAIL, DIKEMASKINI OLEH, …). Terbitan automatik: jenis & jenama daripada nama item, lokasi mesra (C24 · Aras 01 · Bilik 108), status operasi daripada status pengesahan (*telah lupus* → Dilupus, *dalam pelupusan* → Tidak boleh digunakan + cadangan Lupus), *disahkan fizikal* (kecuali "tidak dapat disahkan"), nilai "-" dianggap kosong, tahun "2019.0" diterima.
+- **Jana makmal daripada lokasi aset** (Import aset → *Jana & pautkan*): bilik dengan ≥ N PC berstatus *Penjaga - Penggunaan Makmal* dijadikan rekod Makmal (penyelaras = penjaga utama), aset dipautkan ikut kod lokasi; import seterusnya dipautkan automatik. Makmal ada medan baharu *Kod lokasi UTMFin*.
+- Executive Overview: panel **Pengesahan aset (KEWPA)** dan **Semakan oleh pegawai IT**, nilai perolehan aset aktif.
+
+### Dibaiki
+- Teras: medan `int` pilihan yang kosong kini kekal kosong (sebelum ini dipaparkan sebagai 0 dan menyebabkan sunting gagal validasi `min`, cth. tahun perolehan). Jenis lajur baharu `intOrNull`.
+- Nilai KPI panjang (RM) tidak lagi terpotong ke baris baharu pada desktop.
+
 ## 1.0.0 — 2026-10-13 · Dashboard Unit IT FKM (Fasa 1 / MVP)
 Dibina daripada templat `gas-pwa-starter` 0.4.3.
 

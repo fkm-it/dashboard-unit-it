@@ -22,7 +22,10 @@ Sistem pengurusan Unit IT, Fakulti Kejuruteraan Mekanikal (FKM), UTM: aset IT, k
 
 Logik: `src/modules/<modul>/<Nama>Hooks.gs`. Overview & import: `src/modules/aset/AsetHooks.gs`, paparan `src/frontend/modules/aset.html`. Ujian domain: `src/tests/AppTests.gs`.
 
-## Import daftar aset
+## Import daftar aset (termasuk eksport UTMFin / DATA PC)
+Fail eksport UTMFin boleh diimport terus — lajur `BAR_CODE`, `ITEM_ASSET`, `ID_LOKASI`, `STATUS ALAT`, `NAMA`, `EMAIL`, `NILAI_PEMBELIAN`, `TARIKH_ASET`, `DIKEMASKINI OLEH` dan lain-lain dikenali secara automatik. Selepas import, gunakan **Jana & pautkan** untuk mencipta makmal daripada bilik yang mempunyai PC *Penggunaan Makmal*.
+
+
 Admin → **Import aset** → *Templat CSV*. Dari Excel: *Simpan sebagai → CSV UTF-8*. Pengepala boleh guna kunci (`noAset`) atau label (`No. aset`); makmal ditulis dengan kod (cth. `ME-01`) — tambah makmal dahulu. Sistem menyemak semua baris dahulu; tiada data ditulis jika ada ralat. Baris dengan No. aset sedia ada dikemas kini.
 
 > Data contoh dalam `tools/seed-custom.js` hanya untuk dev server & E2E — bukan data sebenar FKM dan tidak dideploy.

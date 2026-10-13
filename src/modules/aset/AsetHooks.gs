@@ -28,7 +28,8 @@ const AsetHooks = {
 
   routes: {
     'aset.overview': { role: 'ADMIN', fn: function (payload) { return AsetHooks.overview(payload || {}); } },
-    'aset.import': { role: 'ADMIN', fn: function (payload, ctx) { return AsetHooks.importRows(payload || {}, ctx); } }
+    'aset.import': { role: 'ADMIN', fn: function (payload, ctx) { return AsetHooks.importRows(payload || {}, ctx); } },
+    'aset.janaMakmal': { role: 'ADMIN', fn: function (payload, ctx) { return AsetHooks.generateLabs(payload || {}, ctx); } }
   },
 
   // ================================================================== Executive Overview
@@ -48,11 +49,25 @@ const AsetHooks = {
     const aJenis = {};
     let verified = 0;
     let complete = 0;
+    let nilai = 0;
+    const byPengesahan = {};
+    const byVerifier = {};
     assets.forEach(function (r) {
+      nilai += Number(r.nilai_perolehan) || 0;
+
       aStatus[r.status] = (aStatus[r.status] || 0) + 1;
       aJenis[r.jenis] = (aJenis[r.jenis] || 0) + 1;
       if (String(r.disahkan_fizikal).toUpperCase() === 'TRUE') verified++;
       if (r.no_aset && r.jenis && (r.makmal || r.lokasi) && r.tahun_perolehan) complete++;
+    });
+    /* Pengesahan KEWPA dikira atas SEMUA rekod aktif (termasuk "telah lupus tetapi rekod aktif di UTMFin") */
+    const allAssets = AsetHooks.active_('aset');
+    allAssets.forEach(function (r) {
+      if (r.status_pengesahan) byPengesahan[r.status_pengesahan] = (byPengesahan[r.status_pengesahan] || 0) + 1;
+      if (r.disemak_oleh) {
+        const who = String(r.disemak_oleh).replace(/^\d+\s*-\s*/, '');
+        byVerifier[who] = (byVerifier[who] || 0) + 1;
+      }
     });
     const operational = AsetHooks.OPERATIONAL.reduce(function (s, k) { return s + (aStatus[k] || 0); }, 0);
 
@@ -125,7 +140,10 @@ const AsetHooks = {
       assets: {
         total: assets.length, operational: operational, operationalPct: pct(operational, assets.length),
         byStatus: aStatus, byJenis: aJenis, verified: verified, verifiedPct: pct(verified, assets.length),
-        completePct: pct(complete, assets.length)
+        completePct: pct(complete, assets.length),
+        nilai: Math.round(nilai * 100) / 100,
+        byPengesahan: byPengesahan, recordTotal: allAssets.length,
+        byVerifier: Object.keys(byVerifier).map(function (k) { return { label: k, value: byVerifier[k] }; }).sort(function (a, b) { return b.value - a.value; })
       },
       tickets: {
         open: open.length, overdue: overdue.length, overduePct: pct(overdue.length, open.length), highOpen: highOpen.length,
@@ -146,6 +164,146 @@ const AsetHooks = {
       },
       issues: issues
     };
+  },
+
+  // ================================================================== Data UTMFin / KEWPA
+
+  /** Kod bilik daripada ID_LOKASI UTMFin: 'J.C24.01.108-01' → 'J.C24.01.108'. */
+  roomOf: function (kodLokasi) {
+    return String(kodLokasi || '').trim().toUpperCase().split(/[-\/ ]/)[0];
+  },
+
+  /** Lokasi mesra manusia: 'J.C24.01.108-01' → 'C24 · Aras 01 · Bilik 108-01'. */
+  lokasiLabel: function (kodLokasi) {
+    const p = String(kodLokasi || '').trim().replace(/^J\./i, '').split('.');
+    if (p.length < 3) return String(kodLokasi || '').trim();
+    return p[0] + ' · Aras ' + p[1] + ' · Bilik ' + p.slice(2).join('.');
+  },
+
+  /** Jenis aset daripada nama item UTMFin (semua data J24 ialah komputer). */
+  jenisOf: function (text) {
+    const t = String(text || '').toUpperCase();
+    if (/LAPTOP|NOTEBOOK|NOOTBOOK|PROBOOK|ELITEBOOK|THINKPAD|VOSTRO 1[345]|RUGGED|ULTRABOOK/.test(t)) return 'LAPTOP';
+    if (/WORKSTATION/.test(t)) return 'WORKSTATION';
+    if (/PRINTER|PENCETAK|PENGIMBAS|SCANNER/.test(t)) return 'PENCETAK';
+    if (/PROJECTOR|PROJEKTOR/.test(t)) return 'PROJEKTOR';
+    if (/SERVER|PELAYAN/.test(t)) return 'PELAYAN';
+    if (/SWITCH|ROUTER/.test(t)) return 'SWITCH';
+    if (/ACCESS POINT/.test(t)) return 'AP';
+    return 'DESKTOP';
+  },
+
+  jenamaOf: function (text) {
+    const m = String(text || '').toUpperCase().match(/\b(HP|DELL|TOSHIBA|LENOVO|ACER|ASUS|PHILIPS|APPLE|SAMSUNG|FUJITSU)\b/);
+    if (!m) return '';
+    return m[1] === 'HP' ? 'HP' : m[1].charAt(0) + m[1].slice(1).toLowerCase();
+  },
+
+  /** Makmal yang mempunyai kod lokasi: [{ id, room }] (kod lebih panjang dahulu supaya padanan paling khusus menang). */
+  labRooms_: function () {
+    return AsetHooks.active_('makmal').filter(function (l) { return l.kod_lokasi; })
+      .map(function (l) { return { id: l.id, room: AsetHooks.roomOf(l.kod_lokasi) }; })
+      .sort(function (a, b) { return b.room.length - a.room.length; });
+  },
+
+  labForLokasi_: function (kodLokasi, labRooms) {
+    const r = AsetHooks.roomOf(kodLokasi);
+    if (!r) return '';
+    const hit = labRooms.filter(function (l) { return r === l.room || r.indexOf(l.room + '.') === 0; })[0];
+    return hit ? hit.id : '';
+  },
+
+  /**
+   * Isi medan terbitan bagi baris import (hanya jika tidak diberi dalam fail).
+   * @param {Object} src nilai camelCase (diubah di tempat) @return {string} status operasi terbitan ('' = lalai)
+   */
+  derive: function (src, labRooms) {
+    if (!src.jenis && src.model) src.jenis = AsetHooks.jenisOf(src.model + ' ' + (src.deskripsiPerolehan || ''));
+    if (!src.jenama && src.model) { const j = AsetHooks.jenamaOf(src.model); if (j) src.jenama = j; }
+    if (src.kodLokasi) {
+      src.kodLokasi = String(src.kodLokasi).trim().toUpperCase();
+      if (!src.lokasi) src.lokasi = AsetHooks.lokasiLabel(src.kodLokasi);
+      if (!src.makmal) { const l = AsetHooks.labForLokasi_(src.kodLokasi, labRooms || []); if (l) src.makmal = l; }
+    }
+    const sp = src.statusPengesahan;
+    if (!sp) return '';
+    if (src.disahkanFizikal === undefined) src.disahkanFizikal = sp !== 'TIDAK_DISAHKAN';
+    if (!src.cadangan && (sp === 'PELUPUSAN' || sp === 'LUPUS_REKOD_AKTIF')) src.cadangan = 'LUPUS';
+    if (sp === 'LUPUS_REKOD_AKTIF') return 'DILUPUS';
+    if (sp === 'PELUPUSAN') return 'TIDAK_BOLEH_GUNA';
+    return '';
+  },
+
+  /**
+   * Jana rekod Makmal daripada lokasi aset berstatus "Penjaga - Penggunaan Makmal" (min. N PC sebilik),
+   * kemudian pautkan aset tanpa makmal mengikut kod lokasi. Selamat diulang.
+   */
+  generateLabs: function (payload, ctx) {
+    const min = Math.max(1, Math.min(50, Number(payload.min) || 3));
+    const dryRun = payload.dryRun === true;
+    const mdef = CrudEngine.get('makmal');
+    const assets = AsetHooks.active_('aset').filter(function (r) { return r.status !== 'DILUPUS'; });
+    const groups = {};
+    assets.forEach(function (r) {
+      if (r.status_pengesahan !== 'MAKMAL' || !r.kod_lokasi) return;
+      const room = AsetHooks.roomOf(r.kod_lokasi);
+      groups[room] = groups[room] || { room: room, count: 0, penjaga: {} };
+      groups[room].count++;
+      if (r.pegawai_bertanggungjawab) groups[room].penjaga[r.pegawai_bertanggungjawab] = (groups[room].penjaga[r.pegawai_bertanggungjawab] || 0) + 1;
+    });
+    const known = {};
+    AsetHooks.active_('makmal').forEach(function (l) { if (l.kod_lokasi) known[AsetHooks.roomOf(l.kod_lokasi)] = true; });
+    const now = DateUtils.nowIso();
+    const toCreate = Object.keys(groups).map(function (k) { return groups[k]; })
+      .filter(function (g) { return g.count >= min && !known[g.room]; })
+      .sort(function (a, b) { return a.room < b.room ? -1 : 1; })
+      .map(function (g) {
+        const p = g.room.replace(/^J\./, '').split('.');
+        const top = Object.keys(g.penjaga).sort(function (a, b) { return g.penjaga[b] - g.penjaga[a]; })[0] || '';
+        const row = {
+          id: IdUtils.generate(mdef.prefix), ref_no: '', owner_user_id: ctx.userId, owner_name: (ctx.user && ctx.user.full_name) || '',
+          status: 'AKTIF', status_note: '', status_changed_at: '', status_changed_by: '',
+          state: RECORD_STATE.ACTIVE, created_at: now, updated_at: now, deleted_at: ''
+        };
+        mdef.fields.forEach(function (f) { row[f.column] = f.type === 'bool' ? false : ''; });
+        Object.assign(row, {
+          kod: p.join('-'), nama: 'Makmal ' + p[0] + ' Aras ' + (p[1] || '') + ' Bilik ' + p.slice(2).join('.'),
+          bangunan: p[0] || '', bilik: p.slice(2).join('.'), kod_lokasi: g.room, penyelaras: top,
+          tempat_komputer: g.count, catatan: 'Dijana daripada data aset UTMFin (' + g.count + ' PC penggunaan makmal). Sila kemas kini nama makmal.'
+        });
+        return row;
+      });
+    let linked = 0;
+    if (!dryRun) {
+      const mrepo = CrudEngine.repo(mdef);
+      Database.withLock(function () {
+        AsetHooks.assignRefs_(mdef, toCreate);
+        if (toCreate.length) mrepo.insertMany(toCreate);
+      });
+      mrepo.invalidate();
+      linked = AsetHooks.linkToLabs();
+      AuditService.log(ctx, AUDIT_ACTIONS.RECORD_CREATED, mdef.sheet, '', 'Jana makmal daripada aset: ' + toCreate.length + ' baharu, ' + linked + ' aset dipautkan');
+    }
+    return {
+      dryRun: dryRun, created: toCreate.length, linked: linked,
+      labs: toCreate.map(function (r) { return { kod: r.kod, nama: r.nama, pc: r.tempat_komputer, penyelaras: r.penyelaras }; })
+    };
+  },
+
+  /** Pautkan aset tanpa makmal kepada makmal yang kod lokasinya sepadan. @return {number} bilangan dipautkan */
+  linkToLabs: function () {
+    const rooms = AsetHooks.labRooms_();
+    if (!rooms.length) return 0;
+    const patch = {};
+    const now = DateUtils.nowIso();
+    AsetHooks.active_('aset').forEach(function (r) {
+      if (r.makmal || !r.kod_lokasi) return;
+      const l = AsetHooks.labForLokasi_(r.kod_lokasi, rooms);
+      if (l) patch[r.id] = { makmal: l, updated_at: now };
+    });
+    const n = Object.keys(patch).length;
+    if (n) CrudEngine.repo(CrudEngine.get('aset')).updateMany(patch);
+    return n;
   },
 
   // ================================================================== Import pukal
@@ -169,9 +327,12 @@ const AsetHooks = {
     AsetHooks.active_('makmal').forEach(function (l) {
       [l.id, l.kod, l.nama].forEach(function (k) { if (k) labs[String(k).trim().toLowerCase()] = l.id; });
     });
+    const labRooms = AsetHooks.labRooms_();
     const norm = function (f, v) {
       if (v === undefined || v === null) return v;
       const s = String(v).trim();
+      if (s === '-') return '';
+      if (f.type === 'int' && /^-?\d+(\.0+)?$/.test(s)) return String(parseInt(s, 10));
       if (f.type === 'bool') return /^(ya|yes|true|1|y)$/i.test(s);
       if (f.type === 'enum' && f.options) {
         const hit = f.options.filter(function (o) { return o.value.toLowerCase() === s.toLowerCase() || String(o.label).toLowerCase() === s.toLowerCase(); })[0];
@@ -205,10 +366,14 @@ const AsetHooks = {
       try {
         const src = {};
         fields.forEach(function (f) {
-          if (raw[f.key] !== undefined && raw[f.key] !== '') src[f.key] = norm(f, raw[f.key]);
+          if (raw[f.key] !== undefined && raw[f.key] !== '') {
+            const nv = norm(f, raw[f.key]);
+            if (nv !== '') src[f.key] = nv;
+          }
         });
+        const derivedStatus = AsetHooks.derive(src, labRooms);
         if (src.makmal && String(src.makmal).charAt(0) === '?') throw Errors.validation('Makmal "' + String(src.makmal).slice(1) + '" tidak ditemui dalam senarai makmal.');
-        const st = statusOf(raw.status);
+        const st = statusOf(raw.status) || (raw.status ? null : derivedStatus);
         if (st === null) throw Errors.validation('Status "' + raw.status + '" tidak dikenali.');
         const key = String(src.noAset || '').trim().toLowerCase();
         if (!key) throw Errors.validation('No. aset diperlukan.');
@@ -239,6 +404,7 @@ const AsetHooks = {
         if (inserts.length) repo.insertMany(inserts);
         if (Object.keys(patches).length) repo.updateMany(patches);
       });
+      repo.invalidate();
       AppCache.remove('stats:admin');
       AuditService.log(ctx, AUDIT_ACTIONS.RECORD_CREATED, def.sheet, '', 'Import aset: ' + inserts.length + ' baharu, ' + Object.keys(patches).length + ' dikemas kini');
     }

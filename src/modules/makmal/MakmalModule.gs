@@ -83,6 +83,16 @@ const MakmalModule = Object.freeze(Object.assign(
         "column": "bilik"
       },
       {
+        "key": "kodLokasi",
+        "label": "Kod lokasi UTMFin",
+        "type": "string",
+        "max": 40,
+        "search": true,
+        "placeholder": "cth. J.C24.01.108",
+        "hint": "Aset dengan ID_LOKASI bermula kod ini dipautkan ke makmal ini semasa import.",
+        "column": "kod_lokasi"
+      },
+      {
         "key": "jabatan",
         "label": "Jabatan / program",
         "type": "string",

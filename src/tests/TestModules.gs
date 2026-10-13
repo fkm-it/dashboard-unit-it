@@ -73,7 +73,7 @@ const TestFixtures = {
     const def = TestFixtures.module();
     const cols = ['id', 'ref_no', 'owner_user_id', 'owner_name'].concat(def.fields.map(function (x) { return x.column; }),
       ['status', 'status_note', 'status_changed_at', 'status_changed_by', 'state', 'created_at', 'updated_at', 'deleted_at']);
-    SchemaRegistry.extra.T_TIKET = { sheet: 'T_TIKET', id: 'id', prefix: 'TK', module: 'tiket', columns: cols, types: { segera: 'bool', kuantiti: 'int', fail: 'int' } };
+    SchemaRegistry.extra.T_TIKET = { sheet: 'T_TIKET', id: 'id', prefix: 'TK', module: 'tiket', columns: cols, types: { segera: 'bool', kuantiti: 'intOrNull', fail: 'int' } };
     SchemaRegistry.extra.T_LOKASI = { sheet: 'T_LOKASI', id: 'id', prefix: 'LO', module: 'lokasi', types: { aktif: 'bool' },
       columns: ['id', 'ref_no', 'owner_user_id', 'owner_name', 'nama', 'blok', 'aktif', 'status', 'status_note', 'status_changed_at', 'status_changed_by', 'state', 'created_at', 'updated_at', 'deleted_at'] };
     CrudEngine.override = [def, TestFixtures.lokasiModule()];
@@ -341,6 +341,14 @@ const TestSuiteCrud = {
       } finally { TestFixtures.hooks.validate = orig; }
       t.eq(seen, 'en');
       } finally { TestFixtures.uninstall(); }
-    }, { nodeOnly: true }]
+    }, { nodeOnly: true }],
+    ['Medan int pilihan yang kosong dipulangkan sebagai null (bukan 0) dan sunting lain tidak gagal', function (t) {
+      TestFixtures.install();
+      const u = TestHelpers.user('intnull');
+      const d = TestAssert.apiOk(TestHelpers.call(u.token, 'crud.create', { module: 'tiket', tajuk: 'Tanpa kuantiti' }));
+      t.eq(d.values.kuantiti, null, 'int kosong → null (0 akan gagal min: 1 semasa sunting)');
+      const e = TestAssert.apiOk(TestHelpers.call(u.token, 'crud.update', { module: 'tiket', id: d.id, tajuk: 'Disunting' }));
+      t.eq(e.values.kuantiti, null);
+    }]
   ]
 };

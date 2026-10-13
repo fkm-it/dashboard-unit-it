@@ -83,18 +83,18 @@ const SCHEMA = Object.freeze({
   },
   ASET: {
     sheet: 'ASET', id: 'id', prefix: 'AS', module: 'aset',
-    columns: ['id', 'ref_no', 'owner_user_id', 'owner_name', 'no_aset', 'no_siri', 'jenis', 'jenama', 'model', 'makmal', 'lokasi', 'pegawai_bertanggungjawab', 'tahun_perolehan', 'tamat_waranti', 'cpu', 'ram_gb', 'storan', 'gpu', 'sistem_operasi', 'lesen_os', 'perisian', 'keadaan_fizikal', 'cadangan', 'disahkan_fizikal', 'tarikh_semakan', 'catatan', 'status', 'status_note', 'status_changed_at', 'status_changed_by', 'state', 'created_at', 'updated_at', 'deleted_at'],
-    types: {'tahun_perolehan': 'int', 'ram_gb': 'int', 'disahkan_fizikal': 'bool'}
+    columns: ['id', 'ref_no', 'owner_user_id', 'owner_name', 'no_aset', 'no_siri', 'jenis', 'jenama', 'model', 'makmal', 'lokasi', 'kod_lokasi', 'pegawai_bertanggungjawab', 'no_pekerja_penjaga', 'email_penjaga', 'penjaga_terkini', 'status_pengesahan', 'disemak_oleh', 'tahun_perolehan', 'tarikh_aset', 'nilai_perolehan', 'tamat_waranti', 'cpu', 'ram_gb', 'storan', 'gpu', 'sistem_operasi', 'lesen_os', 'perisian', 'keadaan_fizikal', 'cadangan', 'disahkan_fizikal', 'tarikh_semakan', 'catatan', 'deskripsi_perolehan', 'kod_sodo', 'ptj_perolehan', 'chargeline', 'no_rujukan_perolehan', 'no_pt', 'no_requisition', 'cost_center', 'status', 'status_note', 'status_changed_at', 'status_changed_by', 'state', 'created_at', 'updated_at', 'deleted_at'],
+    types: {'tahun_perolehan': 'intOrNull', 'ram_gb': 'intOrNull', 'disahkan_fizikal': 'bool'}
   },
   KEPERLUAN: {
     sheet: 'KEPERLUAN', id: 'id', prefix: 'KP', module: 'keperluan',
     columns: ['id', 'ref_no', 'owner_user_id', 'owner_name', 'makmal', 'tahun', 'jumlah_sedia_ada', 'berfungsi', 'tidak_sesuai', 'rosak_boleh_baiki', 'rosak_lupus', 'sasaran_jumlah', 'bilangan_ganti', 'bilangan_tambahan', 'keutamaan', 'spesifikasi', 'perisian', 'justifikasi', 'harga_seunit', 'sumber_harga', 'anggaran_kos', 'lampiran', 'catatan_it', 'status', 'status_note', 'status_changed_at', 'status_changed_by', 'state', 'created_at', 'updated_at', 'deleted_at'],
-    types: {'tahun': 'int', 'jumlah_sedia_ada': 'int', 'berfungsi': 'int', 'tidak_sesuai': 'int', 'rosak_boleh_baiki': 'int', 'rosak_lupus': 'int', 'sasaran_jumlah': 'int', 'bilangan_ganti': 'int', 'bilangan_tambahan': 'int', 'lampiran': 'int'}
+    types: {'tahun': 'intOrNull', 'jumlah_sedia_ada': 'intOrNull', 'berfungsi': 'intOrNull', 'tidak_sesuai': 'intOrNull', 'rosak_boleh_baiki': 'intOrNull', 'rosak_lupus': 'intOrNull', 'sasaran_jumlah': 'intOrNull', 'bilangan_ganti': 'intOrNull', 'bilangan_tambahan': 'intOrNull', 'lampiran': 'int'}
   },
   MAKMAL: {
     sheet: 'MAKMAL', id: 'id', prefix: 'MK', module: 'makmal',
-    columns: ['id', 'ref_no', 'owner_user_id', 'owner_name', 'kod', 'nama', 'bangunan', 'bilik', 'jabatan', 'penyelaras', 'email_penyelaras', 'kapasiti', 'tempat_komputer', 'pengguna_sesi', 'catatan', 'status', 'status_note', 'status_changed_at', 'status_changed_by', 'state', 'created_at', 'updated_at', 'deleted_at'],
-    types: {'kapasiti': 'int', 'tempat_komputer': 'int', 'pengguna_sesi': 'int'}
+    columns: ['id', 'ref_no', 'owner_user_id', 'owner_name', 'kod', 'nama', 'bangunan', 'bilik', 'kod_lokasi', 'jabatan', 'penyelaras', 'email_penyelaras', 'kapasiti', 'tempat_komputer', 'pengguna_sesi', 'catatan', 'status', 'status_note', 'status_changed_at', 'status_changed_by', 'state', 'created_at', 'updated_at', 'deleted_at'],
+    types: {'kapasiti': 'intOrNull', 'tempat_komputer': 'intOrNull', 'pengguna_sesi': 'intOrNull'}
   },
   PEGAWAI: {
     sheet: 'PEGAWAI', id: 'id', prefix: 'PG', module: 'pegawai',
