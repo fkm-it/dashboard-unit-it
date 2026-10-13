@@ -763,6 +763,9 @@
           <div class="im-scroll"><table class="xo-table" style="min-width:0"><thead><tr><th>Tahun</th><th class="num">Komputer</th><th class="num">Anggaran (RM)</th></tr></thead><tbody>${e.pelan.keperluan.map((k, i) => html`<tr><td>${k.tahun}${i === 0 ? ' (termasuk tertunggak)' : ''}</td><td class="num">${fmtNum(k.bil)}</td><td class="num">${rmx(k.kos)}</td></tr>`)}
             <tr><td><b>Jumlah</b></td><td class="num"><b>${fmtNum(e.pelan.jumlahDalamTempoh)}</b></td><td class="num"><b>${rmx(e.pelan.kosDalamTempoh)}</b></td></tr></tbody></table></div>
           <p class="lp-note">Purata peruntukan diperlukan ≈ RM ${rmx(e.pelan.bajetSetahunDiperlukan)} setahun (RM ${fmtNum(e.pelan.harga)} seunit, had umur ${e.pelan.umurGanti} tahun).</p>
+          ${e.keperluan && e.keperluan.jumlah.semua.makmal ? html`<h3 class="mt-6">3a. Permohonan keperluan ICT makmal ${e.keperluan.tahun}</h3>
+          ${KD.keperluanSummaryTable ? KD.keperluanSummaryTable(e.keperluan) : ''}
+          <p class="lp-note">Daripada borang Penilaian Keperluan ICT Makmal: penggantian (komputer tidak sesuai / rosak tidak ekonomi) dan penambahan (kapasiti baharu) dijumlah berasingan.</p>` : ''}
           <h3 class="mt-6">4. Kesihatan makmal komputer</h3>
           ${e.makmal.length ? healthTable(e.makmal, true) : html`<p class="small">Tiada makmal.</p>`}
           <h3 class="mt-6">5. Nilai aset ikut makmal / lokasi</h3>

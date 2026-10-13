@@ -31,7 +31,7 @@ const Migration = {
     { id: 'MODULE_TIKET_75AFC152', description: 'Modul Tiket: sheet TIKET & lajur', up: function () { return SheetManager.ensure('TIKET'); } },
     { id: 'MODULE_ASET_A2CE088D', description: 'Modul Aset IT: sheet ASET & lajur', up: function () { return SheetManager.ensure('ASET'); } },
     { id: 'MODULE_TINDAKAN_F54CF4D8', description: 'Modul Tindakan KEWPA: sheet TINDAKAN & lajur', up: function () { return SheetManager.ensure('TINDAKAN'); } },
-    { id: 'MODULE_KEPERLUAN_92029EE7', description: 'Modul Keperluan Komputer Makmal: sheet KEPERLUAN & lajur', up: function () { return SheetManager.ensure('KEPERLUAN'); } },
+    { id: 'MODULE_KEPERLUAN_522932E2', description: 'Modul Keperluan Komputer Makmal: sheet KEPERLUAN & lajur', up: function () { return SheetManager.ensure('KEPERLUAN'); } },
     { id: 'MODULE_MAKMAL_6C756663', description: 'Modul Makmal: sheet MAKMAL & lajur', up: function () { return SheetManager.ensure('MAKMAL'); } },
     { id: 'MODULE_PERISIAN_89847E0B', description: 'Modul Perisian & Lesen: sheet PERISIAN & lajur', up: function () { return SheetManager.ensure('PERISIAN'); } },
     { id: 'MODULE_STAF_E03295A9', description: 'Modul Staf Makmal: sheet STAF & lajur', up: function () { return SheetManager.ensure('STAF'); } },
@@ -58,6 +58,22 @@ const Migration = {
         if (String(SettingsService.get('LANDING_MESSAGE') || '').indexOf('Log masuk atau daftar') === 0) patch.LANDING_MESSAGE = 'Log masuk untuk mula menggunakan sistem.';
         SettingsRepository.setMany(patch, 'Migrasi');
         return { allowRegistration: false };
+      }
+    },
+    {
+      id: 'MIGRATION_006',
+      description: 'Keperluan makmal: jenis permohonan & kos penggantian/penambahan berasingan bagi rekod sedia ada',
+      up: function () {
+        const repo = CrudEngine.repo(CrudEngine.get('keperluan'));
+        const patch = {};
+        repo.all().forEach(function (r) {
+          if (r.state !== 'ACTIVE' || (r.jenis_permohonan && r.anggaran_kos_ganti !== '')) return;
+          const p = {};
+          KeperluanHooks.beforeSave(p, { mode: 'update', current: r });
+          patch[r.id] = { jenis_permohonan: p.jenis_permohonan || r.jenis_permohonan, bilangan_ganti: p.bilangan_ganti, bilangan_tambahan: p.bilangan_tambahan,
+            anggaran_kos_ganti: p.anggaran_kos_ganti, anggaran_kos_tambahan: p.anggaran_kos_tambahan, anggaran_kos: p.anggaran_kos };
+        });
+        return { updated: Object.keys(patch).length ? repo.updateMany(patch) : 0 };
       }
     },
   ],

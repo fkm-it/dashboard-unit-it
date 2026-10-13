@@ -4,7 +4,7 @@
  * Dalam Apps Script: runTestsPart5. Dalam Node: npm test.
  */
 const AppTests = {
-  suites: function () { return [TestSuiteDashboardIT, TestSuiteUtmfin, TestSuiteMaintenance, TestSuiteNilai, TestSuitePengurusan, TestSuiteKewpa, TestSuiteTrend, TestSuiteBanci, TestSuiteDataMakmal, TestSuitePrestasi, TestSuiteAkaun]; }
+  suites: function () { return [TestSuiteDashboardIT, TestSuiteUtmfin, TestSuiteMaintenance, TestSuiteNilai, TestSuitePengurusan, TestSuiteKewpa, TestSuiteTrend, TestSuiteBanci, TestSuiteDataMakmal, TestSuitePrestasi, TestSuiteAkaun, TestSuiteJenisPermohonan]; }
 };
 
 const AppFx = {
@@ -619,7 +619,7 @@ const BmFx = {
   pc: function (extra) {
     return api({ action: 'crud.publicCreate', payload: Object.assign({
       module: 'keperluan', formToken: SecurityUtils.signFormToken('crud:keperluan', Date.now() - 5000),
-      namaPemohon: 'Dr. Pemilik Contoh', noStaf: 'S1234', emailPemohon: 'pemilik' + (++AppFx.seq) + '@utm.my', peranan: 'PEMILIK',
+      namaPemohon: 'Dr. Pemilik Contoh', noStaf: 'S1234', emailPemohon: 'pemilik' + (++AppFx.seq) + '@utm.my', peranan: 'PEMILIK', jenisPermohonan: 'GANTI_TAMBAH',
       tahun: 2026, jumlahSediaAda: 20, berfungsi: 18, tidakSesuai: 3, rosakBolehBaiki: 1, rosakLupus: 1, sasaranJumlah: 25,
       keutamaan: 'TINGGI', hargaSeunit: 4000, justifikasi: 'Perisian simulasi terkini memerlukan komputer lebih berkuasa.'
     }, extra || {}) });
@@ -690,7 +690,7 @@ const TestSuiteBanci = {
     ['Makmal baharu: nama wajib jika tiada makmal, tiada pendua, didaftarkan & dipautkan apabila disahkan', function (t) {
       AppFx.real();
       const a = TestHelpers.admin(ROLES.ADMIN);
-      const base = { jumlahSediaAda: 0, berfungsi: 0, tidakSesuai: 0, rosakBolehBaiki: 0, rosakLupus: 0, sasaranJumlah: 30 };
+      const base = { jumlahSediaAda: 0, berfungsi: 0, tidakSesuai: 0, rosakBolehBaiki: 0, rosakLupus: 0, sasaranJumlah: 30, jenisPermohonan: 'TAMBAH' };
       TestAssert.apiFail(BmFx.pc(base), ERROR_CODES.VALIDATION_ERROR, 'tiada makmal & tiada nama');
       const res = TestAssert.apiOk(BmFx.pc(Object.assign({ namaMakmalBaru: 'Makmal Fabrikasi Digital', bangunanMakmalBaru: 'C25', bilikMakmalBaru: '02.110', jabatanMakmalBaru: 'Pembuatan' }, base)));
       const r = BmFx.row(res.refNo);
@@ -893,6 +893,48 @@ const TestSuiteAkaun = {
       SettingsRepository.setMany({ ALLOW_REGISTRATION: 'FALSE' }, 'TEST');
       TestAssert.apiFail(api({ action: 'auth.register', payload: { fullName: 'Daftar Sendiri', email: 'self' + em, password: 'Rahsia123' } }), ERROR_CODES.FORBIDDEN);
       SettingsRepository.setMany({ ALLOW_REGISTRATION: 'TRUE' }, 'TEST');
+    }]
+  ]
+};
+
+const TestSuiteJenisPermohonan = {
+  name: 'Jenis permohonan (penggantian / penambahan berasingan)',
+  tests: [
+    ['Kiraan ikut jenis; validasi selaras; jenis wajib di borang awam; rumusan fakulti tidak mencampurkan ganti & tambahan', function (t) {
+      AppFx.real();
+      const a = TestHelpers.admin(ROLES.ADMIN);
+      const base = { berfungsi: 18, tidakSesuai: 3, rosakBaiki: 1, rosakLupus: 1, sasaran: 25, harga: 4000 };
+      const c = function (j) { return KeperluanHooks.compute(Object.assign({ jenis: j }, base)); };
+      t.eq(c('GANTI').ganti, 4); t.eq(c('GANTI').tambahan, 0); t.eq(c('GANTI').kosGanti, 16000);
+      t.eq(c('TAMBAH').ganti, 0); t.eq(c('TAMBAH').tambahan, 5); t.eq(c('TAMBAH').kosTambahan, 20000);
+      t.eq(c('GANTI_TAMBAH').kos, 36000); t.eq(c('TIADA').kos, 0);
+      t.eq(KeperluanHooks.deriveJenis(Object.assign({}, base, { sasaran: 0 })), 'GANTI');
+      t.eq(KeperluanHooks.deriveJenis(Object.assign({}, base, { tidakSesuai: 0, rosakLupus: 0, berfungsi: 19 })), 'TAMBAH');
+      const yr = 2040;
+      const L = function (k) { return AppFx.lab(a, k + '-' + AppFx.seq); };
+      TestAssert.apiFail(BmFx.pc({ makmal: L('JP').id, tahun: yr, jenisPermohonan: '' }), ERROR_CODES.VALIDATION_ERROR, 'jenis wajib');
+      TestAssert.apiFail(BmFx.pc({ makmal: L('JP').id, tahun: yr, jenisPermohonan: 'GANTI', tidakSesuai: 0, rosakLupus: 0, berfungsi: 19 }), ERROR_CODES.VALIDATION_ERROR, 'ganti tanpa komputer untuk diganti');
+      TestAssert.apiFail(BmFx.pc({ makmal: L('JP').id, tahun: yr, jenisPermohonan: 'TAMBAH', sasaranJumlah: 20 }), ERROR_CODES.VALIDATION_ERROR, 'tambah tanpa kapasiti');
+      TestAssert.apiFail(BmFx.pc({ makmal: L('JP').id, tahun: yr, jenisPermohonan: 'TAMBAH', sasaranJumlah: '' }), ERROR_CODES.VALIDATION_ERROR, 'sasaran wajib untuk tambah');
+      const g = BmFx.row(TestAssert.apiOk(BmFx.pc({ makmal: L('JP').id, tahun: yr, jenisPermohonan: 'GANTI', sasaranJumlah: '' })).refNo);
+      t.eq(Number(g.bilangan_ganti), 4); t.eq(Number(g.bilangan_tambahan), 0); t.eq(Number(g.sasaran_jumlah), 20, 'sasaran = sedia ada');
+      const tb = BmFx.row(TestAssert.apiOk(BmFx.pc({ makmal: L('JP').id, tahun: yr, jenisPermohonan: 'TAMBAH' })).refNo);
+      t.eq(Number(tb.bilangan_ganti), 0); t.eq(Number(tb.bilangan_tambahan), 5); t.eq(Number(tb.anggaran_kos_tambahan), 20000);
+      TestAssert.apiOk(BmFx.pc({ makmal: L('JP').id, tahun: yr, jenisPermohonan: 'GANTI_TAMBAH' }));
+      TestAssert.apiOk(BmFx.pc({ makmal: L('JP').id, tahun: yr, jenisPermohonan: 'TIADA', sasaranJumlah: '' }));
+      TestAssert.apiOk(TestHelpers.call(a.token, 'crud.setStatus', { module: 'keperluan', id: tb.id, status: 'DISAHKAN' }));
+      const r = TestAssert.apiOk(TestHelpers.call(a.token, 'keperluan.rumusan', { tahun: yr }));
+      t.eq(r.jumlah.semua.makmal, 4); t.eq(r.jumlah.semua.ganti, 8); t.eq(r.jumlah.semua.tambahan, 10);
+      t.eq(r.jumlah.semua.kosGanti, 32000); t.eq(r.jumlah.semua.kosTambahan, 40000);
+      t.eq(r.jumlah.disahkan.tambahan, 5); t.eq(r.jumlah.disahkan.ganti, 0);
+      const by = {}; r.ikutJenis.forEach(function (x) { by[x.jenis] = x; });
+      t.eq(by.GANTI.makmal, 1); t.eq(by.TAMBAH.makmal, 1); t.eq(by.GANTI_TAMBAH.makmal, 1); t.eq(by.TIADA.makmal, 1);
+      /* Kemas kini melalui link tanpa jenis → kekal jenis asal */
+      const res = TestAssert.apiOk(BmFx.pc({ makmal: L('JP').id, tahun: yr + 1, jenisPermohonan: 'GANTI' }));
+      const tok = KeperluanHooks.lastToken_;
+      const u = TestAssert.apiOk(api({ action: 'keperluan.awamKemaskini', payload: { t: tok, namaPemohon: 'Dr. Pemilik Contoh', noStaf: 'S1234', peranan: 'PEMILIK', jumlahSediaAda: 20, berfungsi: 18, tidakSesuai: 5, rosakBolehBaiki: 1, rosakLupus: 1, keutamaan: 'TINGGI', justifikasi: 'Kemas kini bilangan tidak sesuai selepas semakan.' } }));
+      t.eq(u.computed.jenis, 'GANTI'); t.eq(u.computed.ganti, 6); t.eq(u.computed.tambahan, 0);
+      t.ok(res.refNo);
     }]
   ]
 };

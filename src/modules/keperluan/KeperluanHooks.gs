@@ -33,22 +33,41 @@ const KeperluanHooks = {
       rosakBaiki: pick('rosakBolehBaiki', 'rosak_boleh_baiki'),
       rosakLupus: pick('rosakLupus', 'rosak_lupus'),
       sasaran: pick('sasaranJumlah', 'sasaran_jumlah'),
-      harga: pick('hargaSeunit', 'harga_seunit')
+      harga: pick('hargaSeunit', 'harga_seunit'),
+      jenis: String((data.jenisPermohonan !== undefined && data.jenisPermohonan !== '' ? data.jenisPermohonan : c.jenis_permohonan) || ''),
+      adaSasaran: (data.sasaranJumlah !== undefined && data.sasaranJumlah !== null && data.sasaranJumlah !== '') || (c.sasaran_jumlah !== undefined && c.sasaran_jumlah !== null && c.sasaran_jumlah !== '')
     };
   },
 
   /** Kiraan tulen (diuji terus). */
+  /**
+   * Kiraan tulen (diuji terus). n.jenis: GANTI | TAMBAH | GANTI_TAMBAH | TIADA (kosong = GANTI_TAMBAH, rekod lama).
+   * Penggantian dan penambahan dikira berasingan supaya rumusan fakulti tidak mencampurkan kedua-duanya.
+   */
   compute: function (n) {
+    const jenis = n.jenis || 'GANTI_TAMBAH';
     const kekal = n.berfungsi - n.tidakSesuai + n.rosakBaiki;
-    const ganti = n.tidakSesuai + n.rosakLupus;
-    const tambahan = Math.max(0, n.sasaran - kekal - ganti);
-    const kos = Math.round((ganti + tambahan) * (n.harga || 0) * 100) / 100;
-    return { kekal: kekal, ganti: ganti, tambahan: tambahan, kos: kos };
+    const gantiCalon = n.tidakSesuai + n.rosakLupus;
+    const tambahCalon = Math.max(0, n.sasaran - kekal - gantiCalon);
+    const ganti = jenis === 'GANTI' || jenis === 'GANTI_TAMBAH' ? gantiCalon : 0;
+    const tambahan = jenis === 'TAMBAH' || jenis === 'GANTI_TAMBAH' ? tambahCalon : 0;
+    const r2 = function (x) { return Math.round(x * 100) / 100; };
+    const kosGanti = r2(ganti * (n.harga || 0));
+    const kosTambahan = r2(tambahan * (n.harga || 0));
+    return { jenis: jenis, kekal: kekal, gantiCalon: gantiCalon, tambahCalon: tambahCalon, ganti: ganti, tambahan: tambahan, kosGanti: kosGanti, kosTambahan: kosTambahan, kos: r2(kosGanti + kosTambahan) };
   },
+
+  /** Jenis permohonan tidak dinyatakan (rekod lama / import) → ikut angka. */
+  deriveJenis: function (n) {
+    const c = KeperluanHooks.compute(Object.assign({}, n, { jenis: 'GANTI_TAMBAH' }));
+    return c.gantiCalon > 0 && c.tambahCalon > 0 ? 'GANTI_TAMBAH' : c.gantiCalon > 0 ? 'GANTI' : c.tambahCalon > 0 ? 'TAMBAH' : 'TIADA';
+  },
+
+  JENIS_LABEL: { GANTI: 'Penggantian sahaja', TAMBAH: 'Penambahan sahaja', GANTI_TAMBAH: 'Penggantian dan penambahan', TIADA: 'Tiada permohonan' },
 
   EDITABLE: ['DIHANTAR', 'DIKEMBALIKAN'],
   /** Wajib dalam borang awam (pengguna log masuk / admin dikenali melalui akaun). */
-  PUBLIC_REQUIRED: ['namaPemohon', 'noStaf', 'emailPemohon', 'peranan'],
+  PUBLIC_REQUIRED: ['namaPemohon', 'noStaf', 'emailPemohon', 'peranan', 'jenisPermohonan'],
   LINK_DAYS: 180,
   ROUTE: '#/banci-makmal',
 
@@ -57,8 +76,43 @@ const KeperluanHooks = {
     'keperluan.awamKemaskini': { role: 'PUBLIC', fn: function (payload) { return KeperluanHooks.publicUpdate(payload || {}); } },
     'keperluan.awamPautan': { role: 'PUBLIC', fn: function (payload) { return KeperluanHooks.resendLink(payload || {}); } },
     'keperluan.pautanBorang': { role: 'ADMIN', fn: function () { return { url: PushService.baseUrl() + KeperluanHooks.ROUTE, path: KeperluanHooks.ROUTE }; } },
+    'keperluan.rumusan': { role: 'PENGURUSAN', fn: function (payload) { return AsetCache.get('keperluan.rumusan', payload, function () { return KeperluanHooks.summary(payload || {}); }); } },
     'keperluan.statusBanci': { role: 'ADMIN', fn: function (payload) { return KeperluanHooks.censusStatus(payload || {}); } },
     'keperluan.emelBanci': { role: 'ADMIN', fn: function (payload, ctx) { return KeperluanHooks.emailCensus(payload || {}, ctx); } }
+  },
+
+  // ---------------------------------------------------------------- Rumusan keperluan fakulti
+
+  /**
+   * Rumusan seluruh fakulti bagi satu tahun: penggantian dan penambahan dijumlah BERASINGAN.
+   * Rekod Ditolak tidak dikira. `disahkan` = hanya rekod Disahkan Unit IT.
+   */
+  summary: function (payload) {
+    const tahun = KeperluanHooks.year_(payload);
+    const rows = KeperluanHooks.repo_().all().filter(function (r) { return r.state === 'ACTIVE' && Number(r.tahun) === tahun && r.status !== 'DITOLAK'; });
+    const blank = function () { return { makmal: 0, ganti: 0, tambahan: 0, kosGanti: 0, kosTambahan: 0 }; };
+    const tot = { semua: blank(), disahkan: blank() };
+    const byJenis = {};
+    Object.keys(KeperluanHooks.JENIS_LABEL).forEach(function (k) { byJenis[k] = { jenis: k, label: KeperluanHooks.JENIS_LABEL[k], makmal: 0, ganti: 0, tambahan: 0, kos: 0 }; });
+    const r2 = function (x) { return Math.round(x * 100) / 100; };
+    const items = rows.map(function (r) {
+      const j = r.jenis_permohonan || 'GANTI_TAMBAH';
+      const g = Number(r.bilangan_ganti) || 0, t = Number(r.bilangan_tambahan) || 0;
+      const kg = Number(r.anggaran_kos_ganti) || 0, kt = Number(r.anggaran_kos_tambahan) || 0;
+      [tot.semua].concat(r.status === 'DISAHKAN' ? [tot.disahkan] : []).forEach(function (b) {
+        b.makmal++; b.ganti += g; b.tambahan += t; b.kosGanti += kg; b.kosTambahan += kt;
+      });
+      const bj = byJenis[j] || byJenis.GANTI_TAMBAH;
+      bj.makmal++; bj.ganti += g; bj.tambahan += t; bj.kos += kg + kt;
+      return { id: r.id, refNo: r.ref_no, makmal: r.nama_makmal || '', jenis: j, jenisLabel: KeperluanHooks.JENIS_LABEL[j] || j, ganti: g, tambahan: t,
+        kosGanti: r2(kg), kosTambahan: r2(kt), keutamaan: r.keutamaan, status: r.status };
+    }).sort(function (a, b) { return a.makmal < b.makmal ? -1 : 1; });
+    [tot.semua, tot.disahkan].forEach(function (b) { b.kosGanti = r2(b.kosGanti); b.kosTambahan = r2(b.kosTambahan); b.kos = r2(b.kosGanti + b.kosTambahan); });
+    return {
+      generatedAt: DateUtils.nowIso(), tahun: tahun, jumlah: tot,
+      ikutJenis: Object.keys(byJenis).map(function (k) { const b = byJenis[k]; b.kos = r2(b.kos); return b; }),
+      items: items
+    };
   },
 
   // ---------------------------------------------------------------- Jejak banci & hantar link kepada staf makmal
@@ -170,7 +224,7 @@ const KeperluanHooks = {
     if (info.mode === 'public') {
       const miss = {};
       KeperluanHooks.PUBLIC_REQUIRED.forEach(function (k) { if (!String(data[k] === undefined || data[k] === null ? '' : data[k]).trim()) miss[k] = 'Diperlukan.'; });
-      if (Object.keys(miss).length) throw Errors.validation('Lengkapkan maklumat pemohon.', miss);
+      if (Object.keys(miss).length) throw Errors.validation(miss.jenisPermohonan && Object.keys(miss).length === 1 ? 'Pilih jenis permohonan.' : 'Lengkapkan maklumat yang diperlukan.', miss);
     }
     if (info.mode === 'public' && data.emailPemohon && !KeperluanHooks.emailAllowed(data.emailPemohon)) {
       let cfg = 'utm.my';
@@ -189,6 +243,22 @@ const KeperluanHooks = {
     }
     if (n.tidakSesuai > n.berfungsi) {
       throw Errors.validation('Komputer tidak sesuai tidak boleh melebihi komputer berfungsi.', { tidakSesuai: 'Melebihi bilangan berfungsi.' });
+    }
+    /* Jenis permohonan mesti selaras dengan angka (rumusan fakulti tidak bercampur) */
+    const j = n.jenis || KeperluanHooks.deriveJenis(n);
+    const cc = KeperluanHooks.compute(Object.assign({}, n, { jenis: j }));
+    const wantTambah = j === 'TAMBAH' || j === 'GANTI_TAMBAH';
+    const wantGanti = j === 'GANTI' || j === 'GANTI_TAMBAH';
+    if (wantTambah && !n.adaSasaran) {
+      throw Errors.validation('Isi jumlah komputer diperlukan untuk permohonan penambahan.', { sasaranJumlah: 'Wajib untuk penambahan.' });
+    }
+    if (wantGanti && cc.gantiCalon < 1) {
+      throw Errors.validation('Permohonan penggantian memerlukan sekurang-kurangnya satu komputer "tidak lagi sesuai" atau "rosak tidak ekonomi". Pilih "Penambahan sahaja" atau "Tiada permohonan" jika tiada.',
+        { jenisPermohonan: 'Tiada komputer untuk diganti.', tidakSesuai: 'Isi bilangan yang perlu diganti.' });
+    }
+    if (wantTambah && cc.tambahCalon < 1) {
+      throw Errors.validation('Permohonan penambahan memerlukan jumlah diperlukan melebihi ' + (cc.kekal + cc.gantiCalon) + ' (komputer sedia ada yang dikekalkan dan diganti).',
+        { sasaranJumlah: 'Mesti melebihi ' + (cc.kekal + cc.gantiCalon) + '.', jenisPermohonan: 'Tiada penambahan dikira.' });
     }
     const tahun = String(data.tahun || cur.tahun || '');
     if (!tahun) return;
@@ -212,7 +282,18 @@ const KeperluanHooks = {
     const baru = row.nama_makmal_baru !== undefined ? row.nama_makmal_baru : cur.nama_makmal_baru;
     row.nama_makmal = lab ? (lab.kod ? lab.kod + ' · ' + lab.nama : lab.nama) : (baru ? baru + ' (makmal baharu)' : '');
     const merged = Object.assign({}, cur, row);
+    const num = function (c) { return Number(merged[c]) || 0; };
+    if (!merged.jenis_permohonan) {
+      row.jenis_permohonan = merged.jenis_permohonan = KeperluanHooks.deriveJenis({
+        berfungsi: num('berfungsi'), tidakSesuai: num('tidak_sesuai'), rosakBaiki: num('rosak_boleh_baiki'), rosakLupus: num('rosak_lupus'), sasaran: num('sasaran_jumlah'), harga: 0
+      });
+    }
+    /* Tiada penambahan → jumlah diperlukan = jumlah sedia ada (jika tidak diisi) */
+    if ((merged.sasaran_jumlah === '' || merged.sasaran_jumlah === null || merged.sasaran_jumlah === undefined) && merged.jenis_permohonan !== 'TAMBAH' && merged.jenis_permohonan !== 'GANTI_TAMBAH') {
+      row.sasaran_jumlah = merged.sasaran_jumlah = Number(merged.jumlah_sedia_ada) || 0;
+    }
     const c = KeperluanHooks.compute({
+      jenis: merged.jenis_permohonan,
       berfungsi: Number(merged.berfungsi) || 0,
       tidakSesuai: Number(merged.tidak_sesuai) || 0,
       rosakBaiki: Number(merged.rosak_boleh_baiki) || 0,
@@ -222,6 +303,8 @@ const KeperluanHooks = {
     });
     row.bilangan_ganti = c.ganti;
     row.bilangan_tambahan = c.tambahan;
+    row.anggaran_kos_ganti = c.kosGanti;
+    row.anggaran_kos_tambahan = c.kosTambahan;
     row.anggaran_kos = c.kos;
   },
 
@@ -331,7 +414,8 @@ const KeperluanHooks = {
     return {
       refNo: row.ref_no, status: row.status, statusLabel: CrudEngine.statusLabel(def, row.status), statusNote: row.status_note || '',
       catatanIt: row.catatan_it || '', canEdit: KeperluanHooks.EDITABLE.indexOf(row.status) >= 0, namaMakmal: row.nama_makmal,
-      values: values, computed: { ganti: Number(row.bilangan_ganti) || 0, tambahan: Number(row.bilangan_tambahan) || 0, kos: Number(row.anggaran_kos) || 0 },
+      values: values, computed: { ganti: Number(row.bilangan_ganti) || 0, tambahan: Number(row.bilangan_tambahan) || 0, kos: Number(row.anggaran_kos) || 0,
+        kosGanti: Number(row.anggaran_kos_ganti) || 0, kosTambahan: Number(row.anggaran_kos_tambahan) || 0, jenis: row.jenis_permohonan || 'GANTI_TAMBAH' },
       updatedAt: row.updated_at
     };
   },
@@ -344,7 +428,8 @@ const KeperluanHooks = {
     const ctx = { userId: '', role: ROLES.PUBLIC, user: null };
     /* Makmal, tahun & email pemohon dikunci; nilai lain dihantar penuh oleh borang */
     const src = Object.assign({}, payload, {
-      makmal: cur.makmal || '', tahun: Number(cur.tahun), emailPemohon: cur.email_pemohon, namaMakmalBaru: cur.makmal ? '' : cur.nama_makmal_baru
+      makmal: cur.makmal || '', tahun: Number(cur.tahun), emailPemohon: cur.email_pemohon, namaMakmalBaru: cur.makmal ? '' : cur.nama_makmal_baru,
+      jenisPermohonan: payload.jenisPermohonan || cur.jenis_permohonan || ''
     });
     delete src.t;
     const v = CrudEngine.validate(def, src, ctx, 'public');
@@ -383,7 +468,9 @@ const KeperluanHooks = {
   toDTO: function (dto, row) {
     dto.computed = {
       jumlahCadangan: (Number(row.bilangan_ganti) || 0) + (Number(row.bilangan_tambahan) || 0),
-      anggaranKos: Number(row.anggaran_kos) || 0
+      anggaranKos: Number(row.anggaran_kos) || 0,
+      ganti: Number(row.bilangan_ganti) || 0, tambahan: Number(row.bilangan_tambahan) || 0,
+      kosGanti: Number(row.anggaran_kos_ganti) || 0, kosTambahan: Number(row.anggaran_kos_tambahan) || 0
     };
     return dto;
   }

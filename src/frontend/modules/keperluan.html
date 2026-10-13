@@ -45,27 +45,38 @@
     { n: 1, title: 'Maklumat pemohon', note: 'Pemilik, ketua atau pengurus makmal.', keys: ['namaPemohon', 'noStaf', 'emailPemohon', 'peranan', 'telefonPemohon'] },
     { n: 2, title: 'Makmal', note: 'Satu borang bagi setiap makmal bagi setiap tahun.', keys: ['tahun', 'makmal', 'namaMakmalBaru', 'bangunanMakmalBaru', 'bilikMakmalBaru', 'jabatanMakmalBaru'] },
     { n: 3, title: 'Banci komputer sedia ada', note: 'Berfungsi + rosak (boleh dibaiki) + rosak (tidak ekonomi) mesti sama dengan jumlah sedia ada. Makmal baharu: isi 0.', keys: ['jumlahSediaAda', 'berfungsi', 'tidakSesuai', 'rosakBolehBaiki', 'rosakLupus'] },
-    { n: 4, title: 'Permohonan penggantian / tambahan', note: 'Bilangan penggantian, tambahan dan anggaran kos dikira automatik.', keys: ['sasaranJumlah', 'keutamaan', 'hargaSeunit', 'sumberHarga', 'spesifikasi', 'perisian', 'justifikasi'] }
+    { n: 4, title: 'Permohonan penggantian / penambahan', note: 'Pilih jenis permohonan. Bilangan penggantian, penambahan dan anggaran kos dikira automatik dan direkod berasingan.', keys: ['jenisPermohonan', 'sasaranJumlah', 'keutamaan', 'hargaSeunit', 'sumberHarga', 'spesifikasi', 'perisian', 'justifikasi'] }
   ];
   const NEW_KEYS = ['namaMakmalBaru', 'bangunanMakmalBaru', 'bilikMakmalBaru', 'jabatanMakmalBaru'];
-  const PUB_REQ = ['namaPemohon', 'noStaf', 'emailPemohon', 'peranan'];
+  const PUB_REQ = ['namaPemohon', 'noStaf', 'emailPemohon', 'peranan', 'jenisPermohonan'];
 
   const num = (form, k) => { const e = form.elements[k]; const n = Number(e && e.value); return isFinite(n) ? n : 0; };
 
+  const JENIS = { GANTI: 'Penggantian sahaja', TAMBAH: 'Penambahan sahaja', GANTI_TAMBAH: 'Penggantian dan penambahan', TIADA: 'Tiada permohonan' };
+  const jenisOf = (form) => (form.elements.jenisPermohonan && form.elements.jenisPermohonan.value) || '';
+
   function compute(form) {
     const n = { sedia: num(form, 'jumlahSediaAda'), berfungsi: num(form, 'berfungsi'), tidakSesuai: num(form, 'tidakSesuai'), baiki: num(form, 'rosakBolehBaiki'), lupus: num(form, 'rosakLupus'), sasaran: num(form, 'sasaranJumlah'), harga: num(form, 'hargaSeunit') };
+    const j = jenisOf(form);
     const kekal = n.berfungsi - n.tidakSesuai + n.baiki;
-    const ganti = n.tidakSesuai + n.lupus;
-    const tambahan = Math.max(0, n.sasaran - kekal - ganti);
-    return { n, kekal, ganti, tambahan, kos: (ganti + tambahan) * n.harga, sumOk: n.berfungsi + n.baiki + n.lupus === n.sedia, sesuaiOk: n.tidakSesuai <= n.berfungsi };
+    const gantiCalon = n.tidakSesuai + n.lupus;
+    const tambahCalon = Math.max(0, n.sasaran - kekal - gantiCalon);
+    const ganti = j === 'GANTI' || j === 'GANTI_TAMBAH' ? gantiCalon : 0;
+    const tambahan = j === 'TAMBAH' || j === 'GANTI_TAMBAH' ? tambahCalon : 0;
+    return { n, j, kekal, gantiCalon, tambahCalon, ganti, tambahan, kosGanti: ganti * n.harga, kosTambahan: tambahan * n.harga, sumOk: n.berfungsi + n.baiki + n.lupus === n.sedia, sesuaiOk: n.tidakSesuai <= n.berfungsi };
   }
 
   function calcBox(c) {
+    const warn = [];
+    if ((c.j === 'GANTI' || c.j === 'GANTI_TAMBAH') && c.gantiCalon < 1) warn.push('Tiada komputer untuk diganti — isi bilangan "tidak lagi sesuai" atau "rosak tidak ekonomi", atau pilih jenis lain.');
+    if ((c.j === 'TAMBAH' || c.j === 'GANTI_TAMBAH') && c.tambahCalon < 1) warn.push('Untuk penambahan, jumlah diperlukan mesti melebihi ' + fmtNum(c.kekal + c.gantiCalon) + '.');
     return html`<div class="bm-calc" aria-live="polite">
       <div><span class="xs muted">Dikekalkan</span><b>${fmtNum(Math.max(0, c.kekal))}</b></div>
-      <div><span class="xs muted">Penggantian</span><b>${fmtNum(c.ganti)}</b></div>
-      <div><span class="xs muted">Tambahan</span><b>${fmtNum(c.tambahan)}</b></div>
-      <div><span class="xs muted">Anggaran kos</span><b>${c.n.harga ? rm(c.kos) : '—'}</b></div></div>
+      <div><span class="xs muted">Penggantian</span><b>${fmtNum(c.ganti)}</b>${c.n.harga && c.ganti ? html`<span class="xs muted">${rm(c.kosGanti)}</span>` : ''}</div>
+      <div><span class="xs muted">Penambahan</span><b>${fmtNum(c.tambahan)}</b>${c.n.harga && c.tambahan ? html`<span class="xs muted">${rm(c.kosTambahan)}</span>` : ''}</div>
+      <div><span class="xs muted">Jumlah anggaran kos</span><b>${c.n.harga ? rm(c.kosGanti + c.kosTambahan) : '—'}</b></div></div>
+      ${!c.j ? html`<p class="small muted mt-2">Pilih jenis permohonan untuk melihat kiraan.</p>` : ''}
+      ${warn.map((w) => html`<p class="small bm-warn mt-2">${w}</p>`)}
       ${!c.sumOk ? html`<p class="small bm-warn mt-2">Berfungsi (${fmtNum(c.n.berfungsi)}) + rosak boleh dibaiki (${fmtNum(c.n.baiki)}) + rosak tidak ekonomi (${fmtNum(c.n.lupus)}) = ${fmtNum(c.n.berfungsi + c.n.baiki + c.n.lupus)}, tidak sama dengan jumlah sedia ada (${fmtNum(c.n.sedia)}).</p>` : ''}
       ${!c.sesuaiOk ? html`<p class="small bm-warn mt-2">"Tidak lagi sesuai" tidak boleh melebihi bilangan berfungsi.</p>` : ''}`;
   }
@@ -99,8 +110,15 @@
   }
 
   function bindCalc(form) {
-    const draw = () => { qs('[data-calc]', form).innerHTML = calcBox(compute(form)).s; };
+    const sas = form.elements.sasaranJumlah && form.elements.sasaranJumlah.closest('.field');
+    const draw = () => {
+      const c = compute(form);
+      qs('[data-calc]', form).innerHTML = calcBox(c).s;
+      /* Jumlah diperlukan hanya relevan untuk penambahan */
+      if (sas) sas.style.display = c.j === 'TAMBAH' || c.j === 'GANTI_TAMBAH' ? '' : 'none';
+    };
     on(form, 'input', 'input', draw);
+    on(form, 'change', 'select', draw);
     draw();
     const sel = form.elements.makmal;
     if (sel && sel.tagName === 'SELECT') {
@@ -190,8 +208,9 @@
       shell(el, html`<div class="bm-card"><div class="bm-head">${icon('briefcase', 'i-lg')}<h1>Borang ${d.refNo}</h1><p class="muted">${d.namaMakmal} · tahun ${v.tahun}</p></div>${statusBox}
         <section class="bm-sec"><dl class="bm-ro">
           <div><dt>Jumlah sedia ada</dt><dd>${fmtNum(v.jumlahSediaAda)}</dd></div><div><dt>Jumlah diperlukan</dt><dd>${fmtNum(v.sasaranJumlah)}</dd></div>
-          <div><dt>Penggantian</dt><dd>${fmtNum(d.computed.ganti)}</dd></div><div><dt>Tambahan</dt><dd>${fmtNum(d.computed.tambahan)}</dd></div>
-          <div><dt>Anggaran kos</dt><dd>${rm(d.computed.kos)}</dd></div></dl>
+          <div><dt>Jenis permohonan</dt><dd>${JENIS[d.computed.jenis] || '—'}</dd></div><div></div>
+          <div><dt>Penggantian</dt><dd>${fmtNum(d.computed.ganti)} · ${rm(d.computed.kosGanti)}</dd></div><div><dt>Penambahan</dt><dd>${fmtNum(d.computed.tambahan)} · ${rm(d.computed.kosTambahan)}</dd></div>
+          <div><dt>Jumlah anggaran kos</dt><dd>${rm(d.computed.kos)}</dd></div></dl>
           <p class="small muted mt-4">Borang ini telah diproses dan tidak boleh dikemas kini lagi. Hubungi Unit IT FKM untuk sebarang pindaan.</p></section></div>`);
       return;
     }
@@ -217,9 +236,10 @@
 
   /* Admin: kongsi link borang dari senarai Keperluan Makmal */
   KD.listActions.keperluan = {
-    render: () => html`<button class="btn btn-outline" data-list-act="banci">${icon('users')}Status banci & hantar link</button><button class="btn btn-outline" data-list-act="kongsi">${icon('share')}Kongsi link borang</button>`,
+    render: () => html`<button class="btn btn-outline" data-list-act="rumusan">${icon('chart')}Rumusan fakulti</button><button class="btn btn-outline" data-list-act="banci">${icon('users')}Status banci & hantar link</button><button class="btn btn-outline" data-list-act="kongsi">${icon('share')}Kongsi link borang</button>`,
     run: async (act, b) => {
       if (act === 'banci') return censusModal(b);
+      if (act === 'rumusan') return summaryModal(b);
       let url = '';
       try { url = (await KD.api.call('keperluan.pautanBorang', {})).url; } catch (err) { toastError(err); return; }
       if (!/^https?:/.test(url)) url = location.href.split('#')[0] + '#/banci-makmal';
@@ -237,6 +257,38 @@
       });
     }
   };
+
+  /* Rumusan keperluan seluruh fakulti — penggantian & penambahan berasingan */
+  function summaryTable(r) {
+    const s = r.jumlah.semua, d = r.jumlah.disahkan;
+    return html`<div class="im-scroll"><table class="xo-table" style="min-width:0"><thead><tr><th></th><th class="num">Makmal</th><th class="num">Penggantian</th><th class="num">Kos ganti</th><th class="num">Penambahan</th><th class="num">Kos tambah</th><th class="num">Jumlah kos</th></tr></thead><tbody>
+      <tr><td>Semua permohonan</td><td class="num">${fmtNum(s.makmal)}</td><td class="num"><b>${fmtNum(s.ganti)}</b></td><td class="num">${rm(s.kosGanti)}</td><td class="num"><b>${fmtNum(s.tambahan)}</b></td><td class="num">${rm(s.kosTambahan)}</td><td class="num">${rm(s.kos)}</td></tr>
+      <tr><td>Disahkan Unit IT</td><td class="num">${fmtNum(d.makmal)}</td><td class="num">${fmtNum(d.ganti)}</td><td class="num">${rm(d.kosGanti)}</td><td class="num">${fmtNum(d.tambahan)}</td><td class="num">${rm(d.kosTambahan)}</td><td class="num">${rm(d.kos)}</td></tr></tbody></table></div>`;
+  }
+
+  async function summaryModal(btn) {
+    let r;
+    try { r = await busy(btn, () => KD.api.call('keperluan.rumusan', {})); } catch (err) { toastError(err); return; }
+    if (!r) return;
+    const md = modal({
+      title: 'Rumusan keperluan ICT makmal ' + r.tahun,
+      body: html`${summaryTable(r)}
+        <div class="label mt-4">Ikut jenis permohonan</div>
+        <div class="im-scroll mt-2"><table class="xo-table" style="min-width:0"><thead><tr><th>Jenis</th><th class="num">Makmal</th><th class="num">Ganti</th><th class="num">Tambah</th></tr></thead>
+        <tbody>${r.ikutJenis.map((j) => html`<tr><td>${j.label}</td><td class="num">${fmtNum(j.makmal)}</td><td class="num">${fmtNum(j.ganti)}</td><td class="num">${fmtNum(j.tambahan)}</td></tr>`)}</tbody></table></div>
+        <div class="label mt-4">Ikut makmal</div>
+        <div class="im-scroll mt-2" style="max-height:38vh;overflow:auto"><table class="xo-table" style="min-width:560px"><thead><tr><th>Makmal</th><th>Jenis</th><th class="num">Ganti</th><th class="num">Tambah</th><th class="num">Kos (RM)</th></tr></thead>
+        <tbody>${r.items.map((i) => html`<tr><td>${i.makmal}<div class="xs muted">${i.refNo}</div></td><td class="small">${i.jenisLabel}</td><td class="num">${fmtNum(i.ganti)}</td><td class="num">${fmtNum(i.tambahan)}</td><td class="num">${fmtNum(i.kosGanti + i.kosTambahan)}</td></tr>`)}</tbody></table></div>
+        <p class="xs muted mt-2">Permohonan Ditolak tidak dikira. Kos ikut anggaran harga seunit yang diisi pemohon.</p>`,
+      foot: html`<button class="btn btn-outline" data-csv>${icon('download')}Eksport CSV</button><button class="btn btn-ghost" data-close>Tutup</button>`
+    });
+    on(md.el, 'click', '[data-csv]', () => {
+      const rows = [['No. rujukan', 'Makmal', 'Jenis permohonan', 'Penggantian', 'Kos penggantian (RM)', 'Penambahan', 'Kos penambahan (RM)', 'Keutamaan', 'Status']]
+        .concat(r.items.map((i) => [i.refNo, i.makmal, i.jenisLabel, i.ganti, i.kosGanti, i.tambahan, i.kosTambahan, i.keutamaan, i.status]));
+      KD.utils.downloadText(KD.utils.toCsv(rows), 'text/csv', 'rumusan-keperluan-ict-makmal-' + r.tahun + '.csv');
+    });
+  }
+  KD.keperluanSummaryTable = summaryTable;
 
   /* Admin: status banci tahun semasa bagi setiap makmal + emel link kepada staf makmal yang belum hantar */
   async function censusModal(btn) {

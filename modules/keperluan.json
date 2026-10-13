@@ -210,13 +210,39 @@
       "hint": "Dicadang untuk diganti."
     },
     {
+      "key": "jenisPermohonan",
+      "label": "Jenis permohonan",
+      "type": "enum",
+      "list": true,
+      "filter": true,
+      "options": [
+        {
+          "value": "GANTI",
+          "label": "Penggantian sahaja"
+        },
+        {
+          "value": "TAMBAH",
+          "label": "Penambahan sahaja"
+        },
+        {
+          "value": "GANTI_TAMBAH",
+          "label": "Penggantian dan penambahan"
+        },
+        {
+          "value": "TIADA",
+          "label": "Tiada permohonan (banci sahaja)"
+        }
+      ],
+      "hint": "Penggantian = ganti komputer tidak sesuai / rosak tidak ekonomi. Penambahan = komputer baharu untuk menambah kapasiti."
+    },
+    {
       "key": "sasaranJumlah",
       "label": "Jumlah komputer diperlukan",
       "type": "int",
-      "required": true,
+      "required": false,
       "min": 0,
       "max": 1000,
-      "hint": "Jumlah komputer sesuai yang perlu ada di makmal ini."
+      "hint": "Jumlah komputer sesuai yang perlu ada di makmal ini. Wajib untuk permohonan penambahan."
     },
     {
       "key": "bilanganGanti",
@@ -299,6 +325,20 @@
       "key": "anggaranKos",
       "label": "Anggaran kos (RM, dikira)",
       "type": "number",
+      "readonly": true
+    },
+    {
+      "key": "anggaranKosGanti",
+      "label": "Anggaran kos penggantian (RM, dikira)",
+      "type": "number",
+      "decimals": 2,
+      "readonly": true
+    },
+    {
+      "key": "anggaranKosTambahan",
+      "label": "Anggaran kos penambahan (RM, dikira)",
+      "type": "number",
+      "decimals": 2,
       "readonly": true
     },
     {

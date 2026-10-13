@@ -392,6 +392,7 @@ const AsetHooks = {
       nilaiIkutMakmal: v.byMakmal.slice(0, 12), nilaiIkutTahun: v.byTahun,
       pelan: { tahun: p.tahun, keperluan: p.keperluan, harga: p.harga, umurGanti: p.umurGanti, bajetSetahunDiperlukan: p.bajetSetahunDiperlukan, kosDalamTempoh: p.kosDalamTempoh, jumlahDalamTempoh: p.jumlahDalamTempoh },
       makmal: h.items, pengesahan: o.assets.byPengesahan, isu: isu, tindakan: tindakan,
+      keperluan: (function () { try { return KeperluanHooks.summary({}); } catch (e) { return null; } })(),
       kaedah: { susut: v.config, ganti: g.config }
     };
     if (!payload || !payload.skipTrend) {

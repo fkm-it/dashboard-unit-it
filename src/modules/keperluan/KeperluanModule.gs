@@ -232,13 +232,40 @@ const KeperluanModule = Object.freeze(Object.assign(
         "column": "rosak_lupus"
       },
       {
+        "key": "jenisPermohonan",
+        "label": "Jenis permohonan",
+        "type": "enum",
+        "list": true,
+        "filter": true,
+        "options": [
+          {
+            "value": "GANTI",
+            "label": "Penggantian sahaja"
+          },
+          {
+            "value": "TAMBAH",
+            "label": "Penambahan sahaja"
+          },
+          {
+            "value": "GANTI_TAMBAH",
+            "label": "Penggantian dan penambahan"
+          },
+          {
+            "value": "TIADA",
+            "label": "Tiada permohonan (banci sahaja)"
+          }
+        ],
+        "hint": "Penggantian = ganti komputer tidak sesuai / rosak tidak ekonomi. Penambahan = komputer baharu untuk menambah kapasiti.",
+        "column": "jenis_permohonan"
+      },
+      {
         "key": "sasaranJumlah",
         "label": "Jumlah komputer diperlukan",
         "type": "int",
-        "required": true,
+        "required": false,
         "min": 0,
         "max": 1000,
-        "hint": "Jumlah komputer sesuai yang perlu ada di makmal ini.",
+        "hint": "Jumlah komputer sesuai yang perlu ada di makmal ini. Wajib untuk permohonan penambahan.",
         "column": "sasaran_jumlah"
       },
       {
@@ -332,6 +359,22 @@ const KeperluanModule = Object.freeze(Object.assign(
         "type": "number",
         "readonly": true,
         "column": "anggaran_kos"
+      },
+      {
+        "key": "anggaranKosGanti",
+        "label": "Anggaran kos penggantian (RM, dikira)",
+        "type": "number",
+        "decimals": 2,
+        "readonly": true,
+        "column": "anggaran_kos_ganti"
+      },
+      {
+        "key": "anggaranKosTambahan",
+        "label": "Anggaran kos penambahan (RM, dikira)",
+        "type": "number",
+        "decimals": 2,
+        "readonly": true,
+        "column": "anggaran_kos_tambahan"
       },
       {
         "key": "lampiran",

@@ -1,5 +1,18 @@
 # CHANGELOG
 
+## 1.10.0 — 2026-10-13 · Jenis permohonan: penggantian / penambahan berasingan
+### Ditambah
+- Borang Penilaian Keperluan ICT Makmal kini ada medan **Jenis permohonan** dengan empat pilihan: *Penggantian sahaja*, *Penambahan sahaja*, *Penggantian dan penambahan*, *Tiada permohonan (banci sahaja)*. Medan ini wajib dalam borang awam.
+  - Kiraan dan kos penggantian serta penambahan direkod **berasingan** (`anggaranKosGanti`, `anggaranKosTambahan`).
+  - Medan *Jumlah komputer diperlukan* hanya dipaparkan untuk permohonan penambahan.
+  - Validasi memastikan jenis permohonan selaras dengan angka. Contohnya, *Penggantian* mesti ada komputer yang tidak sesuai atau rosak tidak ekonomi, dan *Penambahan* mesti melebihi kapasiti sedia ada.
+- **Rumusan fakulti** (Keperluan Makmal → *Rumusan fakulti*, juga laluan `keperluan.rumusan` untuk Pengurusan):
+  - Jumlah penggantian dan penambahan dipaparkan berasingan, termasuk kos.
+  - Rumusan untuk semua permohonan dan untuk yang telah disahkan Unit IT dipaparkan berasingan.
+  - Pecahan ikut jenis permohonan dan ikut makmal, serta eksport CSV.
+- **Laporan Eksekutif** kini ada seksyen permohonan keperluan ICT makmal.
+- Rekod sedia ada diberi jenis permohonan secara automatik berdasarkan angka (`MIGRATION_006`).
+
 ## 1.9.0 — 2026-10-13 · Akaun oleh pentadbir & halaman utama ringkas
 ### Diubah
 - **Halaman utama**: kad borang awam (aduan dan penilaian makmal) serta borang maklum balas kini disembunyikan. Boleh dipaparkan semula melalui Tetapan `LANDING_SHOW_FORMS` dan `LANDING_SHOW_FEEDBACK`. Link borang yang dikongsi tetap berfungsi.
