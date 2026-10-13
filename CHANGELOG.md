@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 1.3.0 — 2026-10-13 · Fasa 2a: nilai aset, susut nilai & cadangan penggantian
+### Ditambah
+- **Laporan aset** (`/admin/laporan-aset`) dengan 3 tab, tapisan makmal/kategori/jenis, eksport CSV dan Cetak/PDF:
+  - **Nilai aset & susut nilai** — nilai perolehan, nilai buku semasa, susut terkumpul (garis lurus), aset susut sepenuhnya; pecahan ikut makmal, tahun, kategori dan jenis.
+  - **Cadangan penggantian** — skor ikut kriteria (umur, status, ditanda Ganti, RAM, kekerapan aduan ikut no. aset, nilai buku habis) → *Ganti segera / Ganti tahun depan / Pantau*, dengan anggaran kos dan ringkasan ikut makmal.
+  - **Percanggahan lokasi** — senarai aset yang lokasi fizikal ≠ ID_LOKASI UTMFin, untuk kemas kini pergerakan aset KEWPA.
+- Tetapan baharu: `SUSUT_HAYAT_TAHUN` (5), `SUSUT_NILAI_SISA` (RM0), `GANTI_UMUR_TAHUN` (7), `GANTI_RAM_MIN_GB` (8), `GANTI_ADUAN_MIN` (3), `GANTI_HARGA_LALAI` (RM4,500).
+- Executive Overview: kad nilai perolehan, susut terkumpul, cadangan ganti segera & anggaran kos.
+- Butiran aset: panel *Nilai & susut nilai* (hook generik `KD.detailSide[<modul>]`).
+
 ## 1.2.0 — 2026-10-13 · Senarai penyelenggaraan PC makmal
 ### Ditambah
 - **Import senarai penyelenggaraan makmal** (lajur BARKOD, LOKASI MAKMAL, NAMA ALAT, STATUS ALAT Baik/Penyelenggaraan, JENIS ASET, KEWPA, SOP, PIC MAKMAL, jadual penyelenggaraan). Rekod sedia ada dikemas kini ikut barcode — tiada pendua; medan UTMFin (kod lokasi, penjaga, status pengesahan) dikekalkan.

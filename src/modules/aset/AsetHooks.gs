@@ -28,6 +28,8 @@ const AsetHooks = {
   },
 
   toDTO: function (dto, row) {
+    const dep = AsetHooks.depreciation(row, new Date());
+    if (dep && dep.kos > 0) dto.susutNilai = dep;
     const y = Number(row.tahun_perolehan);
     dto.umurTahun = y ? Math.max(0, Number(DateUtils.format(new Date(), 'yyyy')) - y) : null;
     dto.warantiTamat = !!(row.tamat_waranti && String(row.tamat_waranti) < DateUtils.dayKey(new Date()));
@@ -37,7 +39,210 @@ const AsetHooks = {
   routes: {
     'aset.overview': { role: 'ADMIN', fn: function (payload) { return AsetHooks.overview(payload || {}); } },
     'aset.import': { role: 'ADMIN', fn: function (payload, ctx) { return AsetHooks.importRows(payload || {}, ctx); } },
-    'aset.janaMakmal': { role: 'ADMIN', fn: function (payload, ctx) { return AsetHooks.generateLabs(payload || {}, ctx); } }
+    'aset.janaMakmal': { role: 'ADMIN', fn: function (payload, ctx) { return AsetHooks.generateLabs(payload || {}, ctx); } },
+    'aset.laporanNilai': { role: 'ADMIN', fn: function (payload) { return AsetHooks.reportValue(payload || {}); } },
+    'aset.laporanGanti': { role: 'ADMIN', fn: function (payload) { return AsetHooks.reportReplacement(payload || {}); } },
+    'aset.laporanLokasi': { role: 'ADMIN', fn: function (payload) { return AsetHooks.reportLocation(payload || {}); } }
+  },
+
+  // ================================================================== Susut nilai & cadangan penggantian
+
+  COMPUTERS: ['DESKTOP', 'LAPTOP', 'WORKSTATION'],
+
+  setting_: function (k, d) {
+    let v;
+    try { v = SettingsService.get(k); } catch (e) { v = undefined; }
+    const n = Number(v);
+    return v === undefined || v === null || v === '' || !isFinite(n) ? d : n;
+  },
+
+  depConfig: function () {
+    return { hayat: AsetHooks.setting_('SUSUT_HAYAT_TAHUN', 5), sisa: AsetHooks.setting_('SUSUT_NILAI_SISA', 0) };
+  },
+
+  /** Tarikh mula aset: tarikh aset, jika tiada 1 Jan tahun perolehan. @return {Date|null} */
+  startDate_: function (row) {
+    if (row.tarikh_aset && /^\d{4}-\d{2}-\d{2}/.test(String(row.tarikh_aset))) return new Date(String(row.tarikh_aset).slice(0, 10) + 'T00:00:00Z');
+    const y = Number(row.tahun_perolehan);
+    return y > 1900 ? new Date(Date.UTC(y, 0, 1)) : null;
+  },
+
+  /**
+   * Susut nilai garis lurus. Kos = nilai perolehan; tiada kos → null.
+   * @return {{kos:number, umurTahun:number|null, susutTahunan:number, susutTerkumpul:number, nilaiBuku:number, habis:boolean}|null}
+   */
+  depreciation: function (row, now, cfg) {
+    const kos = Number(row.nilai_perolehan);
+    const start = AsetHooks.startDate_(row);
+    const umur = start ? Math.max(0, ((now || new Date()) - start) / (365.25 * 86400000)) : null;
+    if (!(kos > 0)) return umur === null ? null : { kos: 0, umurTahun: Math.round(umur * 10) / 10, susutTahunan: 0, susutTerkumpul: 0, nilaiBuku: 0, habis: false, tiadaKos: true };
+    const c = cfg || AsetHooks.depConfig();
+    const sisa = Math.min(c.sisa, kos);
+    const tahunan = (kos - sisa) / c.hayat;
+    const terkumpul = umur === null ? 0 : Math.min(kos - sisa, tahunan * umur);
+    const r2 = function (x) { return Math.round(x * 100) / 100; };
+    return {
+      kos: r2(kos), umurTahun: umur === null ? null : Math.round(umur * 10) / 10, susutTahunan: r2(tahunan),
+      susutTerkumpul: r2(terkumpul), nilaiBuku: r2(kos - terkumpul), habis: umur !== null && umur >= c.hayat
+    };
+  },
+
+  /** Kiraan aduan bagi setiap no. aset dalam 12 bulan terakhir. @return {Object<string,number>} kunci huruf kecil */
+  complaintCounts_: function () {
+    const since = DateUtils.addDays(new Date(), -365).toISOString();
+    const out = {};
+    AsetHooks.active_('tiket').forEach(function (t) {
+      const k = String(t.no_aset || '').trim().toLowerCase();
+      if (!k || String(t.created_at) < since) return;
+      out[k] = (out[k] || 0) + 1;
+    });
+    return out;
+  },
+
+  replacementConfig: function () {
+    return {
+      umur: AsetHooks.setting_('GANTI_UMUR_TAHUN', 7), ram: AsetHooks.setting_('GANTI_RAM_MIN_GB', 8),
+      aduan: AsetHooks.setting_('GANTI_ADUAN_MIN', 3), harga: AsetHooks.setting_('GANTI_HARGA_LALAI', 4500)
+    };
+  },
+
+  /**
+   * Skor penggantian (lebih tinggi = lebih mendesak) dan sebab.
+   * ≥ 6 → GANTI_SEGERA · 3–5 → GANTI_TAHUN_DEPAN · 1–2 → PANTAU · 0 → OK
+   */
+  replacementScore: function (row, dep, aduan, cfg) {
+    const reasons = [];
+    let s = 0;
+    const add = function (n, why) { s += n; reasons.push(why); };
+    if (row.status === 'TIDAK_BOLEH_GUNA') add(4, 'Tidak boleh digunakan');
+    else if (row.status === 'PERLAHAN') add(3, 'Tidak memenuhi keperluan');
+    else if (row.status === 'PERLU_BAIKI' || row.status === 'MENUNGGU_ALAT_GANTI') add(2, 'Bermasalah / menunggu pembaikan');
+    if (dep && dep.umurTahun !== null && dep.umurTahun >= cfg.umur) add(3, 'Umur ' + Math.floor(dep.umurTahun) + ' tahun (≥ ' + cfg.umur + ')');
+    if (dep && dep.habis && dep.kos > 0) add(1, 'Nilai buku telah habis');
+    if (row.cadangan === 'GANTI') add(3, 'Ditanda "Ganti" oleh pegawai');
+    if (row.cadangan === 'NAIK_TARAF') add(1, 'Ditanda "Naik taraf"');
+    const ram = Number(row.ram_gb);
+    if (ram > 0 && ram < cfg.ram && AsetHooks.COMPUTERS.indexOf(row.jenis) >= 0) add(2, 'RAM ' + ram + 'GB (< ' + cfg.ram + 'GB)');
+    if (aduan >= cfg.aduan) add(2, aduan + ' aduan dalam 12 bulan');
+    const level = s >= 6 ? 'GANTI_SEGERA' : s >= 3 ? 'GANTI_TAHUN_DEPAN' : s >= 1 ? 'PANTAU' : 'OK';
+    return { skor: s, tahap: level, sebab: reasons };
+  },
+
+  /** Aset aktif dalam skop laporan (bukan dilupus) + penapis makmal/kategori/jenis. */
+  scoped_: function (payload) {
+    const labs = {};
+    AsetHooks.active_('makmal').forEach(function (l) { labs[l.id] = l.kod ? l.kod + ' · ' + l.nama : l.nama; });
+    const rows = AsetHooks.active_('aset').filter(function (r) {
+      if (r.status === 'DILUPUS') return false;
+      if (payload.makmal && r.makmal !== payload.makmal) return false;
+      if (payload.kategori && r.kategori_aset !== payload.kategori) return false;
+      if (payload.jenis === 'KOMPUTER' && AsetHooks.COMPUTERS.indexOf(r.jenis) < 0) return false;
+      if (payload.jenis && payload.jenis !== 'KOMPUTER' && r.jenis !== payload.jenis) return false;
+      return true;
+    });
+    return { rows: rows, labs: labs };
+  },
+
+  /** Laporan nilai aset & susut nilai. */
+  reportValue: function (payload) {
+    const sc = AsetHooks.scoped_(payload);
+    const cfg = AsetHooks.depConfig();
+    const now = new Date();
+    const tot = { aset: 0, denganKos: 0, kos: 0, susut: 0, buku: 0, habis: 0, tanpaKos: 0 };
+    const by = { makmal: {}, tahun: {}, kategori: {}, jenis: {} };
+    const items = sc.rows.map(function (r) {
+      const d = AsetHooks.depreciation(r, now, cfg);
+      tot.aset++;
+      const kos = d ? d.kos : 0;
+      if (kos > 0) {
+        tot.denganKos++; tot.kos += kos; tot.susut += d.susutTerkumpul; tot.buku += d.nilaiBuku; if (d.habis) tot.habis++;
+      } else tot.tanpaKos++;
+      const bump = function (map, key) {
+        map[key] = map[key] || { label: key, bil: 0, kos: 0, buku: 0 };
+        map[key].bil++; map[key].kos += kos; map[key].buku += d && kos > 0 ? d.nilaiBuku : 0;
+      };
+      bump(by.makmal, sc.labs[r.makmal] || 'Bukan makmal / tiada');
+      bump(by.tahun, r.tahun_perolehan ? String(r.tahun_perolehan) : 'Tiada tahun');
+      bump(by.kategori, r.kategori_aset === 'ASET_TETAP' ? 'Aset Tetap' : r.kategori_aset === 'INVENTORI' ? 'Inventori' : 'Tidak dinyatakan');
+      bump(by.jenis, r.jenis || 'LAIN');
+      return {
+        id: r.id, noAset: r.no_aset, model: r.nama_alat || r.model, jenis: r.jenis, makmal: sc.labs[r.makmal] || '', tahun: r.tahun_perolehan || '',
+        kos: kos, umur: d ? d.umurTahun : null, susutTahunan: d ? d.susutTahunan : 0, susutTerkumpul: d ? d.susutTerkumpul : 0, nilaiBuku: d ? d.nilaiBuku : 0, habis: !!(d && d.habis && kos > 0)
+      };
+    });
+    const r2 = function (x) { return Math.round(x * 100) / 100; };
+    const list = function (map, sortKey) {
+      return Object.keys(map).map(function (k) { const v = map[k]; return { label: v.label, bil: v.bil, kos: r2(v.kos), buku: r2(v.buku) }; })
+        .sort(sortKey === 'label' ? function (a, b) { return a.label < b.label ? -1 : 1; } : function (a, b) { return b.kos - a.kos; });
+    };
+    items.sort(function (a, b) { return b.kos - a.kos; });
+    return {
+      generatedAt: DateUtils.nowIso(), config: cfg,
+      total: { aset: tot.aset, denganKos: tot.denganKos, tanpaKos: tot.tanpaKos, kos: r2(tot.kos), susut: r2(tot.susut), buku: r2(tot.buku), habis: tot.habis },
+      byMakmal: list(by.makmal), byTahun: list(by.tahun, 'label'), byKategori: list(by.kategori), byJenis: list(by.jenis),
+      items: items
+    };
+  },
+
+  /** Laporan cadangan penggantian (skor ikut kriteria Tetapan). */
+  reportReplacement: function (payload) {
+    const sc = AsetHooks.scoped_(Object.assign({ jenis: 'KOMPUTER' }, payload));
+    const dcfg = AsetHooks.depConfig();
+    const cfg = AsetHooks.replacementConfig();
+    const comp = AsetHooks.complaintCounts_();
+    const now = new Date();
+    const items = [];
+    const sum = { GANTI_SEGERA: { bil: 0, kos: 0 }, GANTI_TAHUN_DEPAN: { bil: 0, kos: 0 }, PANTAU: { bil: 0, kos: 0 }, OK: { bil: 0, kos: 0 } };
+    const byLab = {};
+    sc.rows.forEach(function (r) {
+      const d = AsetHooks.depreciation(r, now, dcfg);
+      const n = comp[String(r.no_aset || '').trim().toLowerCase()] || 0;
+      const sc2 = AsetHooks.replacementScore(r, d, n, cfg);
+      const harga = Number(r.nilai_perolehan) > 0 ? Number(r.nilai_perolehan) : cfg.harga;
+      sum[sc2.tahap].bil++;
+      if (sc2.tahap !== 'OK' && sc2.tahap !== 'PANTAU') sum[sc2.tahap].kos += harga;
+      const lab = sc.labs[r.makmal] || 'Bukan makmal / tiada';
+      if (sc2.tahap === 'GANTI_SEGERA' || sc2.tahap === 'GANTI_TAHUN_DEPAN') {
+        byLab[lab] = byLab[lab] || { label: lab, segera: 0, tahunDepan: 0, kos: 0 };
+        byLab[lab][sc2.tahap === 'GANTI_SEGERA' ? 'segera' : 'tahunDepan']++;
+        byLab[lab].kos += harga;
+      }
+      if (sc2.tahap === 'OK' && !payload.semua) return;
+      items.push({
+        id: r.id, noAset: r.no_aset, model: r.nama_alat || r.model, jenis: r.jenis, makmal: sc.labs[r.makmal] || '', lokasi: r.lokasi_fizikal || r.lokasi || '',
+        tahun: r.tahun_perolehan || '', umur: d ? d.umurTahun : null, nilaiBuku: d ? d.nilaiBuku : 0, status: r.status, ram: r.ram_gb || '',
+        aduan: n, skor: sc2.skor, tahap: sc2.tahap, sebab: sc2.sebab, anggaranKos: harga
+      });
+    });
+    const order = { GANTI_SEGERA: 0, GANTI_TAHUN_DEPAN: 1, PANTAU: 2, OK: 3 };
+    items.sort(function (a, b) { return (order[a.tahap] - order[b.tahap]) || (b.skor - a.skor) || ((b.umur || 0) - (a.umur || 0)); });
+    Object.keys(sum).forEach(function (k) { sum[k].kos = Math.round(sum[k].kos * 100) / 100; });
+    return {
+      generatedAt: DateUtils.nowIso(), config: cfg, ringkasan: sum, jumlahDinilai: sc.rows.length,
+      byMakmal: Object.keys(byLab).map(function (k) { const v = byLab[k]; v.kos = Math.round(v.kos * 100) / 100; return v; }).sort(function (a, b) { return (b.segera + b.tahunDepan) - (a.segera + a.tahunDepan); }),
+      items: items
+    };
+  },
+
+  /** Laporan percanggahan lokasi fizikal vs UTMFin (untuk kemas kini pergerakan aset KEWPA). */
+  reportLocation: function (payload) {
+    const sc = AsetHooks.scoped_(payload);
+    const items = sc.rows.filter(function (r) { return String(r.lokasi_berbeza).toUpperCase() === 'TRUE'; }).map(function (r) {
+      return {
+        id: r.id, noAset: r.no_aset, model: r.nama_alat || r.model, kodLokasi: r.kod_lokasi, lokasiFizikal: r.lokasi_fizikal,
+        makmal: sc.labs[r.makmal] || '', penjaga: r.pegawai_bertanggungjawab || '', picMakmal: r.pic_makmal || ''
+      };
+    }).sort(function (a, b) { return (a.lokasiFizikal + a.noAset) < (b.lokasiFizikal + b.noAset) ? -1 : 1; });
+    const pairs = {};
+    items.forEach(function (i) {
+      const k = AsetHooks.roomOf(i.kodLokasi) + ' → ' + i.lokasiFizikal;
+      pairs[k] = (pairs[k] || 0) + 1;
+    });
+    return {
+      generatedAt: DateUtils.nowIso(), total: items.length,
+      ringkasan: Object.keys(pairs).map(function (k) { return { label: k, value: pairs[k] }; }).sort(function (a, b) { return b.value - a.value; }),
+      items: items
+    };
   },
 
   // ================================================================== Executive Overview
@@ -144,9 +349,13 @@ const AsetHooks = {
       issues.push({ kind: 'keperluan', id: r.id, title: (l.kod || '') + ' ' + (l.nama || ''), note: 'Keperluan kritikal menunggu pengesahan', tone: 'warn' });
     });
 
+    const nv = AsetHooks.reportValue({}).total;
+    const rp = AsetHooks.reportReplacement({}).ringkasan;
     return {
       generatedAt: nowIso,
       tahun: year,
+      nilai: { kos: nv.kos, buku: nv.buku, susut: nv.susut, habis: nv.habis, tanpaKos: nv.tanpaKos },
+      ganti: { segera: rp.GANTI_SEGERA.bil, tahunDepan: rp.GANTI_TAHUN_DEPAN.bil, kos: Math.round((rp.GANTI_SEGERA.kos + rp.GANTI_TAHUN_DEPAN.kos) * 100) / 100, pantau: rp.PANTAU.bil },
       assets: {
         total: assets.length, operational: operational, operationalPct: pct(operational, assets.length),
         byStatus: aStatus, byJenis: aJenis, verified: verified, verifiedPct: pct(verified, assets.length),

@@ -51,6 +51,27 @@
 .im-step b { display: block; margin-bottom: 4px; }
 .im-scroll { overflow-x: auto; max-width: 100%; }
 .im-scroll table { min-width: 560px; }
+.lp-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: var(--sp-4); overflow-x: auto; }
+.lp-tab { padding: 10px 14px; font-weight: 600; font-size: var(--fs-sm); color: var(--muted); text-decoration: none; border-bottom: 2px solid transparent; white-space: nowrap; }
+.lp-tab.is-active { color: var(--brand); border-bottom-color: var(--brand); }
+.lp-filters { display: flex; gap: var(--sp-2); flex-wrap: wrap; align-items: center; margin-bottom: var(--sp-4); }
+.lp-filters .select { width: auto; min-width: 0; max-width: 100%; }
+.lp-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--sp-3); }
+.lp-card { background: var(--white); border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--sp-4); min-width: 0; }
+.lp-card b { display: block; font-size: var(--fs-xl); font-variant-numeric: tabular-nums; margin-top: 2px; }
+.lp-card.is-danger { border-color: #FECACA; background: #FFF7F7; } .lp-card.is-warn { border-color: #FDE68A; background: #FFFBEB; }
+.lp-chip { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 999px; background: var(--canvas-200); margin: 1px 2px 1px 0; white-space: nowrap; }
+.lp-note { font-size: var(--fs-xs); color: var(--muted); margin-top: var(--sp-2); }
+.print-only { display: none; }
+@media print {
+  .sidebar, .topbar, .bottomnav, .lp-filters, .lp-tabs, .no-print, .toast, .toasts { display: none !important; }
+  .main, .content { margin: 0 !important; padding: 0 !important; overflow: visible !important; }
+  body { background: #fff !important; }
+  .panel, .lp-card { break-inside: avoid; box-shadow: none !important; }
+  .print-only { display: block; }
+  .im-scroll { overflow: visible !important; }
+  .xo-table { font-size: 10px; }
+}
 @media (max-width: 1280px) { .xo-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 1100px) { .xo-grid4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } .xo-grid2 { grid-template-columns: 1fr; } }
 @media (max-width: 900px) { .xo-grid3 { grid-template-columns: 1fr; } }
@@ -63,6 +84,7 @@
   .xo-grid4, .xo-grid2 { grid-template-columns: 1fr; }
   .xo-donut svg { width: 120px; height: 120px; }
   .im-steps { grid-template-columns: 1fr; }
+  .lp-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 </style>
 <script>
@@ -152,6 +174,12 @@
         ${kpi('/admin/keperluan', 'xo-amber', 'chart', 'Anggaran bajet', rm(l.budget), html`Disahkan ${rm(l.budgetVerified)}${l.withoutCost ? html` · ${fmtNum(l.withoutCost)} tanpa harga` : ''}`)}
         ${kpi('/admin/tiket', 'xo-red', 'alert', 'Isu keutamaan tinggi', fmtNum(t.highOpen), 'Tiket kritikal/tinggi masih terbuka', t.highOpen > 0)}
       </div>
+      ${o.nilai && (o.nilai.kos || o.ganti.segera || o.ganti.tahunDepan) ? html`<div class="lp-cards mt-4">
+        <a class="lp-card" href="#/admin/laporan-aset?t=nilai" style="text-decoration:none;color:inherit"><span class="xs muted">Nilai perolehan aset</span><b>RM ${rmx(o.nilai.kos)}</b><span class="xs muted">Nilai buku RM ${rmx(o.nilai.buku)}</span></a>
+        <a class="lp-card" href="#/admin/laporan-aset?t=nilai" style="text-decoration:none;color:inherit"><span class="xs muted">Susut nilai terkumpul</span><b>RM ${rmx(o.nilai.susut)}</b><span class="xs muted">${fmtNum(o.nilai.habis)} aset susut sepenuhnya</span></a>
+        <a class="lp-card ${o.ganti.segera ? 'is-danger' : ''}" href="#/admin/laporan-aset?t=ganti" style="text-decoration:none;color:inherit"><span class="xs muted">Cadangan ganti segera</span><b>${fmtNum(o.ganti.segera)} komputer</b><span class="xs muted">+ ${fmtNum(o.ganti.tahunDepan)} tahun depan</span></a>
+        <a class="lp-card" href="#/admin/laporan-aset?t=ganti" style="text-decoration:none;color:inherit"><span class="xs muted">Anggaran kos penggantian</span><b>RM ${rmx(o.ganti.kos)}</b><span class="xs muted">Segera + tahun depan</span></a>
+      </div>` : ''}
       <div class="xo-grid4">
         <section class="panel"><div class="panel-head"><h3>Pematuhan SLA</h3><span class="xs muted">6 bulan</span></div>
           ${lastSla ? html`<div class="xo-big">${pctTxt(lastSla.value)}</div><div class="xs muted mt-1 mb-4">${monthName(lastSla.label)}: ${fmtNum(lastSla.within)} daripada ${fmtNum(lastSla.total)} tiket selesai dalam sasaran</div>
@@ -344,11 +372,129 @@
     }
   };
 
+  // ================================================================ Laporan aset (/admin/laporan-aset)
+  const TAHAP = {
+    GANTI_SEGERA: { label: 'Ganti segera', tone: 'danger' }, GANTI_TAHUN_DEPAN: { label: 'Ganti tahun depan', tone: 'warn' },
+    PANTAU: { label: 'Pantau', tone: 'brand' }, OK: { label: 'OK', tone: 'success' }
+  };
+  const JENIS_LABEL = () => Object.fromEntries(((KD.moduleOf('aset').fields || []).find((f) => f.key === 'jenis') || { options: [] }).options.map((o) => [o.value, o.label]));
+  const rmx = (n) => Number(n || 0).toLocaleString('ms-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const umurTxt = (u) => (u === null || u === undefined ? '—' : Number(u).toLocaleString('ms-MY', { maximumFractionDigits: 1 }) + ' thn');
+  const card = (label, value, sub, cls) => html`<div class="lp-card ${cls || ''}"><span class="xs muted">${label}</span><b>${value}</b>${sub ? html`<span class="xs muted">${sub}</span>` : ''}</div>`;
+  const groupTable = (rows, head) => html`<div class="im-scroll"><table class="xo-table"><thead><tr><th>${head}</th><th class="num">Bil.</th><th class="num">Perolehan (RM)</th><th class="num">Nilai buku (RM)</th></tr></thead>
+    <tbody>${rows.map((r) => html`<tr><td>${r.label}</td><td class="num">${fmtNum(r.bil)}</td><td class="num">${rmx(r.kos)}</td><td class="num">${rmx(r.buku)}</td></tr>`)}</tbody></table></div>`;
+
+  KD.views.laporanAset = {
+    async render(el, params, query) {
+      const tab = (query && query.t) || 'nilai';
+      const state = { makmal: (query && query.makmal) || '', kategori: '', jenis: tab === 'ganti' ? 'KOMPUTER' : '' };
+      let labs = [];
+      try { labs = (await KD.api.list('makmal', { pageSize: 100 })).items || []; } catch (e) { labs = []; }
+      const JL = JENIS_LABEL();
+      const TITLE = { nilai: 'Nilai aset & susut nilai', ganti: 'Cadangan penggantian', lokasi: 'Percanggahan lokasi (UTMFin)' };
+      el.innerHTML = html`<div class="page-head"><div><h1>Laporan aset</h1><p>Dikira terus daripada daftar aset. Kriteria & kadar boleh diubah di <a href="#/admin/tetapan">Tetapan</a>.</p></div>
+          <div class="xo-toolbar no-print"><button class="btn btn-outline" data-act="csv">${icon('download')}CSV</button><button class="btn btn-outline" data-act="print">${icon('pdf')}Cetak / PDF</button></div></div>
+        <nav class="lp-tabs" aria-label="Jenis laporan">${['nilai', 'ganti', 'lokasi'].map((k) => html`<a class="lp-tab ${k === tab ? 'is-active' : ''}" href="#/admin/laporan-aset?t=${k}">${TITLE[k]}</a>`)}</nav>
+        <div class="lp-filters">
+          <select class="select" data-f="makmal" aria-label="Makmal"><option value="">Semua makmal / lokasi</option>${labs.map((l) => html`<option value="${l.id}" ${l.id === state.makmal ? raw('selected') : ''}>${l.title}${l.values && l.values.kod ? ' (' + l.values.kod + ')' : ''}</option>`)}</select>
+          ${tab !== 'lokasi' ? html`<select class="select" data-f="kategori" aria-label="Kategori aset"><option value="">Semua kategori</option><option value="ASET_TETAP">Aset Tetap</option><option value="INVENTORI">Inventori</option></select>` : ''}
+          ${tab !== 'lokasi' ? html`<select class="select" data-f="jenis" aria-label="Jenis aset"><option value="">Semua jenis</option><option value="KOMPUTER" ${state.jenis === 'KOMPUTER' ? raw('selected') : ''}>Komputer sahaja</option>${Object.keys(JL).map((k) => html`<option value="${k}">${JL[k]}</option>`)}</select>` : ''}
+        </div>
+        <div class="print-only"><h2>${TITLE[tab]}</h2></div>
+        <div data-box>${skeletonStats(4)}</div>`.s;
+      const box = qs('[data-box]', el);
+      let data = null;
+      const load = async () => {
+        box.innerHTML = skeletonStats(4).s;
+        const p = { makmal: state.makmal, kategori: state.kategori, jenis: state.jenis };
+        try {
+          data = await KD.api.call(tab === 'nilai' ? 'aset.laporanNilai' : tab === 'ganti' ? 'aset.laporanGanti' : 'aset.laporanLokasi', p);
+          box.innerHTML = (tab === 'nilai' ? viewNilai(data, JL) : tab === 'ganti' ? viewGanti(data, JL) : viewLokasi(data)).s;
+        } catch (err) { box.innerHTML = errorState(err, 'reload').s; }
+      };
+      on(el, 'change', '[data-f]', (e, sel) => { state[sel.getAttribute('data-f')] = sel.value; load(); });
+      on(el, 'click', '[data-act="reload"]', load);
+      on(el, 'click', '[data-act="print"]', () => window.print());
+      on(el, 'click', '[data-act="csv"]', () => {
+        if (!data) return;
+        let rows;
+        if (tab === 'nilai') rows = [['No. aset', 'Item', 'Jenis', 'Makmal', 'Tahun', 'Nilai perolehan (RM)', 'Umur (tahun)', 'Susut setahun (RM)', 'Susut terkumpul (RM)', 'Nilai buku (RM)', 'Susut habis']]
+          .concat(data.items.map((i) => [i.noAset, i.model, JL[i.jenis] || i.jenis, i.makmal, i.tahun, i.kos, i.umur === null ? '' : i.umur, i.susutTahunan, i.susutTerkumpul, i.nilaiBuku, i.habis ? 'Ya' : '']));
+        else if (tab === 'ganti') rows = [['Tahap', 'Skor', 'No. aset', 'Item', 'Jenis', 'Makmal', 'Lokasi', 'Tahun', 'Umur (tahun)', 'Nilai buku (RM)', 'RAM (GB)', 'Aduan 12 bln', 'Sebab', 'Anggaran kos ganti (RM)']]
+          .concat(data.items.map((i) => [TAHAP[i.tahap].label, i.skor, i.noAset, i.model, JL[i.jenis] || i.jenis, i.makmal, i.lokasi, i.tahun, i.umur === null ? '' : i.umur, i.nilaiBuku, i.ram, i.aduan, i.sebab.join('; '), i.anggaranKos]));
+        else rows = [['No. aset', 'Item', 'ID_LOKASI UTMFin', 'Lokasi fizikal', 'Makmal', 'Penjaga (KEWPA)', 'PIC makmal']]
+          .concat(data.items.map((i) => [i.noAset, i.model, i.kodLokasi, i.lokasiFizikal, i.makmal, i.penjaga, i.picMakmal]));
+        downloadText(toCsv(rows), 'text/csv', 'laporan-' + tab + '-' + new Date().toISOString().slice(0, 10) + '.csv');
+      });
+      load();
+    }
+  };
+
+  function viewNilai(d, JL) {
+    const t = d.total;
+    const top = d.items.slice(0, 100);
+    return html`<div class="lp-cards">
+        ${card('Nilai perolehan', 'RM ' + rmx(t.kos), fmtNum(t.denganKos) + ' aset dengan nilai')}
+        ${card('Nilai buku semasa', 'RM ' + rmx(t.buku), t.kos ? Math.round((t.buku / t.kos) * 100) + '% daripada nilai perolehan' : '')}
+        ${card('Susut nilai terkumpul', 'RM ' + rmx(t.susut), 'Garis lurus ' + d.config.hayat + ' tahun · nilai sisa RM ' + fmtNum(d.config.sisa))}
+        ${card('Telah susut sepenuhnya', fmtNum(t.habis) + ' aset', t.tanpaKos ? fmtNum(t.tanpaKos) + ' aset tiada nilai perolehan' : '', t.habis ? 'is-warn' : '')}
+      </div>
+      <div class="xo-grid3">
+        <section class="panel"><div class="panel-head"><h3>Ikut makmal / lokasi</h3></div>${groupTable(d.byMakmal, 'Makmal')}</section>
+        <section class="panel"><div class="panel-head"><h3>Ikut tahun perolehan</h3></div>${groupTable(d.byTahun, 'Tahun')}</section>
+      </div>
+      <div class="xo-grid3">
+        <section class="panel"><div class="panel-head"><h3>Ikut kategori</h3></div>${groupTable(d.byKategori, 'Kategori')}</section>
+        <section class="panel"><div class="panel-head"><h3>Ikut jenis</h3></div>${groupTable(d.byJenis.map((r) => Object.assign({}, r, { label: JL[r.label] || r.label })), 'Jenis')}</section>
+      </div>
+      <section class="panel mt-4"><div class="panel-head"><h3>Senarai aset (${fmtNum(d.items.length)})</h3><span class="xs muted">${d.items.length > 100 ? '100 nilai tertinggi dipaparkan · CSV untuk semua' : ''}</span></div>
+        <div class="im-scroll"><table class="xo-table" style="min-width:760px"><thead><tr><th>No. aset</th><th>Item</th><th>Makmal</th><th class="num">Tahun</th><th class="num">Nilai (RM)</th><th class="num">Umur</th><th class="num">Susut terkumpul</th><th class="num">Nilai buku</th></tr></thead>
+        <tbody>${top.map((i) => html`<tr><td><a href="#/admin/aset/${i.id}">${i.noAset}</a></td><td>${i.model}</td><td>${i.makmal}</td><td class="num">${i.tahun}</td><td class="num">${rmx(i.kos)}</td><td class="num">${umurTxt(i.umur)}</td><td class="num">${rmx(i.susutTerkumpul)}</td><td class="num">${i.habis ? html`<span style="color:var(--warn);font-weight:600">0.00</span>` : rmx(i.nilaiBuku)}</td></tr>`)}</tbody></table></div>
+        <p class="lp-note">Nilai buku = nilai perolehan − susut terkumpul (garis lurus dari tarikh aset, atau 1 Jan tahun perolehan). Untuk perancangan dalaman; angka rasmi ikut rekod Pejabat Bendahari. Dijana ${fmtDate(d.generatedAt, true)}.</p></section>`;
+  }
+
+  function viewGanti(d, JL) {
+    const r = d.ringkasan, c = d.config;
+    return html`<div class="lp-cards">
+        ${card('Ganti segera', fmtNum(r.GANTI_SEGERA.bil) + ' aset', 'Anggaran RM ' + rmx(r.GANTI_SEGERA.kos), r.GANTI_SEGERA.bil ? 'is-danger' : '')}
+        ${card('Ganti tahun depan', fmtNum(r.GANTI_TAHUN_DEPAN.bil) + ' aset', 'Anggaran RM ' + rmx(r.GANTI_TAHUN_DEPAN.kos), r.GANTI_TAHUN_DEPAN.bil ? 'is-warn' : '')}
+        ${card('Pantau', fmtNum(r.PANTAU.bil) + ' aset', 'Belum perlu diganti')}
+        ${card('Dinilai', fmtNum(d.jumlahDinilai) + ' aset', fmtNum(r.OK.bil) + ' dalam keadaan OK')}
+      </div>
+      <p class="lp-note">Kriteria: umur ≥ ${c.umur} thn (+3) · tidak boleh digunakan (+4) · tidak memadai (+3) · perlu dibaiki (+2) · ditanda Ganti (+3) · RAM &lt; ${c.ram}GB (+2) · ≥ ${c.aduan} aduan/12 bln (+2) · nilai buku habis (+1).
+        Skor ≥ 6 = ganti segera, 3–5 = tahun depan. Anggaran kos = nilai perolehan asal (atau RM ${fmtNum(c.harga)} jika tiada).</p>
+      ${d.byMakmal.length ? html`<section class="panel mt-4"><div class="panel-head"><h3>Ikut makmal</h3></div><div class="im-scroll"><table class="xo-table"><thead><tr><th>Makmal / lokasi</th><th class="num">Segera</th><th class="num">Tahun depan</th><th class="num">Anggaran (RM)</th></tr></thead>
+        <tbody>${d.byMakmal.map((m) => html`<tr><td>${m.label}</td><td class="num">${fmtNum(m.segera)}</td><td class="num">${fmtNum(m.tahunDepan)}</td><td class="num">${rmx(m.kos)}</td></tr>`)}</tbody></table></div></section>` : ''}
+      <section class="panel mt-4"><div class="panel-head"><h3>Senarai cadangan (${fmtNum(d.items.length)})</h3></div>
+        ${d.items.length ? html`<div class="im-scroll"><table class="xo-table" style="min-width:820px"><thead><tr><th>Tahap</th><th>No. aset</th><th>Item</th><th>Makmal / lokasi</th><th class="num">Umur</th><th>Sebab</th><th class="num">Anggaran (RM)</th></tr></thead>
+        <tbody>${d.items.slice(0, 300).map((i) => html`<tr><td>${toneBadge(TAHAP[i.tahap].label, TAHAP[i.tahap].tone)}<div class="xs muted mt-1">Skor ${i.skor}</div></td><td><a href="#/admin/aset/${i.id}">${i.noAset}</a></td><td>${i.model}<div class="xs muted">${JL[i.jenis] || i.jenis}</div></td><td>${i.makmal || i.lokasi}</td><td class="num">${umurTxt(i.umur)}</td><td>${i.sebab.map((x) => html`<span class="lp-chip">${x}</span>`)}</td><td class="num">${rmx(i.anggaranKos)}</td></tr>`)}</tbody></table></div>`
+          : empty('Tiada cadangan', 'Tiada aset memenuhi kriteria penggantian untuk tapisan ini.')}
+        <p class="lp-note">Senarai ini cadangan berasaskan data; keputusan akhir selepas semakan teknikal Unit IT. Dijana ${fmtDate(d.generatedAt, true)}.</p></section>`;
+  }
+
+  function viewLokasi(d) {
+    return html`<div class="lp-cards">${card('Aset dengan percanggahan', fmtNum(d.total) + ' aset', 'Lokasi fizikal ≠ ID_LOKASI UTMFin', d.total ? 'is-warn' : '')}</div>
+      ${d.ringkasan.length ? html`<section class="panel mt-4"><div class="panel-head"><h3>Ringkasan pergerakan (UTMFin → fizikal)</h3></div>${C.hbars(d.ringkasan, { title: 'Pergerakan lokasi', limit: 20 })}</section>` : ''}
+      <section class="panel mt-4"><div class="panel-head"><h3>Senarai aset</h3></div>
+        ${d.items.length ? html`<div class="im-scroll"><table class="xo-table" style="min-width:720px"><thead><tr><th>No. aset</th><th>Item</th><th>ID_LOKASI UTMFin</th><th>Lokasi fizikal</th><th>Penjaga (KEWPA)</th></tr></thead>
+        <tbody>${d.items.map((i) => html`<tr><td><a href="#/admin/aset/${i.id}">${i.noAset}</a></td><td>${i.model}</td><td>${i.kodLokasi}</td><td><b>${i.lokasiFizikal}</b></td><td>${i.penjaga}</td></tr>`)}</tbody></table></div>`
+          : empty('Tiada percanggahan', 'Semua aset dengan lokasi fizikal sepadan dengan rekod UTMFin.')}
+        <p class="lp-note">Gunakan senarai ini untuk mengemas kini rekod pergerakan aset (KEWPA) di UTMFin. Dijana ${fmtDate(d.generatedAt, true)}.</p></section>`;
+  }
+
+  /* Panel nilai di halaman butiran aset */
+  KD.detailSide.aset = (d) => d.susutNilai ? html`<div class="status-note"><strong>Nilai & susut nilai</strong>
+    <dl class="rec-detail__meta" style="grid-template-columns:1fr 1fr;margin-top:var(--sp-2)">
+      <div><dt>Nilai perolehan</dt><dd>RM ${rmx(d.susutNilai.kos)}</dd></div><div><dt>Nilai buku</dt><dd>RM ${rmx(d.susutNilai.nilaiBuku)}</dd></div>
+      <div><dt>Umur</dt><dd>${umurTxt(d.susutNilai.umurTahun)}</dd></div><div><dt>Susut setahun</dt><dd>RM ${rmx(d.susutNilai.susutTahunan)}</dd></div></dl>
+    <div class="mt-2"><a class="small" href="#/admin/laporan-aset?t=ganti">Lihat cadangan penggantian →</a></div></div>` : '';
+
   // ================================================================ Pendaftaran laluan & menu
   KD.views.adminSistem = KD.views.adminDashboard;
   KD.views.adminDashboard = overview;
   KD.extraRoutes.push({ path: '/admin/import-aset', view: 'importAset', access: 'admin', layout: 'admin', title: 'Import aset' });
   KD.extraRoutes.push({ path: '/admin/sistem', view: 'adminSistem', access: 'admin', layout: 'admin', title: 'Statistik sistem' });
-  KD.extraNav.admin.push(['/admin/import-aset', 'download', 'Import aset'], ['/admin/sistem', 'activity', 'Statistik sistem']);
+  KD.extraRoutes.push({ path: '/admin/laporan-aset', view: 'laporanAset', access: 'admin', layout: 'admin', title: 'Laporan aset' });
+  KD.extraNav.admin.push(['/admin/laporan-aset', 'chart', 'Laporan aset'], ['/admin/import-aset', 'download', 'Import aset'], ['/admin/sistem', 'activity', 'Statistik sistem']);
 })(window.KD);
 </script>

@@ -4,7 +4,7 @@
  * Dalam Apps Script: runTestsPart5. Dalam Node: npm test.
  */
 const AppTests = {
-  suites: function () { return [TestSuiteDashboardIT, TestSuiteUtmfin, TestSuiteMaintenance]; }
+  suites: function () { return [TestSuiteDashboardIT, TestSuiteUtmfin, TestSuiteMaintenance, TestSuiteNilai]; }
 };
 
 const AppFx = {
@@ -298,6 +298,84 @@ const TestSuiteMaintenance = {
       t.eq(String(Repo.of('ASET').findById(m1.id).lokasi_berbeza).toUpperCase(), 'FALSE');
       const o = TestAssert.apiOk(TestHelpers.call(a.token, 'aset.overview', {}));
       t.ok(o.assets.lokasiBerbeza >= 2, 'overview kira lokasi berbeza');
+    }]
+  ]
+};
+
+/** Fasa 2a: susut nilai, cadangan penggantian, laporan. */
+const TestSuiteNilai = {
+  name: 'Nilai aset & cadangan penggantian',
+  tests: [
+    ['Susut nilai garis lurus: separuh hayat, habis, nilai sisa, tiada kos', function (t) {
+      const now = new Date(Date.UTC(2026, 0, 1));
+      const cfg = { hayat: 5, sisa: 0 };
+      const half = AsetHooks.depreciation({ nilai_perolehan: 5000, tarikh_aset: '2023-07-02' }, now, cfg);
+      t.ok(Math.abs(half.umurTahun - 2.5) < 0.05, 'umur ' + half.umurTahun);
+      t.eq(half.susutTahunan, 1000); t.ok(Math.abs(half.nilaiBuku - 2500) < 5, 'nilai buku ~2500: ' + half.nilaiBuku); t.ok(!half.habis);
+      const old = AsetHooks.depreciation({ nilai_perolehan: 4000, tahun_perolehan: 2016 }, now, cfg);
+      t.eq(old.nilaiBuku, 0); t.ok(old.habis); t.eq(old.susutTerkumpul, 4000);
+      const sisa = AsetHooks.depreciation({ nilai_perolehan: 4000, tahun_perolehan: 2016 }, now, { hayat: 5, sisa: 100 });
+      t.eq(sisa.nilaiBuku, 100, 'tidak susut bawah nilai sisa');
+      const nokos = AsetHooks.depreciation({ nilai_perolehan: '', tahun_perolehan: 2020 }, now, cfg);
+      t.ok(nokos.tiadaKos && nokos.nilaiBuku === 0);
+      t.eq(AsetHooks.depreciation({ nilai_perolehan: '', tahun_perolehan: '' }, now, cfg), null);
+    }],
+
+    ['Skor penggantian: tahap & sebab ikut kriteria', function (t) {
+      const cfg = { umur: 7, ram: 8, aduan: 3, harga: 4500 };
+      const oldDep = { umurTahun: 9.2, habis: true, kos: 2790 };
+      const a = AsetHooks.replacementScore({ status: 'BERFUNGSI', jenis: 'DESKTOP', ram_gb: 4 }, oldDep, 0, cfg);
+      t.eq(a.tahap, 'GANTI_SEGERA', JSON.stringify(a)); t.eq(a.skor, 6);
+      t.ok(a.sebab.some(function (x) { return /Umur 9 tahun/.test(x); }) && a.sebab.some(function (x) { return /RAM 4GB/.test(x); }));
+      const b = AsetHooks.replacementScore({ status: 'BERFUNGSI', jenis: 'DESKTOP' }, { umurTahun: 7.1, habis: true, kos: 4000 }, 0, cfg);
+      t.eq(b.tahap, 'GANTI_TAHUN_DEPAN');
+      const c = AsetHooks.replacementScore({ status: 'BERFUNGSI', jenis: 'DESKTOP' }, { umurTahun: 5.5, habis: true, kos: 4000 }, 0, cfg);
+      t.eq(c.tahap, 'PANTAU', 'nilai buku habis sahaja');
+      const d = AsetHooks.replacementScore({ status: 'BERFUNGSI', jenis: 'DESKTOP' }, { umurTahun: 2, habis: false, kos: 4000 }, 0, cfg);
+      t.eq(d.tahap, 'OK');
+      const e = AsetHooks.replacementScore({ status: 'TIDAK_BOLEH_GUNA', jenis: 'DESKTOP' }, { umurTahun: 2, habis: false, kos: 4000 }, 3, cfg);
+      t.eq(e.tahap, 'GANTI_SEGERA', 'rosak + aduan kerap');
+    }],
+
+    ['Laporan nilai, penggantian (termasuk kiraan aduan ikut no. aset) & percanggahan lokasi', function (t) {
+      AppFx.real();
+      const a = TestHelpers.admin(ROLES.ADMIN);
+      const u = TestHelpers.user('pengadu');
+      TestAssert.apiFail(TestHelpers.call(u.token, 'aset.laporanNilai', {}), ERROR_CODES.FORBIDDEN);
+      const lab = AppFx.lab(a, 'NV-01');
+      TestAssert.apiOk(TestHelpers.call(a.token, 'aset.import', { rows: [
+        { noAset: 'NV0001', model: 'DESKTOP LAMA', jenis: 'DESKTOP', makmal: 'NV-01', tahunPerolehan: '2015', nilaiPerolehan: '3000', kategoriAset: 'Aset Tetap', ramGb: '4' },
+        { noAset: 'NV0002', model: 'DESKTOP BAHARU', jenis: 'DESKTOP', makmal: 'NV-01', tahunPerolehan: String(new Date().getFullYear()), nilaiPerolehan: '5000', kategoriAset: 'Aset Tetap' },
+        { noAset: 'NV0003', model: 'PROJEKTOR', jenis: 'PROJEKTOR', makmal: 'NV-01', tahunPerolehan: '2015', nilaiPerolehan: '1500', kategoriAset: 'Inventori' },
+        { noAset: 'NV0004', model: 'DESKTOP SEDERHANA', jenis: 'DESKTOP', makmal: 'NV-01', tahunPerolehan: '2023', nilaiPerolehan: '4000', status: 'Tidak boleh digunakan' }
+      ] }));
+      for (let i = 0; i < 3; i++) {
+        TestAssert.apiOk(TestHelpers.call(u.token, 'crud.create', { module: 'tiket', tajuk: 'PC NV0004 rosak ' + i, kategori: AppFx.catId(), lokasi: 'Makmal NV', noAset: 'nv0004', keterangan: 'PC tidak boleh dihidupkan langsung.' }));
+      }
+      const v = TestAssert.apiOk(TestHelpers.call(a.token, 'aset.laporanNilai', { makmal: lab.id }));
+      t.eq(v.total.aset, 4); t.eq(v.total.kos, 13500);
+      t.ok(v.total.buku < v.total.kos && v.total.buku > 5000, 'nilai buku: ' + v.total.buku);
+      t.eq(v.total.habis, 2, 'dua aset 2015 habis susut');
+      t.ok(v.byKategori.some(function (k) { return k.label === 'Inventori' && k.kos === 1500; }));
+      const g = TestAssert.apiOk(TestHelpers.call(a.token, 'aset.laporanGanti', { makmal: lab.id }));
+      t.eq(g.jumlahDinilai, 3, 'komputer sahaja secara lalai');
+      const by = {}; g.items.forEach(function (i) { by[i.noAset] = i; });
+      t.eq(by.NV0001.tahap, 'GANTI_SEGERA'); t.eq(by.NV0004.aduan, 3, 'aduan dikira ikut no. aset (tak peka huruf)');
+      t.eq(by.NV0004.tahap, 'GANTI_SEGERA'); t.ok(!by.NV0002, 'aset baharu (OK) tidak disenaraikan');
+      t.eq(g.ringkasan.GANTI_SEGERA.kos, 7000, 'anggaran = nilai perolehan asal');
+      const all = TestAssert.apiOk(TestHelpers.call(a.token, 'aset.laporanGanti', { makmal: lab.id, jenis: '', semua: true }));
+      t.eq(all.jumlahDinilai, 4); t.ok(all.items.some(function (i) { return i.noAset === 'NV0002' && i.tahap === 'OK'; }));
+      SettingsRepository.setMany({ GANTI_UMUR_TAHUN: '20' }, 'TEST');
+      const g2 = TestAssert.apiOk(TestHelpers.call(a.token, 'aset.laporanGanti', { makmal: lab.id }));
+      const n1 = g2.items.filter(function (i) { return i.noAset === 'NV0001'; })[0];
+      t.ok(n1.tahap !== 'GANTI_SEGERA', 'kriteria ikut Tetapan: ' + n1.tahap);
+      SettingsRepository.setMany({ GANTI_UMUR_TAHUN: '7' }, 'TEST');
+      const o = TestAssert.apiOk(TestHelpers.call(a.token, 'aset.overview', {}));
+      t.ok(o.nilai.kos >= 13500 && o.ganti.segera >= 2);
+      const det = TestAssert.apiOk(TestHelpers.call(a.token, 'crud.get', { module: 'aset', id: v.items.filter(function (i) { return i.noAset === 'NV0001'; })[0].id }));
+      t.eq(det.susutNilai.nilaiBuku, 0, 'butiran aset ada nilai buku');
+      const l = TestAssert.apiOk(TestHelpers.call(a.token, 'aset.laporanLokasi', {}));
+      t.ok(Array.isArray(l.items) && typeof l.total === 'number');
     }]
   ]
 };

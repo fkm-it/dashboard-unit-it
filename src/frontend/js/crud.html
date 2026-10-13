@@ -203,6 +203,7 @@
               ${d.updatedAt !== d.createdAt ? html`<div><dt>Dikemas kini</dt><dd>${fmtDate(d.updatedAt, true)}</dd></div>` : ''}
             </dl>
             ${d.statusNote || d.statusChangedAt ? html`<div class="status-note"><strong>Catatan status</strong><div class="mt-2">${d.statusNote || '—'}</div><div class="xs muted mt-2">${fmtDate(d.statusChangedAt, true)}</div></div>` : ''}
+            ${KD.detailSide && KD.detailSide[m.key] ? KD.detailSide[m.key](d, m) : ''}
           </aside>
         </div>`.s;
 
