@@ -1,5 +1,20 @@
 # CHANGELOG
 
+## 1.0.0 — 2026-10-13 · Dashboard Unit IT FKM (Fasa 1 / MVP)
+Dibina daripada templat `gas-pwa-starter` 0.4.3.
+
+### Modul
+- **Executive Overview** (`/admin`): kad KPI (aset, tiket terbuka/lewat SLA, keperluan PC makmal, anggaran bajet, isu keutamaan tinggi), pematuhan SLA 6 bulan, status aset, tiket ikut kategori, 5 keperluan makmal utama, isu perlu tindakan, beban kerja pegawai, kualiti & liputan data. Semua angka dikira daripada rekod (`aset.overview`) dan boleh diklik ke rekod sumber. Statistik sistem asal dipindah ke `/admin/sistem`.
+- **Aset IT**: daftar aset (jenis, model, makmal, spesifikasi, waranti, lesen OS, keadaan, cadangan, pengesahan fizikal), status operasi, No. aset unik.
+- **Import aset** (`/admin/import-aset`): CSV (koma/koma bertitik, UTF-8 BOM Excel), pengepala ikut kunci atau label, enum/status ikut label, makmal ikut kod; semakan dahulu, ralat per baris, upsert ikut No. aset, templat CSV.
+- **Keperluan Komputer Makmal**: banci per makmal per tahun oleh penyelaras; kiraan automatik ganti / tambahan / kos; aliran Dihantar → Dikembalikan / Disahkan Unit IT / Ditolak.
+- **Helpdesk (Tiket)**: borang awam tanpa akaun + pengguna log masuk; kategori aduan IT; keutamaan & SLA (jam kalendar, boleh diubah di Tetapan); penugasan pegawai (status → Ditugaskan, email pegawai); cap masa diakui/selesai.
+- **Makmal** dan **Pegawai IT** (data induk).
+
+### Teras
+- Ujian kategori templat tidak lagi bergantung pada satu kategori `Umum` (`TestHelpers.singleCategory`).
+- E2E menerima dashboard admin tersuai (`.stat` atau `.xo-kpi`).
+
 ## 0.4.3 — 2026-10-06
 - Mod `/exec` dibaiki: HtmlService merosakkan komen blok dengan `/*` bersarang → `SyntaxError`, app tidak dimuat. `tools/build-gas.js` membuang komen skrip frontend ke `build/gas` sebelum `clasp push` (CI). `npm run check` melarang `/*` bersarang dalam komen. Web Pages juga tanpa komen skrip.
 

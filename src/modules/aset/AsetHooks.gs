@@ -1,0 +1,258 @@
+/**
+ * @file AsetHooks.gs
+ * Aset IT + dua laluan khusus pentadbir:
+ *   aset.overview — agregat Executive Overview (aset, tiket, keperluan makmal) daripada rekod sebenar
+ *   aset.import   — import pukal daftar aset (CSV yang dihurai di pelayar), upsert ikut No. aset
+ */
+const AsetHooks = {
+  /** Status yang dikira "beroperasi" (masih boleh digunakan). */
+  OPERATIONAL: ['BERFUNGSI', 'PERLAHAN'],
+  MAX_IMPORT: 500,
+
+  validate: function (data, info) {
+    const cur = info.current || {};
+    const no = String(data.noAset || '').trim().toLowerCase();
+    if (!no) return;
+    const dup = CrudEngine.repo(CrudEngine.get('aset')).all().some(function (r) {
+      return r.state === 'ACTIVE' && r.id !== cur.id && String(r.no_aset).trim().toLowerCase() === no;
+    });
+    if (dup) throw Errors.conflict('No. aset ' + data.noAset + ' telah wujud.');
+  },
+
+  toDTO: function (dto, row) {
+    const y = Number(row.tahun_perolehan);
+    dto.umurTahun = y ? Math.max(0, Number(DateUtils.format(new Date(), 'yyyy')) - y) : null;
+    dto.warantiTamat = !!(row.tamat_waranti && String(row.tamat_waranti) < DateUtils.dayKey(new Date()));
+    return dto;
+  },
+
+  routes: {
+    'aset.overview': { role: 'ADMIN', fn: function (payload) { return AsetHooks.overview(payload || {}); } },
+    'aset.import': { role: 'ADMIN', fn: function (payload, ctx) { return AsetHooks.importRows(payload || {}, ctx); } }
+  },
+
+  // ================================================================== Executive Overview
+
+  active_: function (key) {
+    return CrudEngine.repo(CrudEngine.get(key)).all().filter(function (r) { return r.state === 'ACTIVE'; });
+  },
+
+  overview: function (payload) {
+    const nowIso = DateUtils.nowIso();
+    const year = Number(payload.tahun) || Number(DateUtils.format(new Date(), 'yyyy'));
+    const pct = function (a, b) { return b ? Math.round((a / b) * 1000) / 10 : null; };
+
+    // ---- Aset
+    const assets = AsetHooks.active_('aset').filter(function (r) { return r.status !== 'DILUPUS'; });
+    const aStatus = {};
+    const aJenis = {};
+    let verified = 0;
+    let complete = 0;
+    assets.forEach(function (r) {
+      aStatus[r.status] = (aStatus[r.status] || 0) + 1;
+      aJenis[r.jenis] = (aJenis[r.jenis] || 0) + 1;
+      if (String(r.disahkan_fizikal).toUpperCase() === 'TRUE') verified++;
+      if (r.no_aset && r.jenis && (r.makmal || r.lokasi) && r.tahun_perolehan) complete++;
+    });
+    const operational = AsetHooks.OPERATIONAL.reduce(function (s, k) { return s + (aStatus[k] || 0); }, 0);
+
+    // ---- Tiket
+    const tickets = AsetHooks.active_('tiket');
+    const cats = CategoryRepository.map();
+    const open = tickets.filter(function (r) { return TiketHooks.OPEN.indexOf(r.status) >= 0; });
+    const overdue = open.filter(function (r) { return TiketHooks.isOverdue(r, nowIso); });
+    const highOpen = open.filter(function (r) { return r.keutamaan === 'KRITIKAL' || r.keutamaan === 'TINGGI'; });
+    const byCat = {};
+    open.forEach(function (r) {
+      const c = cats[r.kategori];
+      const k = c ? c.name_ms : 'Tidak dikategori';
+      byCat[k] = (byCat[k] || 0) + 1;
+    });
+    const months = DateUtils.lastNMonths(6);
+    const slaTrend = months.map(function (m) {
+      const done = tickets.filter(function (r) { return r.selesai_pada && DateUtils.monthKey(r.selesai_pada) === m && r.tarikh_sasaran; });
+      const ok = done.filter(function (r) { return String(r.selesai_pada) <= String(r.tarikh_sasaran); }).length;
+      return { label: m, value: pct(ok, done.length), within: ok, total: done.length };
+    });
+    const unassigned = open.filter(function (r) { return !r.pegawai; }).length;
+    const pegawai = {};
+    AsetHooks.active_('pegawai').forEach(function (p) { pegawai[p.id] = p.nama; });
+    const workload = {};
+    open.forEach(function (r) {
+      if (!r.pegawai) return;
+      const n = pegawai[r.pegawai] || 'Lain';
+      workload[n] = workload[n] || { name: n, open: 0, overdue: 0 };
+      workload[n].open++;
+      if (TiketHooks.isOverdue(r, nowIso)) workload[n].overdue++;
+    });
+
+    // ---- Makmal & keperluan
+    const labs = AsetHooks.active_('makmal').filter(function (r) { return r.status !== 'TIDAK_AKTIF'; });
+    const labById = {};
+    labs.forEach(function (l) { labById[l.id] = l; });
+    const needs = AsetHooks.active_('keperluan').filter(function (r) { return Number(r.tahun) === year && r.status !== 'DITOLAK'; });
+    const sum = function (rows, col) { return rows.reduce(function (s, r) { return s + (Number(r[col]) || 0); }, 0); };
+    const verifiedNeeds = needs.filter(function (r) { return r.status === 'DISAHKAN'; });
+    const assessedLabs = {};
+    verifiedNeeds.forEach(function (r) { assessedLabs[r.makmal] = true; });
+    const PRI = { KRITIKAL: 0, TINGGI: 1, SEDERHANA: 2, RENDAH: 3 };
+    const topLabs = needs.slice().sort(function (a, b) {
+      const pa = PRI[a.keutamaan] === undefined ? 9 : PRI[a.keutamaan];
+      const pb = PRI[b.keutamaan] === undefined ? 9 : PRI[b.keutamaan];
+      if (pa !== pb) return pa - pb;
+      return (Number(b.bilangan_ganti) + Number(b.bilangan_tambahan)) - (Number(a.bilangan_ganti) + Number(a.bilangan_tambahan));
+    }).slice(0, 5).map(function (r) {
+      const l = labById[r.makmal] || {};
+      return {
+        id: r.id, lab: l.kod ? l.kod + ' · ' + l.nama : (l.nama || '—'), keutamaan: r.keutamaan, status: r.status,
+        ganti: Number(r.bilangan_ganti) || 0, tambahan: Number(r.bilangan_tambahan) || 0, kos: Number(r.anggaran_kos) || 0
+      };
+    });
+
+    // ---- Isu yang memerlukan tindakan / keputusan
+    const issues = [];
+    overdue.filter(function (r) { return r.keutamaan === 'KRITIKAL' || r.keutamaan === 'TINGGI'; }).slice(0, 5).forEach(function (r) {
+      issues.push({ kind: 'tiket', id: r.id, title: r.ref_no + ' · ' + r.tajuk, note: 'Tiket ' + String(r.keutamaan).toLowerCase() + ' melepasi SLA', tone: 'danger' });
+    });
+    needs.filter(function (r) { return r.keutamaan === 'KRITIKAL' && r.status !== 'DISAHKAN'; }).slice(0, 3).forEach(function (r) {
+      const l = labById[r.makmal] || {};
+      issues.push({ kind: 'keperluan', id: r.id, title: (l.kod || '') + ' ' + (l.nama || ''), note: 'Keperluan kritikal menunggu pengesahan', tone: 'warn' });
+    });
+
+    return {
+      generatedAt: nowIso,
+      tahun: year,
+      assets: {
+        total: assets.length, operational: operational, operationalPct: pct(operational, assets.length),
+        byStatus: aStatus, byJenis: aJenis, verified: verified, verifiedPct: pct(verified, assets.length),
+        completePct: pct(complete, assets.length)
+      },
+      tickets: {
+        open: open.length, overdue: overdue.length, overduePct: pct(overdue.length, open.length), highOpen: highOpen.length,
+        unassigned: unassigned, total: tickets.length,
+        byCategory: Object.keys(byCat).map(function (k) { return { label: k, value: byCat[k] }; }).sort(function (a, b) { return b.value - a.value; }),
+        slaTrend: slaTrend,
+        workload: Object.keys(workload).map(function (k) { return workload[k]; }).sort(function (a, b) { return b.open - a.open; })
+      },
+      labs: {
+        total: labs.length, submitted: needs.length, assessed: Object.keys(assessedLabs).length,
+        assessedPct: pct(Object.keys(assessedLabs).length, labs.length),
+        ganti: sum(needs, 'bilangan_ganti'), tambahan: sum(needs, 'bilangan_tambahan'),
+        gantiVerified: sum(verifiedNeeds, 'bilangan_ganti'), tambahanVerified: sum(verifiedNeeds, 'bilangan_tambahan'),
+        budget: Math.round(sum(needs, 'anggaran_kos') * 100) / 100,
+        budgetVerified: Math.round(sum(verifiedNeeds, 'anggaran_kos') * 100) / 100,
+        withoutCost: needs.filter(function (r) { return (Number(r.bilangan_ganti) + Number(r.bilangan_tambahan)) > 0 && !(Number(r.harga_seunit) > 0); }).length,
+        top: topLabs
+      },
+      issues: issues
+    };
+  },
+
+  // ================================================================== Import pukal
+
+  /**
+   * payload.rows = [{ noAset, jenis, jenama, model, makmal (kod/nama/ID), lokasi, … , status }]
+   * payload.dryRun = true → semak sahaja (tiada tulisan).
+   * Nilai enum boleh diberi sebagai nilai (DESKTOP) atau label (Komputer meja). Status juga.
+   * @return {{created:number, updated:number, errors:Object[], dryRun:boolean}}
+   */
+  importRows: function (payload, ctx) {
+    const def = CrudEngine.get('aset');
+    const rows = Array.isArray(payload.rows) ? payload.rows : [];
+    if (!rows.length) throw Errors.validation('Tiada baris untuk diimport.');
+    if (rows.length > AsetHooks.MAX_IMPORT) throw Errors.validation('Maksimum ' + AsetHooks.MAX_IMPORT + ' baris setiap kali import.');
+    const dryRun = payload.dryRun === true;
+    const repo = CrudEngine.repo(def);
+    const existing = {};
+    repo.all().forEach(function (r) { if (r.state === 'ACTIVE') existing[String(r.no_aset).trim().toLowerCase()] = r; });
+    const labs = {};
+    AsetHooks.active_('makmal').forEach(function (l) {
+      [l.id, l.kod, l.nama].forEach(function (k) { if (k) labs[String(k).trim().toLowerCase()] = l.id; });
+    });
+    const norm = function (f, v) {
+      if (v === undefined || v === null) return v;
+      const s = String(v).trim();
+      if (f.type === 'bool') return /^(ya|yes|true|1|y)$/i.test(s);
+      if (f.type === 'enum' && f.options) {
+        const hit = f.options.filter(function (o) { return o.value.toLowerCase() === s.toLowerCase() || String(o.label).toLowerCase() === s.toLowerCase(); })[0];
+        return hit ? hit.value : s;
+      }
+      if (f.type === 'ref' && f.ref === 'makmal') return s ? (labs[s.toLowerCase()] || ('?' + s)) : '';
+      if (f.type === 'date' && /^\d{1,2}[\/.-]\d{1,2}[\/.-]\d{4}$/.test(s)) {
+        const p = s.split(/[\/.-]/);
+        return p[2] + '-' + ('0' + p[1]).slice(-2) + '-' + ('0' + p[0]).slice(-2);
+      }
+      return s;
+    };
+    const statusOf = function (v) {
+      const s = String(v || '').trim().toLowerCase();
+      if (!s) return '';
+      /* Terima nilai (PERLU_BAIKI / perlu baiki), label penuh, atau sebahagian label dipisah "/" (cth. "Perlu dibaiki") */
+      const hit = def.statuses.filter(function (o) {
+        const parts = o.label.toLowerCase().split('/').map(function (x) { return x.trim(); });
+        return o.value.toLowerCase() === s || o.value.toLowerCase().replace(/_/g, ' ') === s || o.label.toLowerCase() === s || parts.indexOf(s) >= 0;
+      })[0];
+      return hit ? hit.value : null;
+    };
+    const fields = def.fields.filter(function (f) { return f.type !== 'files' && !f.readonly; });
+    const errors = [];
+    const inserts = [];
+    const patches = {};
+    const seen = {};
+    const now = DateUtils.nowIso();
+    rows.forEach(function (raw, i) {
+      const line = i + (Number(payload.offset) || 0) + 2; /* baris 1 = pengepala */
+      try {
+        const src = {};
+        fields.forEach(function (f) {
+          if (raw[f.key] !== undefined && raw[f.key] !== '') src[f.key] = norm(f, raw[f.key]);
+        });
+        if (src.makmal && String(src.makmal).charAt(0) === '?') throw Errors.validation('Makmal "' + String(src.makmal).slice(1) + '" tidak ditemui dalam senarai makmal.');
+        const st = statusOf(raw.status);
+        if (st === null) throw Errors.validation('Status "' + raw.status + '" tidak dikenali.');
+        const key = String(src.noAset || '').trim().toLowerCase();
+        if (!key) throw Errors.validation('No. aset diperlukan.');
+        if (seen[key]) throw Errors.validation('No. aset berulang dalam fail (baris ' + seen[key] + ').');
+        seen[key] = line;
+        const cur = existing[key];
+        const v = CrudEngine.validate(def, src, ctx, cur ? 'update' : 'create');
+        if (cur) {
+          const p = Object.assign({}, v.row, { updated_at: now });
+          if (st && st !== cur.status) { p.status = st; p.status_changed_at = now; p.status_changed_by = 'Import'; }
+          patches[cur.id] = p;
+        } else {
+          const row = Object.assign({}, v.row, {
+            id: IdUtils.generate(def.prefix), ref_no: '', owner_user_id: ctx.userId, owner_name: (ctx.user && ctx.user.full_name) || '',
+            status: st || def.defaultStatus, status_note: '', status_changed_at: '', status_changed_by: '',
+            state: RECORD_STATE.ACTIVE, created_at: now, updated_at: now, deleted_at: ''
+          });
+          def.fields.forEach(function (f) { if (row[f.column] === undefined) row[f.column] = f.type === 'bool' ? false : ''; });
+          inserts.push(row);
+        }
+      } catch (e) {
+        errors.push({ line: line, noAset: raw && raw.noAset ? String(raw.noAset) : '', message: e && e.message ? e.message : String(e) });
+      }
+    });
+    if (!dryRun && !errors.length) {
+      Database.withLock(function () {
+        AsetHooks.assignRefs_(def, inserts);
+        if (inserts.length) repo.insertMany(inserts);
+        if (Object.keys(patches).length) repo.updateMany(patches);
+      });
+      AppCache.remove('stats:admin');
+      AuditService.log(ctx, AUDIT_ACTIONS.RECORD_CREATED, def.sheet, '', 'Import aset: ' + inserts.length + ' baharu, ' + Object.keys(patches).length + ' dikemas kini');
+    }
+    return { dryRun: dryRun || errors.length > 0, created: inserts.length, updated: Object.keys(patches).length, errors: errors.slice(0, 100), errorCount: errors.length };
+  },
+
+  /** No. rujukan berjujukan untuk sekumpulan baris (dipanggil dalam kunci). */
+  assignRefs_: function (def, rows) {
+    if (!rows.length) return;
+    const first = CrudEngine.nextRefNo(def, rows[0].id);
+    const m = def.refFormat.match(/\{SEQ(\d)\}/);
+    const width = m ? Number(m[1]) : 4;
+    const prefix = first.slice(0, first.length - width);
+    let n = parseInt(first.slice(prefix.length), 10);
+    rows.forEach(function (r) { r.ref_no = prefix + String(n++).padStart(width, '0'); });
+  }
+};

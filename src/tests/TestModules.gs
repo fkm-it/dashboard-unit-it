@@ -96,6 +96,7 @@ const TestSuiteCrud = {
     ['Cipta: validasi jenis medan, nilai lalai, no. rujukan berjujukan, kategori lalai', function (t) {
       TestFixtures.install();
       const u = TestHelpers.user('crud');
+      const onlyCat = TestHelpers.singleCategory();
       const d = TestAssert.apiOk(TestHelpers.call(u.token, 'crud.create', { module: 'tiket', tajuk: 'Projektor rosak  ', jumlah: '12.345', kuantiti: 2, tarikh: '2026-10-05', masa: '09:30', segera: true, telefon: '012-345 6789' }));
       t.ok(/^TK-\d{4}-0001$/.test(d.refNo), 'no. rujukan pertama: ' + d.refNo);
       t.eq(d.values.tajuk, 'Projektor rosak');
@@ -104,7 +105,7 @@ const TestSuiteCrud = {
       t.eq(d.values.segera, true);
       t.eq(d.values.jenis, 'A', 'nilai lalai enum');
       t.eq(d.labels.jenis, 'Jenis A');
-      t.ok(d.values.kategori && d.labels.kategori === 'Umum', 'kategori lalai apabila hanya satu aktif');
+      t.ok(d.values.kategori && d.labels.kategori === onlyCat, 'kategori lalai apabila hanya satu aktif');
       t.eq(d.status, 'BARU');
       t.ok(d.isMine && d.canEdit && d.canDelete && !d.canSetStatus);
       t.eq(d.values.catatanDalaman, undefined, 'medan adminOnly tidak didedahkan kepada pengguna');

@@ -5,8 +5,8 @@
  * `public: true` → didedahkan kepada frontend (tiada rahsia di sini).
  */
 const SETTINGS_DEFS = Object.freeze({
-  SYSTEM_NAME: { type: 'string', max: 60, minRole: 'ADMIN', public: true, description: 'Nama sistem', default: 'Sistem Saya' }, // @init:appName
-  SYSTEM_TAGLINE: { type: 'string', max: 120, minRole: 'ADMIN', public: true, description: 'Slogan', default: 'Urus kerja dengan mudah' }, // @init:tagline
+  SYSTEM_NAME: { type: 'string', max: 60, minRole: 'ADMIN', public: true, description: 'Nama sistem', default: 'Dashboard Unit IT FKM' }, // @init:appName
+  SYSTEM_TAGLINE: { type: 'string', max: 120, minRole: 'ADMIN', public: true, description: 'Slogan', default: 'Aset, makmal dan aduan IT FKM dalam satu paparan' }, // @init:tagline
   LANDING_MESSAGE: { type: 'text', default: 'Log masuk atau daftar untuk mula menggunakan sistem.', max: 400, minRole: 'ADMIN', public: true, description: 'Mesej halaman utama' },
   ORG_NAME: { type: 'string', default: '', max: 120, minRole: 'ADMIN', public: true, description: 'Nama organisasi (footer)' },
   ALLOW_REGISTRATION: { type: 'bool', default: true, minRole: 'SUPER_ADMIN', public: true, description: 'Benarkan pendaftaran baharu' },
@@ -19,7 +19,11 @@ const SETTINGS_DEFS = Object.freeze({
   },
   DEFAULT_PAGE_SIZE: { type: 'int', default: 20, min: 5, max: 100, minRole: 'ADMIN', public: true, description: 'Saiz halaman senarai' },
   NOTIFY_EMAIL_ENABLED: { type: 'bool', default: false, minRole: 'ADMIN', public: false, description: 'Hantar email untuk notifikasi rekod (rekod baharu kepada admin, perubahan status kepada pemilik)' },
-  ADMIN_EMAIL: { type: 'string', default: '', max: 254, minRole: 'SUPER_ADMIN', public: false, description: 'Email pentadbir untuk maklum balas & amaran' }
+  ADMIN_EMAIL: { type: 'string', default: '', max: 254, minRole: 'SUPER_ADMIN', public: false, description: 'Email pentadbir untuk maklum balas & amaran' },
+  SLA_JAM_KRITIKAL: { type: 'int', default: 4, min: 1, max: 720, minRole: 'ADMIN', public: false, description: 'SLA tiket Kritikal (jam kalendar)' },
+  SLA_JAM_TINGGI: { type: 'int', default: 24, min: 1, max: 720, minRole: 'ADMIN', public: false, description: 'SLA tiket Tinggi (jam kalendar)' },
+  SLA_JAM_SEDERHANA: { type: 'int', default: 72, min: 1, max: 1440, minRole: 'ADMIN', public: false, description: 'SLA tiket Sederhana (jam kalendar)' },
+  SLA_JAM_RENDAH: { type: 'int', default: 168, min: 1, max: 2880, minRole: 'ADMIN', public: false, description: 'SLA tiket Rendah (jam kalendar)' }
 });
 
 const SettingModel = {

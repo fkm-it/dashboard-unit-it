@@ -76,15 +76,30 @@ const SCHEMA = Object.freeze({
   // ===================================================================== MODUL
   // Blok di bawah DIJANA oleh `npm run gen` daripada modules/*.json — jangan sunting dengan tangan.
   // @generator:schema:start
-  ADUAN: {
-    sheet: 'ADUAN', id: 'id', prefix: 'AD', module: 'aduan',
-    columns: ['id', 'ref_no', 'owner_user_id', 'owner_name', 'nama', 'email', 'tajuk', 'kategori', 'keutamaan', 'lokasi', 'keterangan', 'lampiran', 'catatan_pentadbir', 'status', 'status_note', 'status_changed_at', 'status_changed_by', 'state', 'created_at', 'updated_at', 'deleted_at'],
+  TIKET: {
+    sheet: 'TIKET', id: 'id', prefix: 'TK', module: 'tiket',
+    columns: ['id', 'ref_no', 'owner_user_id', 'owner_name', 'nama', 'email', 'telefon', 'tajuk', 'kategori', 'keutamaan', 'lokasi', 'makmal', 'no_aset', 'keterangan', 'lampiran', 'pegawai', 'tarikh_sasaran', 'diakui_pada', 'selesai_pada', 'penyelesaian', 'catatan_dalaman', 'status', 'status_note', 'status_changed_at', 'status_changed_by', 'state', 'created_at', 'updated_at', 'deleted_at'],
     types: {'lampiran': 'int'}
   },
-  PENGUMUMAN: {
-    sheet: 'PENGUMUMAN', id: 'id', prefix: 'PE', module: 'pengumuman',
-    columns: ['id', 'ref_no', 'owner_user_id', 'owner_name', 'tajuk', 'isi', 'tarikh_tamat', 'penting', 'status', 'status_note', 'status_changed_at', 'status_changed_by', 'state', 'created_at', 'updated_at', 'deleted_at'],
-    types: {'penting': 'bool'}
+  ASET: {
+    sheet: 'ASET', id: 'id', prefix: 'AS', module: 'aset',
+    columns: ['id', 'ref_no', 'owner_user_id', 'owner_name', 'no_aset', 'no_siri', 'jenis', 'jenama', 'model', 'makmal', 'lokasi', 'pegawai_bertanggungjawab', 'tahun_perolehan', 'tamat_waranti', 'cpu', 'ram_gb', 'storan', 'gpu', 'sistem_operasi', 'lesen_os', 'perisian', 'keadaan_fizikal', 'cadangan', 'disahkan_fizikal', 'tarikh_semakan', 'catatan', 'status', 'status_note', 'status_changed_at', 'status_changed_by', 'state', 'created_at', 'updated_at', 'deleted_at'],
+    types: {'tahun_perolehan': 'int', 'ram_gb': 'int', 'disahkan_fizikal': 'bool'}
+  },
+  KEPERLUAN: {
+    sheet: 'KEPERLUAN', id: 'id', prefix: 'KP', module: 'keperluan',
+    columns: ['id', 'ref_no', 'owner_user_id', 'owner_name', 'makmal', 'tahun', 'jumlah_sedia_ada', 'berfungsi', 'tidak_sesuai', 'rosak_boleh_baiki', 'rosak_lupus', 'sasaran_jumlah', 'bilangan_ganti', 'bilangan_tambahan', 'keutamaan', 'spesifikasi', 'perisian', 'justifikasi', 'harga_seunit', 'sumber_harga', 'anggaran_kos', 'lampiran', 'catatan_it', 'status', 'status_note', 'status_changed_at', 'status_changed_by', 'state', 'created_at', 'updated_at', 'deleted_at'],
+    types: {'tahun': 'int', 'jumlah_sedia_ada': 'int', 'berfungsi': 'int', 'tidak_sesuai': 'int', 'rosak_boleh_baiki': 'int', 'rosak_lupus': 'int', 'sasaran_jumlah': 'int', 'bilangan_ganti': 'int', 'bilangan_tambahan': 'int', 'lampiran': 'int'}
+  },
+  MAKMAL: {
+    sheet: 'MAKMAL', id: 'id', prefix: 'MK', module: 'makmal',
+    columns: ['id', 'ref_no', 'owner_user_id', 'owner_name', 'kod', 'nama', 'bangunan', 'bilik', 'jabatan', 'penyelaras', 'email_penyelaras', 'kapasiti', 'tempat_komputer', 'pengguna_sesi', 'catatan', 'status', 'status_note', 'status_changed_at', 'status_changed_by', 'state', 'created_at', 'updated_at', 'deleted_at'],
+    types: {'kapasiti': 'int', 'tempat_komputer': 'int', 'pengguna_sesi': 'int'}
+  },
+  PEGAWAI: {
+    sheet: 'PEGAWAI', id: 'id', prefix: 'PG', module: 'pegawai',
+    columns: ['id', 'ref_no', 'owner_user_id', 'owner_name', 'nama', 'jawatan', 'email', 'telefon', 'aktif', 'status', 'status_note', 'status_changed_at', 'status_changed_by', 'state', 'created_at', 'updated_at', 'deleted_at'],
+    types: {'aktif': 'bool'}
   },
   // @generator:schema:end
 });

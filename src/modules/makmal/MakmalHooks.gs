@@ -1,9 +1,9 @@
 /**
- * @file AduanHooks.gs
- * Logik khusus modul "Aduan". Fail ini dicipta SEKALI oleh tools/gen.js — selamat disunting.
+ * @file MakmalHooks.gs
+ * Logik khusus modul "Makmal". Fail ini dicipta SEKALI oleh tools/gen.js — selamat disunting.
  * Semua hook pilihan; buang yang tidak digunakan. Rujuk modules/CrudEngine.gs untuk butiran.
  */
-const AduanHooks = {
+const MakmalHooks = {
   /**
    * Peraturan perniagaan tambahan. Lontar Errors.validation(msg, { medan: msg }) atau Errors.conflict(msg).
    * @param {Object} data nilai disahkan (kunci camelCase)  @param {{ctx:Object, mode:string, current:Object|null}} info

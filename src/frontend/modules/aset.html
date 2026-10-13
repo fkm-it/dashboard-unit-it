@@ -1,0 +1,301 @@
+<style>
+/* ===== Dashboard Unit IT: Executive Overview + Import aset ===== */
+.xo-kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--sp-4); }
+.xo-kpi { display: flex; gap: var(--sp-3); align-items: flex-start; padding: var(--sp-5); background: var(--white); border: 1px solid var(--line); border-radius: var(--r-lg); color: inherit; text-decoration: none; transition: box-shadow .15s, border-color .15s; min-width: 0; }
+.xo-kpi:hover { border-color: var(--line-strong); box-shadow: var(--shadow-lift); }
+.xo-kpi:focus-visible { outline: none; box-shadow: var(--focus); }
+.xo-kpi__ic { flex: none; width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; color: #fff; }
+.xo-kpi__ic .i { width: 22px; height: 22px; }
+.xo-kpi__label { font-size: var(--fs-sm); font-weight: 600; color: var(--ink); }
+.xo-kpi__value { font-size: var(--fs-2xl); font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; color: var(--ink); line-height: 1.15; margin-top: 2px; overflow-wrap: anywhere; }
+.xo-kpi__note { font-size: var(--fs-xs); color: var(--muted); margin-top: 2px; }
+.xo-blue { background: #2563EB; } .xo-green { background: #15803D; } .xo-violet { background: #7C3AED; } .xo-amber { background: #D97706; } .xo-red { background: #DC2626; }
+.xo-kpi--alert { border-color: #FECACA; background: #FFF7F7; }
+.xo-grid4 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-4); margin-top: var(--sp-4); }
+.xo-grid2 { display: grid; grid-template-columns: 1.6fr 1fr; gap: var(--sp-4); margin-top: var(--sp-4); }
+.xo-grid2 > .panel { min-width: 0; }
+.xo-big { font-size: var(--fs-3xl); font-weight: 700; letter-spacing: -.02em; color: var(--ink); line-height: 1; }
+.xo-grid3 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-4); margin-top: var(--sp-4); }
+.xo-grid4 > .panel, .xo-grid3 > .panel { min-width: 0; }
+.xo-donut { display: flex; flex-direction: column; align-items: center; gap: var(--sp-4); }
+.xo-donut svg { width: 150px; height: 150px; flex: none; }
+.xo-donut__c { font-size: 22px; font-weight: 700; fill: var(--ink); }
+.xo-donut__s { font-size: 10px; fill: var(--muted); }
+.xo-legend { display: flex; flex-direction: column; gap: 6px; font-size: var(--fs-sm); min-width: 0; width: 100%; }
+.xo-legend > span { display: flex; align-items: center; gap: 8px; }
+.xo-legend i { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.xo-legend b { margin-left: auto; padding-left: var(--sp-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.xo-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+.xo-table th { text-align: left; font-weight: 600; color: var(--muted); font-size: var(--fs-xs); padding: 6px 4px; border-bottom: 1px solid var(--line); }
+.xo-table td { padding: 8px 4px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.xo-table td.num, .xo-table th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.xo-table a { color: inherit; text-decoration: none; font-weight: 600; }
+.xo-table a:hover { color: var(--brand); }
+.xo-issue { display: flex; gap: var(--sp-3); align-items: flex-start; padding: 10px 0; border-bottom: 1px solid var(--line); text-decoration: none; color: inherit; }
+.xo-issue:last-child { border-bottom: 0; }
+.xo-issue .i { flex: none; margin-top: 2px; }
+.xo-issue--danger .i { color: var(--danger); } .xo-issue--warn .i { color: var(--warn); }
+.xo-meter { margin-bottom: var(--sp-4); }
+.xo-meter__top { display: flex; justify-content: space-between; font-size: var(--fs-sm); margin-bottom: 6px; gap: var(--sp-3); }
+.xo-meter__top b { font-variant-numeric: tabular-nums; }
+.xo-meter__track { height: 8px; border-radius: 4px; background: var(--canvas-200); overflow: hidden; }
+.xo-meter__fill { height: 100%; border-radius: 4px; background: var(--brand); }
+.xo-meter__fill.is-ok { background: var(--success); } .xo-meter__fill.is-warn { background: #D97706; }
+.xo-sample { display: inline-flex; gap: 6px; align-items: center; font-size: var(--fs-xs); color: var(--muted); }
+.xo-toolbar { display: flex; gap: var(--sp-2); align-items: center; flex-wrap: wrap; }
+.im-drop { border: 2px dashed var(--line-strong); border-radius: var(--r-lg); padding: var(--sp-8) var(--sp-5); text-align: center; background: var(--white); }
+.im-drop.is-over { border-color: var(--brand); background: var(--brand-50); }
+.im-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-4); }
+.im-step { background: var(--white); border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--sp-4); font-size: var(--fs-sm); }
+.im-step b { display: block; margin-bottom: 4px; }
+.im-scroll { overflow-x: auto; max-width: 100%; }
+.im-scroll table { min-width: 560px; }
+@media (max-width: 1280px) { .xo-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 1100px) { .xo-grid4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } .xo-grid2 { grid-template-columns: 1fr; } }
+@media (max-width: 900px) { .xo-grid3 { grid-template-columns: 1fr; } }
+@media (max-width: 640px) {
+  .xo-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3); }
+  .xo-kpi { padding: var(--sp-3); flex-direction: column; gap: var(--sp-2); }
+  .xo-kpi__ic { width: 34px; height: 34px; border-radius: 10px; }
+  .xo-kpi__ic .i { width: 18px; height: 18px; }
+  .xo-kpi__value { font-size: var(--fs-xl); }
+  .xo-grid4, .xo-grid2 { grid-template-columns: 1fr; }
+  .xo-donut svg { width: 120px; height: 120px; }
+  .im-steps { grid-template-columns: 1fr; }
+}
+</style>
+<script>
+(function (KD) {
+  'use strict';
+  const { html, raw, qs, on, fmtNum, fmtDate, toCsv, downloadText } = KD.utils;
+  const { icon, toast, toastError, errorState, empty, skeletonStats, toneBadge, busy } = KD.ui;
+  const C = KD.charts;
+
+  const rm = (n) => 'RM ' + Number(n || 0).toLocaleString('ms-MY', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  const pctTxt = (v) => (v === null || v === undefined ? '—' : Number(v).toLocaleString('ms-MY', { maximumFractionDigits: 1 }) + '%');
+  const statusOf = (key, value) => ((KD.moduleOf(key) || {}).statuses || []).find((s) => s.value === value) || { label: value, tone: 'muted' };
+  const PRI_TONE = { KRITIKAL: 'danger', TINGGI: 'warn', SEDERHANA: 'brand', RENDAH: 'muted' };
+  const PRI_LABEL = { KRITIKAL: 'Kritikal', TINGGI: 'Tinggi', SEDERHANA: 'Sederhana', RENDAH: 'Rendah' };
+  const TONE_COLOR = { success: '#15803D', brand: '#2563EB', warn: '#D97706', danger: '#DC2626', muted: '#94A3B8', info: '#0EA5E9' };
+
+  const kpi = (href, color, ic, label, value, note, alert) => html`<a class="xo-kpi ${alert ? 'xo-kpi--alert' : ''}" href="#${href}">
+      <span class="xo-kpi__ic ${color}">${icon(ic)}</span>
+      <span style="min-width:0"><span class="xo-kpi__label">${label}</span><div class="xo-kpi__value">${value}</div>${note ? html`<div class="xo-kpi__note">${note}</div>` : ''}</span></a>`;
+
+  /** Carta donat SVG dengan legenda (status aset). */
+  function donut(items, total, centerLabel) {
+    const R = 52, L = 2 * Math.PI * R;
+    let off = 0;
+    let arcs = '';
+    items.filter((d) => d.value > 0).forEach((d) => {
+      const len = total ? (d.value / total) * L : 0;
+      arcs += '<circle cx="70" cy="70" r="' + R + '" fill="none" stroke="' + d.color + '" stroke-width="18" stroke-dasharray="' + len + ' ' + (L - len) + '" stroke-dashoffset="' + (-off) + '" transform="rotate(-90 70 70)"><title>' + KD.utils.esc(d.label) + ': ' + d.value + '</title></circle>';
+      off += len;
+    });
+    if (!total) arcs = '<circle cx="70" cy="70" r="' + R + '" fill="none" stroke="#E2E8F0" stroke-width="18"/>';
+    return html`<div class="xo-donut"><svg viewBox="0 0 140 140" role="img" aria-label="Status aset">${raw(arcs)}<text x="70" y="70" text-anchor="middle" class="xo-donut__c">${fmtNum(total)}</text><text x="70" y="88" text-anchor="middle" class="xo-donut__s">${centerLabel}</text></svg>
+      <div class="xo-legend">${items.map((d) => html`<span><i style="background:${d.color}"></i>${d.label}<b>${fmtNum(d.value)} <span class="muted">(${total ? Math.round((d.value / total) * 100) : 0}%)</span></b></span>`)}</div></div>`;
+  }
+
+  const meter = (label, v, sub) => {
+    const n = v === null || v === undefined ? 0 : Math.max(0, Math.min(100, v));
+    const cls = n >= 95 ? 'is-ok' : n >= 60 ? '' : 'is-warn';
+    return html`<div class="xo-meter"><div class="xo-meter__top"><span>${label}</span><b>${pctTxt(v)}</b></div><div class="xo-meter__track"><div class="xo-meter__fill ${cls}" style="width:${n}%"></div></div>${sub ? html`<div class="xs muted mt-1">${sub}</div>` : ''}</div>`;
+  };
+
+  // ================================================================ Executive Overview (/admin)
+  const overview = {
+    async render(el) {
+      const thisYear = new Date().getFullYear();
+      const years = [thisYear + 1, thisYear, thisYear - 1, thisYear - 2];
+      let tahun = thisYear;
+      el.innerHTML = html`<div class="page-head"><div><h1>Executive Overview</h1><p>Gambaran keseluruhan aset IT, helpdesk dan keperluan komputer makmal FKM.</p></div>
+        <div class="xo-toolbar"><select class="select" data-tahun aria-label="Tahun penilaian makmal">${years.map((y) => html`<option value="${y}" ${y === tahun ? raw('selected') : ''}>Keperluan ${y}</option>`)}</select>
+        <button class="btn btn-outline" data-act="reload">${icon('refresh')}Muat semula</button></div></div><div data-box>${skeletonStats(5)}<div class="mt-6">${skeletonStats(4)}</div></div>`.s;
+      const box = qs('[data-box]', el);
+      const load = async () => {
+        box.innerHTML = html`${skeletonStats(5)}<div class="mt-6">${skeletonStats(4)}</div>`.s;
+        try {
+          const o = await KD.api.call('aset.overview', { tahun });
+          box.innerHTML = view(o).s;
+        } catch (err) { box.innerHTML = errorState(err, 'reload').s; }
+      };
+      on(el, 'click', '[data-act="reload"]', load);
+      on(el, 'change', '[data-tahun]', (e) => { tahun = Number(e.target.value); load(); });
+      load();
+    }
+  };
+
+  const MON = ['Jan', 'Feb', 'Mac', 'Apr', 'Mei', 'Jun', 'Jul', 'Ogo', 'Sep', 'Okt', 'Nov', 'Dis'];
+  const monthName = (k) => { const p = String(k).split('-'); return MON[Number(p[1]) - 1] + ' ' + p[0]; };
+  const SHORT = { PERLAHAN: 'Berfungsi, tidak memadai', PERLU_BAIKI: 'Perlu dibaiki' };
+
+  function view(o) {
+    const a = o.assets, t = o.tickets, l = o.labs;
+    const faulty = (a.byStatus.PERLU_BAIKI || 0) + (a.byStatus.MENUNGGU_ALAT_GANTI || 0) + (a.byStatus.TIDAK_BOLEH_GUNA || 0);
+    const statusItems = ['BERFUNGSI', 'PERLAHAN', 'PERLU_BAIKI', 'MENUNGGU_ALAT_GANTI', 'TIDAK_BOLEH_GUNA'].map((k) => {
+      const s = statusOf('aset', k);
+      return { label: SHORT[k] || s.label, value: a.byStatus[k] || 0, color: TONE_COLOR[s.tone] || '#94A3B8' };
+    });
+    const trend = t.slaTrend.filter((m) => m.total > 0);
+    const lastSla = trend.length ? trend[trend.length - 1] : null;
+    const firstRun = !a.total && !t.total && !l.total;
+    return html`
+      ${firstRun ? html`<div class="panel mb-4" style="border-color:var(--brand-100);background:var(--brand-50)"><div class="row" style="gap:12px;align-items:flex-start">${icon('info')}<div class="small"><b>Belum ada data.</b> Mulakan dengan: (1) <a href="#/admin/makmal/baru">tambah makmal</a>, (2) <a href="#/admin/pegawai/baru">tambah pegawai IT</a>, (3) <a href="#/admin/import-aset">import daftar aset</a>. Semua angka di bawah dikira terus daripada rekod sistem.</div></div></div>` : ''}
+      <div class="xo-kpis">
+        ${kpi('/admin/aset', 'xo-blue', 'database', 'Jumlah aset IT', fmtNum(a.total), html`Beroperasi ${fmtNum(a.operational)} (${pctTxt(a.operationalPct)}) · Rosak ${fmtNum(faulty)}`)}
+        ${kpi('/admin/tiket', 'xo-green', 'inbox', 'Tiket terbuka', fmtNum(t.open), html`Lewat SLA ${fmtNum(t.overdue)} · Belum ditugaskan ${fmtNum(t.unassigned)}`, t.overdue > 0)}
+        ${kpi('/admin/keperluan', 'xo-violet', 'briefcase', 'Keperluan PC makmal', fmtNum(l.ganti + l.tambahan), html`${o.tahun} · Ganti ${fmtNum(l.ganti)} · Tambahan ${fmtNum(l.tambahan)}`)}
+        ${kpi('/admin/keperluan', 'xo-amber', 'chart', 'Anggaran bajet', rm(l.budget), html`Disahkan ${rm(l.budgetVerified)}${l.withoutCost ? html` · ${fmtNum(l.withoutCost)} tanpa harga` : ''}`)}
+        ${kpi('/admin/tiket', 'xo-red', 'alert', 'Isu keutamaan tinggi', fmtNum(t.highOpen), 'Tiket kritikal/tinggi masih terbuka', t.highOpen > 0)}
+      </div>
+      <div class="xo-grid4">
+        <section class="panel"><div class="panel-head"><h3>Pematuhan SLA</h3><span class="xs muted">6 bulan</span></div>
+          ${lastSla ? html`<div class="xo-big">${pctTxt(lastSla.value)}</div><div class="xs muted mt-1 mb-4">${monthName(lastSla.label)}: ${fmtNum(lastSla.within)} daripada ${fmtNum(lastSla.total)} tiket selesai dalam sasaran</div>
+            ${trend.slice().reverse().map((m) => meter(monthName(m.label), m.value, fmtNum(m.within) + "/" + fmtNum(m.total) + " tiket"))}${trend.length < 6 ? html`<p class="xs muted">Bulan tanpa tiket selesai tidak dipaparkan.</p>` : ""}`
+            : html`<p class="muted small">Belum ada tiket selesai dalam 6 bulan terakhir.</p>`}</section>
+        <section class="panel"><div class="panel-head"><h3>Status aset</h3><a class="small" href="#/admin/aset">Lihat</a></div>${donut(statusItems, a.total, 'jumlah aset')}</section>
+        <section class="panel"><div class="panel-head"><h3>Tiket terbuka ikut kategori</h3><a class="small" href="#/admin/tiket">Lihat</a></div>${C.hbars(t.byCategory, { title: 'Tiket terbuka ikut kategori' })}</section>
+      </div>
+      <div class="xo-grid2">
+        <section class="panel"><div class="panel-head"><h3>5 keperluan makmal utama · ${o.tahun}</h3><a class="small" href="#/admin/keperluan">Lihat semua</a></div>
+          ${l.top.length ? html`<div class="im-scroll"><table class="xo-table" style="min-width:440px"><thead><tr><th>Makmal</th><th>Keutamaan</th><th class="num">Ganti</th><th class="num">Tambahan</th><th class="num">Kos (RM)</th></tr></thead><tbody>
+            ${l.top.map((r) => html`<tr><td><a href="#/admin/keperluan/${r.id}">${r.lab}</a></td><td>${toneBadge(PRI_LABEL[r.keutamaan] || r.keutamaan, PRI_TONE[r.keutamaan])}</td><td class="num">${fmtNum(r.ganti)}</td><td class="num">${fmtNum(r.tambahan)}</td><td class="num">${fmtNum(r.kos)}</td></tr>`)}</tbody></table></div>`
+            : html`<p class="muted small">Tiada permohonan keperluan bagi ${o.tahun}.</p>`}</section>
+        <section class="panel"><div class="panel-head"><h3>Perlu tindakan / keputusan</h3></div>
+          ${o.issues.length ? o.issues.map((i) => html`<a class="xo-issue xo-issue--${i.tone}" href="#/admin/${i.kind}/${i.id}">${icon('alert', 'i-sm')}<span><b class="small">${i.title}</b><div class="xs muted">${i.note}</div></span></a>`)
+            : html`<p class="muted small">${icon('check', 'i-sm')} Tiada isu kritikal ketika ini.</p>`}</section>
+      </div>
+      <div class="xo-grid3">
+        <section class="panel"><div class="panel-head"><h3>Beban kerja pegawai</h3><span class="xs muted">Tiket terbuka</span></div>
+          ${t.workload.length ? html`<table class="xo-table"><thead><tr><th>Pegawai</th><th class="num">Terbuka</th><th class="num">Lewat SLA</th></tr></thead><tbody>${t.workload.map((w) => html`<tr><td>${w.name}</td><td class="num">${fmtNum(w.open)}</td><td class="num">${w.overdue ? html`<span style="color:var(--danger);font-weight:600">${fmtNum(w.overdue)}</span>` : '0'}</td></tr>`)}</tbody></table>`
+            : html`<p class="muted small">Belum ada tiket yang ditugaskan.</p>`}
+          <p class="xs muted mt-2">Bilangan tiket bukan ukuran prestasi tunggal; kesukaran tugasan berbeza.</p></section>
+        <section class="panel"><div class="panel-head"><h3>Kualiti & liputan data</h3></div>
+          ${meter('Liputan penilaian makmal', l.assessedPct, fmtNum(l.assessed) + ' daripada ' + fmtNum(l.total) + ' makmal disahkan · ' + fmtNum(l.submitted) + ' permohonan')}
+          ${meter('Aset disahkan secara fizikal', a.verifiedPct, fmtNum(a.verified) + ' daripada ' + fmtNum(a.total) + ' aset')}
+          ${meter('Kelengkapan rekod aset', a.completePct, 'No. aset, jenis, lokasi/makmal dan tahun perolehan diisi')}</section>
+      </div>
+      <p class="xs muted mt-4">Dijana ${fmtDate(o.generatedAt, true)} daripada rekod sistem. Anggaran kos adalah perancangan, bukan kelulusan bajet. SLA dikira dalam jam kalendar (Tetapan → SLA_JAM_*).</p>`;
+  }
+
+  // ================================================================ Import aset (/admin/import-aset)
+  /** Penghurai CSV ringkas (RFC 4180): petikan, koma/koma bertitik, BOM. */
+  function parseCsv(text) {
+    text = String(text || '').replace(/^﻿/, '');
+    const firstLine = text.split(/\r?\n/)[0] || '';
+    const delim = (firstLine.split(';').length > firstLine.split(',').length) ? ';' : ',';
+    const rows = [];
+    let row = [], cell = '', q = false;
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (q) {
+        if (ch === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; }
+        else cell += ch;
+      } else if (ch === '"') q = true;
+      else if (ch === delim) { row.push(cell); cell = ''; }
+      else if (ch === '\n' || ch === '\r') {
+        if (ch === '\r' && text[i + 1] === '\n') i++;
+        row.push(cell); rows.push(row); row = []; cell = '';
+      } else cell += ch;
+    }
+    if (cell !== '' || row.length) { row.push(cell); rows.push(row); }
+    return rows.filter((r) => r.some((c) => String(c).trim() !== ''));
+  }
+
+  const importFields = () => (KD.moduleOf('aset').fields || []).filter((f) => f.type !== 'files' && !f.readonly);
+  const norm = (s) => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
+
+  KD.views.importAset = {
+    async render(el) {
+      const fields = importFields();
+      el.innerHTML = html`<div class="page-head"><div><h1>Import aset IT</h1><p>Muat naik daftar aset (CSV). Rekod dengan No. aset sedia ada akan dikemas kini; yang baharu akan ditambah.</p></div>
+          <div class="xo-toolbar"><button class="btn btn-outline" data-act="tpl">${icon('download')}Templat CSV</button></div></div>
+        <div class="im-steps"><div class="im-step"><b>1 · Sediakan fail</b>Guna templat atau fail Excel sedia ada. Dalam Excel: <i>Fail → Simpan sebagai → CSV UTF-8</i>.</div>
+          <div class="im-step"><b>2 · Semak</b>Sistem menyemak setiap baris dahulu (tiada data ditulis). Makmal boleh ditulis sebagai kod (cth. ME-01).</div>
+          <div class="im-step"><b>3 · Import</b>Hanya apabila tiada ralat. Status boleh ditulis sebagai label, cth. <i>Berfungsi</i>.</div></div>
+        <label class="im-drop mt-4" data-drop style="display:block;cursor:pointer"><div style="display:flex;justify-content:center">${icon('download')}</div><div class="mt-2"><b>Pilih fail CSV</b> atau seret ke sini</div><div class="xs muted mt-1">Maksimum 5,000 baris</div>
+          <input type="file" accept=".csv,text/csv" data-file class="sr-only"></label>
+        <div data-out class="mt-4"></div>`.s;
+      const out = qs('[data-out]', el);
+      let rows = [];
+
+      on(el, 'click', '[data-act="tpl"]', () => {
+        const head = fields.map((f) => f.key).concat(['status']);
+        const label = fields.map((f) => f.label).concat(['Status']);
+        const ex = { noAset: 'UTM/FKM/H/2021/0001', jenis: 'Komputer meja', jenama: 'Dell', model: 'OptiPlex 7090', makmal: 'ME-01', lokasi: 'C23-112', tahunPerolehan: '2021', tamatWaranti: '31/12/2026', cpu: 'Core i7-11700', ramGb: '16', storan: 'SSD 512GB', sistemOperasi: 'Windows 11 Pro', lesenOs: 'Sah / berlesen', keadaanFizikal: 'Baik', cadangan: 'Kekal', disahkanFizikal: 'Ya', status: 'Berfungsi' };
+        downloadText(toCsv([head, label.map((x) => '# ' + x), head.map((k) => ex[k] || '')]), 'text/csv', 'templat-import-aset.csv');
+        toast('Templat dimuat turun. Padam baris contoh dan baris "#" sebelum import.');
+      });
+
+      const accept = async (file) => {
+        if (!file) return;
+        if (file.size > 3 * 1024 * 1024) { toastError('Fail terlalu besar (maksimum 3 MB).'); return; }
+        const text = await file.text();
+        const grid = parseCsv(text).filter((r) => !String(r[0] || '').trim().startsWith('#'));
+        if (grid.length < 2) { out.innerHTML = empty('Tiada data', 'Fail perlu ada baris pengepala dan sekurang-kurangnya satu baris data.').s; return; }
+        const byName = {};
+        fields.forEach((f) => { byName[norm(f.key)] = f.key; byName[norm(f.label)] = f.key; });
+        byName.status = 'status';
+        const header = grid[0].map((h) => byName[norm(h)] || null);
+        const unknown = grid[0].filter((h, i) => !header[i] && String(h).trim());
+        if (!header.includes('noAset')) { out.innerHTML = empty('Lajur No. aset tiada', 'Pengepala mesti mengandungi noAset atau "No. aset". Muat turun templat untuk rujukan.').s; return; }
+        rows = grid.slice(1).map((r) => { const o = {}; header.forEach((k, i) => { if (k && r[i] !== undefined && String(r[i]).trim() !== '') o[k] = String(r[i]).trim(); }); return o; });
+        if (rows.length > 5000) { toastError('Maksimum 5,000 baris setiap fail.'); rows = []; return; }
+        const cols = header.filter(Boolean);
+        out.innerHTML = html`<section class="panel"><div class="panel-head"><h3>${file.name}</h3><span class="small">${fmtNum(rows.length)} baris · ${fmtNum(cols.length)} lajur dikenali</span></div>
+          ${unknown.length ? html`<p class="small" style="color:var(--warn)">${icon('alert', 'i-sm')} Lajur tidak dikenali (diabaikan): ${unknown.join(', ')}</p>` : ''}
+          <div class="im-scroll"><table class="xo-table"><thead><tr>${cols.slice(0, 7).map((c) => html`<th>${(fields.find((f) => f.key === c) || { label: 'Status' }).label}</th>`)}</tr></thead>
+          <tbody>${rows.slice(0, 5).map((r) => html`<tr>${cols.slice(0, 7).map((c) => html`<td>${r[c] || ''}</td>`)}</tr>`)}</tbody></table></div>
+          ${rows.length > 5 ? html`<p class="xs muted mt-2">Pratonton 5 baris pertama.</p>` : ''}
+          <div class="row row-wrap mt-4"><button class="btn btn-outline" data-act="check">${icon('check')}Semak data</button><button class="btn btn-primary" data-act="import" disabled>${icon('download')}Import ${fmtNum(rows.length)} rekod</button></div>
+          <div data-result class="mt-4"></div></section>`.s;
+      };
+
+      const run = async (dryRun, btn) => {
+        const res = qs('[data-result]', out);
+        const CH = 500;
+        const total = { created: 0, updated: 0, errors: [], errorCount: 0 };
+        try {
+          await busy(btn, async () => {
+            for (let i = 0; i < rows.length; i += CH) {
+              const r = await KD.api.call('aset.import', { rows: rows.slice(i, i + CH), dryRun, offset: i });
+              total.created += r.created; total.updated += r.updated; total.errorCount += r.errorCount; total.errors = total.errors.concat(r.errors);
+              if (!dryRun && r.errorCount) break;
+            }
+          });
+        } catch (err) { toastError(err); return; }
+        const importBtn = qs('[data-act="import"]', out);
+        if (total.errorCount) {
+          importBtn.disabled = true;
+          res.innerHTML = html`<div class="small" style="color:var(--danger)"><b>${fmtNum(total.errorCount)} ralat ditemui.</b> Betulkan dalam fail dan muat naik semula. Tiada data ditulis.</div>
+            <div class="im-scroll mt-2"><table class="xo-table"><thead><tr><th>Baris</th><th>No. aset</th><th>Ralat</th></tr></thead><tbody>${total.errors.slice(0, 100).map((e) => html`<tr><td class="num">${e.line}</td><td>${e.noAset}</td><td>${e.message}</td></tr>`)}</tbody></table></div>`.s;
+          return;
+        }
+        if (dryRun) {
+          importBtn.disabled = false;
+          res.innerHTML = html`<div class="small" style="color:var(--success)">${icon('check', 'i-sm')} <b>Semakan lulus.</b> ${fmtNum(total.created)} rekod baharu, ${fmtNum(total.updated)} dikemas kini.</div>`.s;
+        } else {
+          importBtn.disabled = true;
+          toast('Import selesai.');
+          res.innerHTML = html`<div class="small" style="color:var(--success)">${icon('check', 'i-sm')} <b>Import selesai.</b> ${fmtNum(total.created)} ditambah, ${fmtNum(total.updated)} dikemas kini. <a href="#/admin/aset">Lihat daftar aset</a></div>`.s;
+        }
+      };
+      on(el, 'change', '[data-file]', (e) => accept(e.target.files[0]));
+      on(el, 'click', '[data-act="check"]', (e, b) => run(true, b));
+      on(el, 'click', '[data-act="import"]', (e, b) => run(false, b));
+      const drop = qs('[data-drop]', el);
+      drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('is-over'); });
+      drop.addEventListener('dragleave', () => drop.classList.remove('is-over'));
+      drop.addEventListener('drop', (e) => { e.preventDefault(); drop.classList.remove('is-over'); accept(e.dataTransfer.files[0]); });
+    }
+  };
+
+  // ================================================================ Pendaftaran laluan & menu
+  KD.views.adminSistem = KD.views.adminDashboard;
+  KD.views.adminDashboard = overview;
+  KD.extraRoutes.push({ path: '/admin/import-aset', view: 'importAset', access: 'admin', layout: 'admin', title: 'Import aset' });
+  KD.extraRoutes.push({ path: '/admin/sistem', view: 'adminSistem', access: 'admin', layout: 'admin', title: 'Statistik sistem' });
+  KD.extraNav.admin.push(['/admin/import-aset', 'download', 'Import aset'], ['/admin/sistem', 'activity', 'Statistik sistem']);
+})(window.KD);
+</script>

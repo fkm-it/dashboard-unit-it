@@ -151,6 +151,13 @@ const TestAssert = {
 /** Pembantu ujian dikongsi. */
 const TestHelpers = {
   seq: 0,
+
+  /** Biar hanya satu kategori aktif (ujian kategori lalai, tidak bergantung pada SeedData domain). @return {string} nama kategori */
+  singleCategory: function () {
+    const act = CategoryRepository.active();
+    act.slice(1).forEach(function (c) { CategoryRepository.update(c.category_id, { status: CATEGORY_STATUS.INACTIVE }); });
+    return act[0].name_ms;
+  },
   email: function (tag) { TestHelpers.seq++; return (tag || 'user') + TestHelpers.seq + '_' + Utilities.getUuid().slice(0, 6) + '@test.local'; },
 
   /** Daftar + log masuk melalui API sebenar. @return {{token, user, ctx}} */

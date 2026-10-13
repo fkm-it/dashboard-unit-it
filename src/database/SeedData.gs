@@ -4,10 +4,16 @@
  * Ubah CATEGORIES mengikut domain sistem (cth. jenis aduan, jenis ruang, jabatan).
  */
 const SeedData = {
-  DEFAULT_CATEGORY: 'Umum',
-  /** [nama BM, nama EN, ikon] — ikon mesti dalam CATEGORY_ICONS. */
+  DEFAULT_CATEGORY: 'Lain-lain',
+  /** Kategori aduan IT. [nama BM, nama EN, ikon] — ikon mesti dalam CATEGORY_ICONS. */
   CATEGORIES: [
-    ['Umum', 'General', 'grid']
+    ['Perkakasan', 'Hardware', 'settings'],
+    ['Rangkaian & WiFi', 'Network & WiFi', 'grid'],
+    ['Perisian', 'Software', 'list'],
+    ['Akaun & Akses', 'Account & Access', 'shield'],
+    ['Pencetak', 'Printer', 'inbox'],
+    ['AV & Projektor', 'AV & Projector', 'star'],
+    ['Lain-lain', 'Others', 'briefcase']
   ],
 
   /** @return {number} bilangan kategori ditambah */

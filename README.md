@@ -1,46 +1,42 @@
-# GAS PWA Starter
+# Dashboard Unit IT FKM
 
-Templat untuk membina **sistem lengkap**: laman web, app telefon (PWA) dan panel pentadbir, di atas **Google Apps Script + Sheets + Drive**. Modul ditakrif dalam fail JSON, dan deploy berjalan automatik melalui GitHub Actions.
+Sistem pengurusan Unit IT, Fakulti Kejuruteraan Mekanikal (FKM), UTM: aset IT, keperluan komputer makmal dan helpdesk dalam satu platform, dengan **Executive Overview** untuk pengurusan. Laman web + app telefon (PWA) + panel pentadbir di atas **Google Apps Script + Sheets**, dibina daripada templat [`gas-pwa-starter`](https://github.com/kirimdoa/gas-pwa-starter).
 
-Teras templat ini diekstrak daripada sistem produksi *Kirim Doa*: auth, RBAC, migrasi, push FCM, PWA dan binaan GitHub Pages telah teruji di lapangan.
+> Spesifikasi: *FKM UTM Unit IT Management Dashboard — Mockup v1.0*, *Dashboard Unit IT FKM — Mockup Design Specification* dan *Projek Kajian Keperluan Komputer Makmal FKM UTM*. Fasa 1 = MVP 4 modul (Overview, Aset, Keperluan Makmal, Helpdesk).
 
-```
-modules/aduan.json  ──npm run gen──▶  backend (Sheets, API, RBAC, aliran status, notifikasi)
-                                      frontend (senarai, butiran, borang, borang awam, menu, dashboard)
-git push main       ──GitHub Actions─▶ ujian → Apps Script (clasp) → GitHub Pages (web + PWA)
-```
+## Siapa buat apa
 
-## Apa yang anda dapat tanpa menulis kod
-
-| Bahagian | Butiran |
+| Peranan | Boleh |
 |---|---|
-| Akaun | Daftar, log masuk, lupa kata laluan (kod email), profil, tukar kata laluan, kunci akaun, sesi boleh dibatalkan |
-| Peranan | USER / ADMIN / SUPER_ADMIN, dikuatkuasa di pelayan |
-| Modul (JSON) | Senarai + carian + penapis + cip status + pagination, butiran, borang cipta/sunting, eksport CSV, lampiran Drive, no. rujukan `ADU-2026-0001`, padam lembut + pulih |
-| Aliran kerja | Status dengan warna, catatan status, siapa boleh tukar, pemilik dikunci selepas diproses |
-| Borang awam | Tanpa log masuk, anti-bot (token HMAC + honeypot + had kadar), email status kepada pemohon |
-| Notifikasi | Dalam app, telefon (FCM, dengan lencana pada ikon app) dan email (pilihan) |
-| Pentadbir | Dashboard per modul, pengguna, kategori, hebahan, maklum balas, audit log, tetapan runtime, kesihatan sistem, sandaran harian |
-| App telefon | PWA boleh dipasang (Android/iPhone), pintasan modul, halaman luar talian, ikon dijana mengikut warna jenama |
-| Kualiti | 65 ujian backend (2 susunan muat), E2E pelayar generik + semakan telefon 360px, imbasan rahsia |
+| Staf / pelajar FKM (tanpa akaun) | Hantar aduan IT melalui borang awam, dapat No. rujukan & makluman email |
+| Pengguna (penyelaras makmal, staf) | Hantar & jejak tiket sendiri · isi banci & keperluan komputer makmal sendiri (boleh sunting semasa *Dihantar* / *Dikembalikan*) |
+| Admin (Unit IT) | Executive Overview · urus aset, import CSV · sahkan/kembalikan keperluan makmal · tugaskan & selesaikan tiket · makmal, pegawai, kategori, tetapan SLA |
+| Super Admin | Semua di atas + peranan pengguna, tetapan sistem |
 
-## Mula pantas
+## Peraturan domain
+- **Keperluan makmal** (satu rekod aktif bagi setiap makmal setiap tahun): berfungsi + rosak (boleh dibaiki) + rosak (tidak ekonomi) = jumlah sedia ada; tidak sesuai ≤ berfungsi.
+  `kekal = berfungsi − tidak sesuai + rosak boleh dibaiki` · `ganti = tidak sesuai + rosak tidak ekonomi` · `tambahan = max(0, sasaran − kekal − ganti)` · `kos = (ganti + tambahan) × harga seunit`.
+- **Tiket**: SLA dari masa diterima mengikut keutamaan (lalai Kritikal 4j, Tinggi 24j, Sederhana 72j, Rendah 168j — jam kalendar; Tetapan → `SLA_JAM_*`). Menugaskan pegawai menukar *Baharu → Ditugaskan* dan mengemel pegawai. *Selesai/Ditutup* merekod masa selesai; dibuka semula mengosongkannya.
+- **Aset**: No. aset unik (tidak peka huruf besar/kecil). *Beroperasi* = Berfungsi + Berfungsi tetapi tidak memadai.
+- Anggaran kos = perancangan; kelulusan sebenar kekal ikut prosedur kewangan UTM.
+
+Logik: `src/modules/<modul>/<Nama>Hooks.gs`. Overview & import: `src/modules/aset/AsetHooks.gs`, paparan `src/frontend/modules/aset.html`. Ujian domain: `src/tests/AppTests.gs`.
+
+## Import daftar aset
+Admin → **Import aset** → *Templat CSV*. Dari Excel: *Simpan sebagai → CSV UTF-8*. Pengepala boleh guna kunci (`noAset`) atau label (`No. aset`); makmal ditulis dengan kod (cth. `ME-01`) — tambah makmal dahulu. Sistem menyemak semua baris dahulu; tiada data ditulis jika ada ralat. Baris dengan No. aset sedia ada dikemas kini.
+
+> Data contoh dalam `tools/seed-custom.js` hanya untuk dev server & E2E — bukan data sebenar FKM dan tidak dideploy.
+
+## Pembangunan
 
 ```bash
-# 1. Cipta repo daripada templat ini (GitHub → "Use this template"), kemudian:
-npm run init -- --name "Sistem Tempahan Dewan" --short "Tempahan" --tagline "Tempah dewan dengan mudah" --color "#0F766E"
-
-# 2. Takrif modul (atau sunting modules/aduan.json sedia ada)
-npm run new -- tempahan "Tempahan"     # cipta modules/tempahan.json
-npm run gen                            # jana kod daripada JSON
-
-# 3. Uji & lihat
-npm test                               # ujian backend
-npm run dev                            # http://localhost:8080  (super@demo.local / Demo1234)
-npm run e2e                            # E2E pelayar (dev server mesti berjalan)
-
-# 4. Deploy: sediakan SEKALI (DEPLOYMENT.md), kemudian setiap `git push` ke main dideploy automatik.
+npm test      # ujian backend (2 susunan muat)
+npm run check # sintaks frontend, XSS, rahsia
+npm run dev   # http://localhost:8080  (super@demo.local / Demo1234 · user@demo.local / Demo1234)
+npm run e2e   # E2E pelayar (dev server mesti berjalan)
 ```
+
+Setiap `git push` ke `main` → ujian → Apps Script → GitHub Pages (lihat [DEPLOYMENT.md](DEPLOYMENT.md)).
 
 ## Arahan
 

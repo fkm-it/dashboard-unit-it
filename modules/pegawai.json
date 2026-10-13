@@ -1,0 +1,20 @@
+{
+  "key": "pegawai",
+  "label": "Pegawai IT",
+  "labelPlural": "Pegawai IT",
+  "icon": "users",
+  "prefix": "PG",
+  "description": "Staf Unit IT yang boleh ditugaskan tiket. Email digunakan untuk makluman penugasan.",
+  "access": { "create": "ADMIN", "list": "OWN", "edit": "ADMIN", "delete": "ADMIN" },
+  "notify": { "adminsOnCreate": false, "ownerOnStatus": false },
+  "titleField": "nama",
+  "subtitleField": "jawatan",
+  "nav": { "user": false, "admin": true, "order": 50 },
+  "fields": [
+    { "key": "nama", "label": "Nama", "type": "string", "required": true, "max": 120, "list": true, "search": true },
+    { "key": "jawatan", "label": "Jawatan", "type": "string", "max": 80, "list": true },
+    { "key": "email", "label": "Email", "type": "email", "search": true, "hint": "Tiket yang ditugaskan dimaklumkan ke email ini." },
+    { "key": "telefon", "label": "No. telefon", "type": "phone" },
+    { "key": "aktif", "label": "Aktif", "type": "bool", "default": true, "filter": true, "list": true }
+  ]
+}

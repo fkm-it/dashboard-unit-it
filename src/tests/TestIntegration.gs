@@ -164,8 +164,9 @@ const TestSuitePush = {
       TestFixtures.install();
       const u = TestHelpers.user('cat');
       const a = TestHelpers.admin(ROLES.ADMIN);
+      const onlyCat = TestHelpers.singleCategory();
       const d = TestAssert.apiOk(TestHelpers.call(u.token, 'crud.create', { module: 'tiket', tajuk: 'Tanpa kategori' }));
-      t.eq(d.labels.kategori, 'Umum');
+      t.eq(d.labels.kategori, onlyCat);
       const c2 = TestAssert.apiOk(TestHelpers.call(a.token, 'admin.category.create', { nameMs: 'Kedua ' + Date.now(), icon: 'star' }));
       TestAssert.apiOk(TestHelpers.call(a.token, 'admin.category.update', { id: c2.id, status: 'INACTIVE' }));
       TestAssert.apiFail(TestHelpers.call(u.token, 'crud.create', { module: 'tiket', tajuk: 'X', kategori: c2.id }), ERROR_CODES.VALIDATION_ERROR);

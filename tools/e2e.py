@@ -112,7 +112,7 @@ with sync_playwright() as p:
 
     # ---- admin
     pg.evaluate('localStorage.clear();sessionStorage.clear()'); pg.goto(B); pg.reload(); pg.goto(B + '#/log-masuk'); pg.wait_for_selector('#f-email')
-    pg.fill('#f-email', 'super@demo.local'); pg.fill('#f-password', 'Demo1234'); pg.click('button[type=submit]'); pg.wait_for_selector('.stat')
+    pg.fill('#f-email', 'super@demo.local'); pg.fill('#f-password', 'Demo1234'); pg.click('button[type=submit]'); pg.wait_for_selector('.stat, .xo-kpi')
     step('admin log masuk → dashboard')
     if USER_MOD and USER_MOD['statuses'] and rec_url:
         rid = rec_url.split('/')[-1]

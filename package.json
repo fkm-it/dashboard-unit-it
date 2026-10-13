@@ -1,8 +1,8 @@
 {
-  "name": "gas-pwa-starter",
-  "version": "0.4.3",
+  "name": "dashboard-unit-itfkm",
+  "version": "1.0.0",
   "private": true,
-  "description": "Templat sistem web + PWA atas Google Apps Script, Sheets & Drive \u2014 modul dijana daripada JSON",
+  "description": "Dashboard Unit IT FKM — Aset, makmal dan aduan IT FKM dalam satu paparan",
   "engines": {
     "node": ">=18"
   },
