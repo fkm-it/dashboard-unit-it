@@ -402,6 +402,8 @@
   KD.detailSide = KD.detailSide || {};
   /** Butang tambahan (admin) di halaman senarai: KD.listActions[<modul>] = { render: (m) => html`<button data-list-act="x">`, run: (act, btn, reload) => {} } */
   KD.listActions = KD.listActions || {};
+  /** Laluan borang awam tersuai bagi modul (kad laman utama): KD.publicFormPath[<modul>] = '/laluan' */
+  KD.publicFormPath = KD.publicFormPath || {};
   KD.modules = KD.modules || [];
   KD.moduleOf = (key) => (KD.modules || []).filter((m) => m.key === key)[0] || null;
 })(window.KD);

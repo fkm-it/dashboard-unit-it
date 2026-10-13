@@ -9,6 +9,7 @@ Sistem pengurusan Unit IT, Fakulti Kejuruteraan Mekanikal (FKM), UTM: aset IT, k
 | Peranan | Boleh |
 |---|---|
 | Staf / pelajar FKM (tanpa akaun) | Hantar aduan IT melalui borang awam, dapat No. rujukan & makluman email |
+| Pemilik / pengurus makmal (tanpa akaun) | Isi borang banci & keperluan komputer makmal melalui link dikongsi `#/banci-makmal`; kemas kini melalui link peribadi dalam email sehingga disahkan |
 | Pengguna (penyelaras makmal, staf) | Hantar & jejak tiket sendiri · isi banci & keperluan komputer makmal sendiri (boleh sunting semasa *Dihantar* / *Dikembalikan*) |
 | Pengurusan (Dekan, TD, TDP/TPK, KJ) | Baca sahaja: Perancangan (ringkasan, pelan penggantian 5 tahun + simulasi bajet, indeks kesihatan makmal, trend bulanan & ringkasan tindakan KEWPA), Laporan aset, Laporan Eksekutif (PDF) · email ringkasan awal bulan |
 | Admin (Unit IT) | Executive Overview · urus aset, import CSV · penjejak tindakan KEWPA · sahkan/kembalikan keperluan makmal · tugaskan & selesaikan tiket · makmal, pegawai, kategori, tetapan SLA |

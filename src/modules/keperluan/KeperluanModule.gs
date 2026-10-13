@@ -10,9 +10,9 @@ const KeperluanModule = Object.freeze(Object.assign(
     "icon": "briefcase",
     "prefix": "KP",
     "refFormat": "KPM-{YYYY}-{SEQ3}",
-    "description": "Banci komputer makmal dan permohonan penggantian/tambahan. Satu rekod bagi setiap makmal bagi setiap tahun.",
+    "description": "Banci komputer makmal dan permohonan penggantian/tambahan (makmal sedia ada atau baharu). Satu rekod bagi setiap makmal bagi setiap tahun.",
     "access": {
-      "create": "USER",
+      "create": "PUBLIC",
       "list": "OWN",
       "edit": "OWNER",
       "delete": "OWNER",
@@ -47,7 +47,7 @@ const KeperluanModule = Object.freeze(Object.assign(
       "adminsOnCreate": true,
       "ownerOnStatus": true
     },
-    "titleField": "makmal",
+    "titleField": "namaMakmal",
     "subtitleField": "tahun",
     "nav": {
       "user": true,
@@ -56,15 +56,120 @@ const KeperluanModule = Object.freeze(Object.assign(
     },
     "fields": [
       {
+        "key": "namaPemohon",
+        "label": "Nama pemohon",
+        "type": "string",
+        "max": 120,
+        "publicOnly": true,
+        "search": true,
+        "hint": "Wajib dalam borang awam.",
+        "column": "nama_pemohon"
+      },
+      {
+        "key": "noStaf",
+        "label": "No. staf",
+        "type": "string",
+        "max": 20,
+        "publicOnly": true,
+        "search": true,
+        "hint": "Wajib dalam borang awam.",
+        "column": "no_staf"
+      },
+      {
+        "key": "emailPemohon",
+        "label": "Email rasmi UTM",
+        "type": "email",
+        "publicOnly": true,
+        "search": true,
+        "hint": "Link untuk mengemas kini borang dihantar ke email ini. Wajib dalam borang awam.",
+        "column": "email_pemohon"
+      },
+      {
+        "key": "peranan",
+        "label": "Peranan terhadap makmal",
+        "type": "enum",
+        "publicOnly": true,
+        "options": [
+          {
+            "value": "PEMILIK",
+            "label": "Pemilik / ketua makmal"
+          },
+          {
+            "value": "PENGURUS",
+            "label": "Pengurus / penyelaras makmal"
+          },
+          {
+            "value": "KAKITANGAN",
+            "label": "Jurutera / penolong jurutera makmal"
+          },
+          {
+            "value": "LAIN",
+            "label": "Lain-lain"
+          }
+        ],
+        "hint": "Wajib dalam borang awam.",
+        "column": "peranan"
+      },
+      {
+        "key": "telefonPemohon",
+        "label": "No. telefon / sambungan",
+        "type": "phone",
+        "publicOnly": true,
+        "column": "telefon_pemohon"
+      },
+      {
         "key": "makmal",
         "label": "Makmal",
         "type": "ref",
         "ref": "makmal",
-        "required": true,
-        "list": true,
+        "required": false,
+        "list": false,
         "filter": true,
         "lockAfterCreate": true,
+        "hint": "Pilih makmal sedia ada. Jika makmal baharu atau tiada dalam senarai, kosongkan dan isi maklumat makmal baharu.",
         "column": "makmal"
+      },
+      {
+        "key": "namaMakmalBaru",
+        "label": "Nama makmal baharu",
+        "type": "string",
+        "max": 120,
+        "search": true,
+        "lockAfterCreate": true,
+        "column": "nama_makmal_baru"
+      },
+      {
+        "key": "bangunanMakmalBaru",
+        "label": "Bangunan (makmal baharu)",
+        "type": "string",
+        "max": 40,
+        "placeholder": "cth. C24",
+        "column": "bangunan_makmal_baru"
+      },
+      {
+        "key": "bilikMakmalBaru",
+        "label": "No. bilik (makmal baharu)",
+        "type": "string",
+        "max": 40,
+        "placeholder": "cth. 04.411",
+        "column": "bilik_makmal_baru"
+      },
+      {
+        "key": "jabatanMakmalBaru",
+        "label": "Jabatan / kumpulan (makmal baharu)",
+        "type": "string",
+        "max": 120,
+        "column": "jabatan_makmal_baru"
+      },
+      {
+        "key": "namaMakmal",
+        "label": "Makmal",
+        "type": "string",
+        "max": 200,
+        "readonly": true,
+        "list": true,
+        "search": true,
+        "column": "nama_makmal"
       },
       {
         "key": "tahun",
@@ -246,6 +351,13 @@ const KeperluanModule = Object.freeze(Object.assign(
         "column": "catatan_it"
       }
     ],
+    "publicForm": {
+      "title": "Banci & Keperluan Komputer Makmal",
+      "intro": "Untuk pemilik, ketua atau pengurus makmal FKM. Isi satu borang bagi setiap makmal bagi setiap tahun. Selepas dihantar, link peribadi untuk mengemas kini borang akan dihantar ke email anda.",
+      "successMessage": "Borang diterima oleh Unit IT FKM. Link untuk mengemas kini borang telah dihantar ke email anda.",
+      "nameField": "namaPemohon",
+      "rateKeyField": "emailPemohon"
+    },
     "name": "Keperluan",
     "path": "/keperluan",
     "sheet": "KEPERLUAN",

@@ -87,6 +87,12 @@ const server = http.createServer((req, res) => {
     });
     return;
   }
+  /* Dev sahaja: email yang "dihantar" (MailApp mock) untuk semakan link dalam email */
+  if (url.pathname === '/__dev/mails') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(gas.env.state.mails.slice(-20).map((m) => ({ to: m.to, subject: m.subject, htmlBody: m.htmlBody }))));
+    return;
+  }
   if (WEB_DIR && (url.pathname === '/web' || url.pathname.startsWith('/web/'))) {
     if (url.pathname === '/web') { res.writeHead(301, { Location: '/web/' + url.search }); res.end(); return; }
     let rel = decodeURIComponent(url.pathname.slice(5)) || 'index.html';

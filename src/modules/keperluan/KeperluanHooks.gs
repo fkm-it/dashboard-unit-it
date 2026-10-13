@@ -8,7 +8,14 @@
  *   tambahan  = max(0, sasaranJumlah − kekal − ganti)            (kapasiti tambahan)
  *   kos       = (ganti + tambahan) × hargaSeunit
  * Kekangan: berfungsi + rosakBolehBaiki + rosakLupus = jumlahSediaAda; tidakSesuai ≤ berfungsi.
- * Satu rekod aktif (bukan Ditolak) bagi setiap makmal bagi setiap tahun.
+ * Satu rekod aktif (bukan Ditolak) bagi setiap makmal bagi setiap tahun (makmal sedia ada ATAU makmal baharu ikut nama).
+ *
+ * Borang awam (link dikongsi, tanpa log masuk): #/banci-makmal
+ *   - pemohon kenal pasti diri (nama, no. staf, email domain KEPERLUAN_DOMAIN_EMAIL)
+ *   - selepas hantar, link edit peribadi diemel (token rawak; hanya hash disimpan dalam PAUTAN_EDIT)
+ *   - link boleh mengemas kini semasa Dihantar / Dikembalikan; selepas itu baca sahaja (maks. 180 hari);
+ *     link baharu (yang lama dibatalkan) dihantar apabila dikembalikan atau diminta semula
+ *   - makmal baharu: didaftarkan automatik dalam modul Makmal apabila Unit IT mengesahkan permohonan
  */
 const KeperluanHooks = {
   /** Nilai gabungan (data baharu, jika tiada guna rekod semasa). @return {Object} nombor */
@@ -39,8 +46,50 @@ const KeperluanHooks = {
     return { kekal: kekal, ganti: ganti, tambahan: tambahan, kos: kos };
   },
 
+  EDITABLE: ['DIHANTAR', 'DIKEMBALIKAN'],
+  /** Wajib dalam borang awam (pengguna log masuk / admin dikenali melalui akaun). */
+  PUBLIC_REQUIRED: ['namaPemohon', 'noStaf', 'emailPemohon', 'peranan'],
+  LINK_DAYS: 180,
+  ROUTE: '#/banci-makmal',
+
+  routes: {
+    'keperluan.awamGet': { role: 'PUBLIC', fn: function (payload) { return KeperluanHooks.publicGet(payload || {}); } },
+    'keperluan.awamKemaskini': { role: 'PUBLIC', fn: function (payload) { return KeperluanHooks.publicUpdate(payload || {}); } },
+    'keperluan.awamPautan': { role: 'PUBLIC', fn: function (payload) { return KeperluanHooks.resendLink(payload || {}); } },
+    'keperluan.pautanBorang': { role: 'ADMIN', fn: function () { return { url: PushService.baseUrl() + KeperluanHooks.ROUTE, path: KeperluanHooks.ROUTE }; } }
+  },
+
+  def_: function () { return CrudEngine.get('keperluan'); },
+  repo_: function () { return CrudEngine.repo(KeperluanHooks.def_()); },
+  norm_: function (s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(); },
+
+  /** Email dalam domain dibenarkan (subdomain diterima). Tetapan '*' = semua domain. */
+  emailAllowed: function (email) {
+    let cfg;
+    try { cfg = SettingsService.get('KEPERLUAN_DOMAIN_EMAIL'); } catch (e) { cfg = 'utm.my'; }
+    const domains = String(cfg === undefined || cfg === null ? 'utm.my' : cfg).split(/[,;\s]+/).map(function (d) { return d.trim().toLowerCase().replace(/^@/, ''); }).filter(String);
+    if (!domains.length || domains.indexOf('*') >= 0) return true;
+    const host = String(email || '').toLowerCase().split('@')[1] || '';
+    return domains.some(function (d) { return host === d || host.slice(-(d.length + 1)) === '.' + d; });
+  },
+
   validate: function (data, info) {
     const cur = info.current || {};
+    if (info.mode === 'public') {
+      const miss = {};
+      KeperluanHooks.PUBLIC_REQUIRED.forEach(function (k) { if (!String(data[k] === undefined || data[k] === null ? '' : data[k]).trim()) miss[k] = 'Diperlukan.'; });
+      if (Object.keys(miss).length) throw Errors.validation('Lengkapkan maklumat pemohon.', miss);
+    }
+    if (info.mode === 'public' && data.emailPemohon && !KeperluanHooks.emailAllowed(data.emailPemohon)) {
+      let cfg = 'utm.my';
+      try { cfg = SettingsService.get('KEPERLUAN_DOMAIN_EMAIL') || cfg; } catch (e) { /* lalai */ }
+      throw Errors.validation('Gunakan email rasmi (' + cfg + ').', { emailPemohon: 'Gunakan email rasmi (' + cfg + ').' });
+    }
+    const makmalId = data.makmal !== undefined ? data.makmal : cur.makmal;
+    const baru = String((data.namaMakmalBaru !== undefined ? data.namaMakmalBaru : cur.nama_makmal_baru) || '').trim();
+    if (!makmalId && !baru) {
+      throw Errors.validation('Pilih makmal, atau isi nama makmal baharu.', { makmal: 'Pilih makmal atau isi nama makmal baharu.', namaMakmalBaru: 'Isi jika makmal tiada dalam senarai.' });
+    }
     const n = KeperluanHooks.merged_(data, cur);
     if (n.berfungsi + n.rosakBaiki + n.rosakLupus !== n.sediaAda) {
       throw Errors.validation('Berfungsi + rosak (boleh dibaiki) + rosak (tidak ekonomi) mesti sama dengan jumlah sedia ada (' + n.sediaAda + ').',
@@ -49,17 +98,27 @@ const KeperluanHooks = {
     if (n.tidakSesuai > n.berfungsi) {
       throw Errors.validation('Komputer tidak sesuai tidak boleh melebihi komputer berfungsi.', { tidakSesuai: 'Melebihi bilangan berfungsi.' });
     }
-    const makmal = data.makmal || cur.makmal;
     const tahun = String(data.tahun || cur.tahun || '');
-    if (!makmal || !tahun) return;
-    const dup = CrudEngine.repo(CrudEngine.get('keperluan')).all().some(function (r) {
-      return r.state === 'ACTIVE' && r.id !== cur.id && r.makmal === makmal && String(r.tahun) === tahun && r.status !== 'DITOLAK';
-    });
-    if (dup) throw Errors.conflict('Rekod keperluan bagi makmal ini untuk tahun ' + tahun + ' telah wujud. Sunting rekod sedia ada.');
+    if (!tahun) return;
+    const key = KeperluanHooks.norm_(baru);
+    const dup = KeperluanHooks.repo_().all().filter(function (r) {
+      if (r.state !== 'ACTIVE' || r.id === cur.id || String(r.tahun) !== tahun || r.status === 'DITOLAK') return false;
+      return makmalId ? r.makmal === makmalId : (!r.makmal && KeperluanHooks.norm_(r.nama_makmal_baru) === key);
+    })[0];
+    if (dup) {
+      throw Errors.conflict('Borang bagi makmal ini untuk tahun ' + tahun + ' telah dihantar (' + dup.ref_no + '). ' +
+        (info.mode === 'public' ? 'Gunakan link kemas kini dalam email pemohon, atau hubungi Unit IT FKM.' : 'Sunting rekod sedia ada.'));
+    }
   },
 
   beforeSave: function (row, info) {
     const cur = info.current || {};
+    /* Makmal sedia ada dipilih → maklumat makmal baharu tidak relevan */
+    const makmalId = row.makmal !== undefined ? row.makmal : cur.makmal;
+    if (makmalId) ['nama_makmal_baru', 'bangunan_makmal_baru', 'bilik_makmal_baru', 'jabatan_makmal_baru'].forEach(function (c) { if (cur[c] || row[c]) row[c] = ''; });
+    const lab = makmalId ? CrudEngine.repo(CrudEngine.get('makmal')).findById(makmalId) : null;
+    const baru = row.nama_makmal_baru !== undefined ? row.nama_makmal_baru : cur.nama_makmal_baru;
+    row.nama_makmal = lab ? (lab.kod ? lab.kod + ' · ' + lab.nama : lab.nama) : (baru ? baru + ' (makmal baharu)' : '');
     const merged = Object.assign({}, cur, row);
     const c = KeperluanHooks.compute({
       berfungsi: Number(merged.berfungsi) || 0,
@@ -72,6 +131,161 @@ const KeperluanHooks = {
     row.bilangan_ganti = c.ganti;
     row.bilangan_tambahan = c.tambahan;
     row.anggaran_kos = c.kos;
+  },
+
+  afterCreate: function (row) {
+    if (row.owner_user_id || !row.email_pemohon) return;
+    KeperluanHooks.sendLink_(row, 'Borang anda telah diterima oleh Unit IT FKM.');
+  },
+
+  /**
+   * Selepas status: makmal baharu didaftarkan apabila disahkan; pemohon awam dimaklumkan
+   * (dikembalikan → link kemas kini baharu).
+   */
+  afterStatus: function (row, prev, ctx) {
+    if (row.status === 'DISAHKAN' && !row.makmal && row.nama_makmal_baru) {
+      try { KeperluanHooks.registerLab_(row, ctx); } catch (e) { ErrorHandler.record(e, { action: 'keperluan.registerLab' }); }
+    }
+    if (row.owner_user_id || !row.email_pemohon || prev === row.status) return;
+    const label = CrudEngine.statusLabel(KeperluanHooks.def_(), row.status);
+    const lines = ['Salam ' + (row.nama_pemohon || '') + ',', 'Status borang banci & keperluan komputer makmal ' + row.ref_no + ' (' + (row.nama_makmal || '') + ', ' + row.tahun + '): ' + label + '.'];
+    if (row.status_note) lines.push('Catatan Unit IT: ' + StringUtils.truncate(row.status_note, 400));
+    if (row.status === 'DIKEMBALIKAN') KeperluanHooks.sendLink_(row, lines.join('\n'));
+    else NotificationService.email(row.email_pemohon, 'Borang ' + row.ref_no + ': ' + label, lines, { force: true, path: '#/' });
+  },
+
+  /** Daftar makmal baharu daripada permohonan yang disahkan, kemudian pautkan. */
+  registerLab_: function (row, ctx) {
+    const labs = CrudEngine.repo(CrudEngine.get('makmal')).all().filter(function (l) { return l.state === 'ACTIVE'; });
+    const key = KeperluanHooks.norm_(row.nama_makmal_baru);
+    let lab = labs.filter(function (l) { return KeperluanHooks.norm_(l.nama) === key; })[0];
+    if (!lab) {
+      const used = {};
+      labs.forEach(function (l) { used[String(l.kod).toUpperCase()] = true; });
+      let kod = String(row.bilik_makmal_baru || '').trim() ? (String(row.bangunan_makmal_baru || '').trim() + ' ' + String(row.bilik_makmal_baru).trim()).trim().toUpperCase().replace(/\s+/g, '-').slice(0, 30) : '';
+      if (!kod || used[kod]) { let i = 1; while (used['BARU-' + i]) i++; kod = 'BARU-' + i; }
+      const dto = CrudEngine.insert(CrudEngine.get('makmal'), ctx, {
+        kod: kod, nama: row.nama_makmal_baru, bangunan: row.bangunan_makmal_baru || '', bilik: row.bilik_makmal_baru || '',
+        jabatan: row.jabatan_makmal_baru || '', penyelaras: row.nama_pemohon || '', emailPenyelaras: row.email_pemohon || '',
+        kapasiti: Number(row.sasaran_jumlah) || 0, catatan: 'Didaftarkan daripada borang keperluan ' + row.ref_no + '.'
+      }, 'create', { userId: ctx.userId, name: (ctx.user && ctx.user.full_name) || '' });
+      lab = { id: dto.id, kod: kod, nama: row.nama_makmal_baru };
+    }
+    const patch = { makmal: lab.id, nama_makmal: (lab.kod ? lab.kod + ' · ' : '') + lab.nama, updated_at: DateUtils.nowIso() };
+    KeperluanHooks.repo_().update(row.id, patch);
+    Object.assign(row, patch);
+  },
+
+  // ---------------------------------------------------------------- Link edit peribadi
+
+  links_: function () { return Repo.of('PAUTAN_EDIT'); },
+
+  revokeLinks_: function (recordId) {
+    const now = DateUtils.nowIso();
+    const patch = {};
+    KeperluanHooks.links_().all().forEach(function (l) { if (l.record_id === recordId && !l.revoked_at) patch[l.token_hash] = { revoked_at: now }; });
+    if (Object.keys(patch).length) KeperluanHooks.links_().updateMany(patch);
+  },
+
+  /** Jana token baharu (yang lama dibatalkan) dan emelkan link. @return {string} token (untuk ujian) */
+  sendLink_: function (row, intro) {
+    KeperluanHooks.revokeLinks_(row.id);
+    const token = SecurityUtils.randomToken();
+    const now = new Date();
+    KeperluanHooks.links_().insert({
+      token_hash: SecurityUtils.sha256Hex(token), modul: 'keperluan', record_id: row.id, email: row.email_pemohon,
+      created_at: now.toISOString(), expires_at: DateUtils.addDays(now, KeperluanHooks.LINK_DAYS).toISOString(), revoked_at: '', used_at: ''
+    });
+    const lines = String(intro || '').split('\n').concat([
+      'No. rujukan: ' + row.ref_no + ' · ' + (row.nama_makmal || '') + ' · tahun ' + row.tahun + '.',
+      'Gunakan butang di bawah untuk melihat atau mengemas kini borang ini. Link ini peribadi, jangan kongsikan. Ia sah sehingga borang disahkan oleh Unit IT.'
+    ]);
+    if (!PushService.baseUrl()) {
+      /* Tiada URL GitHub Pages → butang tidak dijana; sertakan link web app Apps Script sebagai teks */
+      let app = '';
+      try { app = ScriptApp.getService().getUrl() || ''; } catch (e) { app = ''; }
+      if (app) lines.push('Link kemas kini: ' + app + KeperluanHooks.ROUTE + '?t=' + token);
+    }
+    NotificationService.email(row.email_pemohon, 'Borang keperluan komputer makmal ' + row.ref_no, lines, { force: true, path: KeperluanHooks.ROUTE + '?t=' + token });
+    KeperluanHooks.lastToken_ = token;
+    return token;
+  },
+
+  /** Rekod bagi token sah. @return {Object} baris keperluan */
+  byToken_: function (token) {
+    if (!SecurityUtils.isTokenFormat(token)) throw Errors.notFound('Link');
+    const l = KeperluanHooks.links_().findById(SecurityUtils.sha256Hex(token));
+    if (!l || l.revoked_at || String(l.expires_at) < DateUtils.nowIso()) throw Errors.notFound('Link');
+    const row = KeperluanHooks.repo_().findById(l.record_id);
+    if (!row || row.state !== 'ACTIVE') throw Errors.notFound('Link');
+    return row;
+  },
+
+  /** Medan yang dipaparkan / boleh dikemas kini melalui link awam. */
+  publicFields_: function () {
+    return KeperluanHooks.def_().fields.filter(function (f) { return f.public !== false && !f.adminOnly && !f.readonly; });
+  },
+
+  publicGet: function (payload) {
+    SecurityService.rateLimit('keperluan.awam', String(payload.t || '').slice(0, 12));
+    const row = KeperluanHooks.byToken_(payload.t);
+    const def = KeperluanHooks.def_();
+    const values = {};
+    KeperluanHooks.publicFields_().forEach(function (f) {
+      let v = row[f.column];
+      if ((f.type === 'int' || f.type === 'number') && v !== '' && v !== null && v !== undefined) v = Number(v);
+      values[f.key] = v === undefined || v === null ? '' : v;
+    });
+    return {
+      refNo: row.ref_no, status: row.status, statusLabel: CrudEngine.statusLabel(def, row.status), statusNote: row.status_note || '',
+      catatanIt: row.catatan_it || '', canEdit: KeperluanHooks.EDITABLE.indexOf(row.status) >= 0, namaMakmal: row.nama_makmal,
+      values: values, computed: { ganti: Number(row.bilangan_ganti) || 0, tambahan: Number(row.bilangan_tambahan) || 0, kos: Number(row.anggaran_kos) || 0 },
+      updatedAt: row.updated_at
+    };
+  },
+
+  publicUpdate: function (payload) {
+    SecurityService.rateLimit('keperluan.awam', String(payload.t || '').slice(0, 12));
+    const cur = KeperluanHooks.byToken_(payload.t);
+    if (KeperluanHooks.EDITABLE.indexOf(cur.status) < 0) throw Errors.forbidden('Borang ini telah diproses oleh Unit IT dan tidak boleh dikemas kini lagi.');
+    const def = KeperluanHooks.def_();
+    const ctx = { userId: '', role: ROLES.PUBLIC, user: null };
+    /* Makmal, tahun & email pemohon dikunci; nilai lain dihantar penuh oleh borang */
+    const src = Object.assign({}, payload, {
+      makmal: cur.makmal || '', tahun: Number(cur.tahun), emailPemohon: cur.email_pemohon, namaMakmalBaru: cur.makmal ? '' : cur.nama_makmal_baru
+    });
+    delete src.t;
+    const v = CrudEngine.validate(def, src, ctx, 'public');
+    KeperluanHooks.validate(v.data, { ctx: ctx, mode: 'public', current: cur });
+    const patch = v.row;
+    delete patch.makmal; delete patch.tahun; delete patch.email_pemohon; delete patch.nama_makmal_baru;
+    KeperluanHooks.beforeSave(patch, { ctx: ctx, mode: 'update', current: cur });
+    const now = DateUtils.nowIso();
+    patch.updated_at = now;
+    const wasReturned = cur.status === 'DIKEMBALIKAN';
+    if (wasReturned) Object.assign(patch, { status: 'DIHANTAR', status_note: 'Dikemas kini oleh pemohon selepas dikembalikan.', status_changed_at: now, status_changed_by: cur.nama_pemohon || 'Pemohon' });
+    const updated = KeperluanHooks.repo_().update(cur.id, patch);
+    AppCache.remove('stats:admin');
+    AuditService.log({ role: ROLES.PUBLIC }, AUDIT_ACTIONS.RECORD_UPDATED, def.sheet, cur.id, cur.ref_no + ' · dikemas kini melalui link pemohon');
+    NotificationService.notifyAdmins(NOTIF_TYPE.RECORD_STATUS, def.label + ' ' + cur.ref_no + ' dikemas kini',
+      (cur.nama_pemohon || 'Pemohon') + ' mengemas kini borang' + (wasReturned ? ' yang dikembalikan (kini Dihantar semula).' : '.'), cur.id, '#/admin' + def.path + '/' + cur.id);
+    return KeperluanHooks.publicGet({ t: payload.t, _row: updated });
+  },
+
+  /** Hantar semula link (lupa / hilang email). Jawapan sentiasa sama — tiada pendedahan. */
+  resendLink: function (payload) {
+    const data = Validator.validate(payload, {
+      refNo: { type: 'string', required: true, max: 40, label: 'No. rujukan' },
+      email: { type: 'email', required: true, label: 'Email' }
+    });
+    SecurityService.rateLimit('keperluan.pautan.global', 'all');
+    SecurityService.rateLimit('keperluan.pautan', data.email);
+    const ref = String(data.refNo).trim().toUpperCase();
+    const row = KeperluanHooks.repo_().all().filter(function (r) { return r.state === 'ACTIVE' && String(r.ref_no).toUpperCase() === ref; })[0];
+    if (row && !row.owner_user_id && String(row.email_pemohon).toLowerCase() === String(data.email).toLowerCase() && KeperluanHooks.EDITABLE.indexOf(row.status) >= 0) {
+      KeperluanHooks.sendLink_(row, 'Anda meminta link baharu untuk borang ini. Link lama tidak lagi sah.');
+    }
+    return { sent: true, message: 'Jika no. rujukan dan email sepadan dengan borang yang masih boleh dikemas kini, link baharu telah dihantar ke email tersebut.' };
   },
 
   toDTO: function (dto, row) {

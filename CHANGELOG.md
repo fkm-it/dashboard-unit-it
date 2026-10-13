@@ -1,5 +1,18 @@
 # CHANGELOG
 
+## 1.6.0 — 2026-10-13 · Link borang banci & keperluan komputer makmal
+### Ditambah
+- **Borang awam `#/banci-makmal`**: link yang boleh dikongsi kepada pemilik, ketua atau pengurus makmal. Mereka tidak perlu log masuk.
+  - Borang ada 4 bahagian: pemohon (nama, no. staf, email rasmi UTM, peranan), makmal, banci komputer sedia ada, dan permohonan penggantian/tambahan. Kiraan dibuat secara langsung semasa mengisi.
+  - Satu borang bagi setiap makmal bagi setiap tahun. Ini terpakai untuk makmal sedia ada dan juga makmal baharu (dikenal pasti ikut nama).
+  - **Makmal baharu**: dipilih melalui "+ Makmal baharu" dengan medan nama, bangunan, bilik dan jabatan. Apabila Unit IT mengesahkan permohonan, makmal itu didaftarkan secara automatik dalam modul Makmal dan dipautkan.
+  - **Link kemas kini peribadi** dihantar ke email pemohon. Token rawak digunakan dan hanya hash token disimpan (sheet `PAUTAN_EDIT`).
+  - Pemohon boleh mengemas kini borang semasa status *Dihantar* atau *Dikembalikan*. Selepas status itu, borang hanya boleh dibaca.
+  - Apabila borang dikembalikan, link baharu dihantar. Pemohon juga boleh meminta link baharu dengan no. rujukan dan email.
+  - Pemohon dimaklumkan melalui email setiap kali status berubah.
+- Admin: butang **Kongsi link borang** di *Keperluan Makmal*, dengan pilihan salin atau buka.
+- Tetapan `KEPERLUAN_DOMAIN_EMAIL` (lalai `utm.my`; subdomain diterima; `*` = semua domain). Had kadar dikenakan pada borang dan permintaan link.
+
 ## 1.5.0 — 2026-10-13 · Fasa 2d: trend bulanan, email ringkasan & penjejak tindakan KEWPA
 ### Ditambah
 - **Penjejak tindakan KEWPA** (modul `tindakan`, menu admin *Tindakan KEWPA*). Tindakan dijana automatik daripada daftar aset:

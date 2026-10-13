@@ -15,7 +15,7 @@ const CONFIG = Object.freeze({
   APP_SLUG: 'DashboardUnitITFKM', // @init:slug
   /** Warna jenama (email, dsb.). */
   BRAND_COLOR: '#1D5FD1', // @init:brandColor
-  VERSION: '1.5.0',
+  VERSION: '1.6.0',
   TIMEZONE_FALLBACK: 'Asia/Kuala_Lumpur',
 
   DEFAULT_PAGE_SIZE: 20,
@@ -81,6 +81,9 @@ const CONFIG = Object.freeze({
     'public.feedback.global': [100, 3600],
     'attachment.get': [120, 3600],
     'push.register': [20, 3600],
-    'push.test': [10, 3600]
+    'push.test': [10, 3600],
+    'keperluan.awam': [60, 3600],
+    'keperluan.pautan': [3, 3600],
+    'keperluan.pautan.global': [50, 3600]
   })
 });

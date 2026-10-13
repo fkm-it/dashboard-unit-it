@@ -4,7 +4,7 @@
  * Dalam Apps Script: runTestsPart5. Dalam Node: npm test.
  */
 const AppTests = {
-  suites: function () { return [TestSuiteDashboardIT, TestSuiteUtmfin, TestSuiteMaintenance, TestSuiteNilai, TestSuitePengurusan, TestSuiteKewpa, TestSuiteTrend]; }
+  suites: function () { return [TestSuiteDashboardIT, TestSuiteUtmfin, TestSuiteMaintenance, TestSuiteNilai, TestSuitePengurusan, TestSuiteKewpa, TestSuiteTrend, TestSuiteBanci]; }
 };
 
 const AppFx = {
@@ -611,6 +611,120 @@ const TestSuiteTrend = {
       t.ok(/177|170 tahun depan \(−7\)/.test(txt), txt);
       t.ok(/92% beroperasi \(tiada perubahan\)/.test(txt), txt);
       t.eq(AsetTrend.prevMonth('2026-01'), '2025-12');
+    }]
+  ]
+};
+
+const BmFx = {
+  pc: function (extra) {
+    return api({ action: 'crud.publicCreate', payload: Object.assign({
+      module: 'keperluan', formToken: SecurityUtils.signFormToken('crud:keperluan', Date.now() - 5000),
+      namaPemohon: 'Dr. Pemilik Contoh', noStaf: 'S1234', emailPemohon: 'pemilik' + (++AppFx.seq) + '@utm.my', peranan: 'PEMILIK',
+      tahun: 2026, jumlahSediaAda: 20, berfungsi: 18, tidakSesuai: 3, rosakBolehBaiki: 1, rosakLupus: 1, sasaranJumlah: 25,
+      keutamaan: 'TINGGI', hargaSeunit: 4000, justifikasi: 'Perisian simulasi terkini memerlukan komputer lebih berkuasa.'
+    }, extra || {}) });
+  },
+  row: function (refNo) { return Repo.of('KEPERLUAN').all().filter(function (r) { return r.ref_no === refNo; })[0]; },
+  get: function (t) { return api({ action: 'keperluan.awamGet', payload: { t: t } }); }
+};
+
+const TestSuiteBanci = {
+  name: 'Borang awam banci makmal',
+  tests: [
+    ['Hantar tanpa log masuk: email UTM wajib, kiraan, satu borang setiap makmal setahun, link edit peribadi (hash sahaja disimpan)', function (t) {
+      AppFx.real();
+      const a = TestHelpers.admin(ROLES.ADMIN);
+      const lab = AppFx.lab(a, 'BM-01');
+      TestAssert.apiFail(BmFx.pc({ makmal: lab.id, emailPemohon: 'orang@gmail.com' }), ERROR_CODES.VALIDATION_ERROR, 'email luar domain');
+      TestAssert.apiFail(BmFx.pc({ makmal: lab.id, noStaf: '' }), ERROR_CODES.VALIDATION_ERROR, 'no. staf wajib');
+      TestAssert.apiOk(BmFx.pc({ makmal: lab.id, emailPemohon: 'staf' + AppFx.seq + '@mail.fkm.utm.my', tahun: 2031 }), 'subdomain utm.my diterima');
+      const box = KwFx.mails(); const before = box ? box.length : 0;
+      const res = TestAssert.apiOk(BmFx.pc({ makmal: lab.id }));
+      const token = KeperluanHooks.lastToken_;
+      const row = BmFx.row(res.refNo);
+      t.eq(row.nama_makmal, 'BM-01 · ' + lab.values.nama); t.ok(/\(awam\)/.test(row.owner_name));
+      t.eq(Number(row.bilangan_ganti), 4); t.eq(Number(row.bilangan_tambahan), 5, '25 − (18 − 3 + 1) − 4');
+      if (box) t.ok(box.slice(before).some(function (m) { return m.to === row.email_pemohon && /KPM-/.test(m.subject); }), 'link diemel walaupun NOTIFY_EMAIL_ENABLED mati');
+      const links = Repo.of('PAUTAN_EDIT').all().filter(function (l) { return l.record_id === row.id; });
+      t.eq(links.length, 1); t.ok(JSON.stringify(links).indexOf(token) < 0, 'token mentah tidak disimpan');
+      const dup = BmFx.pc({ makmal: lab.id });
+      TestAssert.apiFail(dup, ERROR_CODES.CONFLICT, 'makmal + tahun sama');
+      t.ok(dup.message.indexOf(res.refNo) >= 0, dup.message);
+      const g = TestAssert.apiOk(BmFx.get(token));
+      t.eq(g.refNo, res.refNo); t.ok(g.canEdit); t.eq(g.values.berfungsi, 18); t.eq(g.values.noStaf, 'S1234');
+      t.ok(g.values.catatanIt === undefined, 'medan admin tidak didedahkan');
+      TestAssert.apiFail(BmFx.get('A'.repeat(43)), ERROR_CODES.NOT_FOUND);
+      TestAssert.apiFail(BmFx.get('pendek'), ERROR_CODES.NOT_FOUND);
+    }],
+
+    ['Kemas kini melalui link: makmal/tahun/email dikunci; dikembalikan → link baharu, hantar semula; disahkan → baca sahaja', function (t) {
+      AppFx.real();
+      const a = TestHelpers.admin(ROLES.ADMIN);
+      const lab = AppFx.lab(a, 'BM-02'); const other = AppFx.lab(a, 'BM-03');
+      const res = TestAssert.apiOk(BmFx.pc({ makmal: lab.id }));
+      const tok = KeperluanHooks.lastToken_;
+      const row0 = BmFx.row(res.refNo);
+      const full = { namaPemohon: 'Dr. Pemilik Contoh', noStaf: 'S1234', peranan: 'PENGURUS', jumlahSediaAda: 20, berfungsi: 18, tidakSesuai: 3, rosakBolehBaiki: 1, rosakLupus: 1,
+        sasaranJumlah: 30, keutamaan: 'KRITIKAL', hargaSeunit: 4000, justifikasi: 'Kemas kini: pengambilan pelajar bertambah tahun ini.' };
+      const u = TestAssert.apiOk(api({ action: 'keperluan.awamKemaskini', payload: Object.assign({ t: tok, makmal: other.id, tahun: 2030, emailPemohon: 'jahat@utm.my' }, full) }));
+      t.eq(u.computed.tambahan, 10); t.eq(u.values.peranan, 'PENGURUS');
+      const r1 = BmFx.row(res.refNo);
+      t.eq(r1.makmal, lab.id, 'makmal dikunci'); t.eq(String(r1.tahun), '2026'); t.eq(r1.email_pemohon, row0.email_pemohon, 'email dikunci');
+      TestAssert.apiFail(api({ action: 'keperluan.awamKemaskini', payload: Object.assign({ t: tok }, full, { berfungsi: 5 }) }), ERROR_CODES.VALIDATION_ERROR, 'kiraan tidak sepadan');
+      /* Dikembalikan → link lama batal, link baharu diemel */
+      TestAssert.apiOk(TestHelpers.call(a.token, 'crud.setStatus', { module: 'keperluan', id: r1.id, status: 'DIKEMBALIKAN', note: 'Sahkan bilangan rosak.' }));
+      const tok2 = KeperluanHooks.lastToken_;
+      t.ok(tok2 && tok2 !== tok, 'token baharu');
+      TestAssert.apiFail(BmFx.get(tok), ERROR_CODES.NOT_FOUND, 'link lama dibatalkan');
+      const g2 = TestAssert.apiOk(BmFx.get(tok2));
+      t.eq(g2.status, 'DIKEMBALIKAN'); t.eq(g2.statusNote, 'Sahkan bilangan rosak.');
+      TestAssert.apiOk(api({ action: 'keperluan.awamKemaskini', payload: Object.assign({ t: tok2 }, full, { rosakLupus: 2, berfungsi: 17, tidakSesuai: 2 }) }));
+      t.eq(BmFx.row(res.refNo).status, 'DIHANTAR', 'dihantar semula');
+      /* Disahkan → baca sahaja */
+      TestAssert.apiOk(TestHelpers.call(a.token, 'crud.setStatus', { module: 'keperluan', id: r1.id, status: 'DISAHKAN' }));
+      const g3 = TestAssert.apiOk(BmFx.get(tok2));
+      t.eq(g3.canEdit, false);
+      TestAssert.apiFail(api({ action: 'keperluan.awamKemaskini', payload: Object.assign({ t: tok2 }, full) }), ERROR_CODES.FORBIDDEN);
+    }],
+
+    ['Makmal baharu: nama wajib jika tiada makmal, tiada pendua, didaftarkan & dipautkan apabila disahkan', function (t) {
+      AppFx.real();
+      const a = TestHelpers.admin(ROLES.ADMIN);
+      const base = { jumlahSediaAda: 0, berfungsi: 0, tidakSesuai: 0, rosakBolehBaiki: 0, rosakLupus: 0, sasaranJumlah: 30 };
+      TestAssert.apiFail(BmFx.pc(base), ERROR_CODES.VALIDATION_ERROR, 'tiada makmal & tiada nama');
+      const res = TestAssert.apiOk(BmFx.pc(Object.assign({ namaMakmalBaru: 'Makmal Fabrikasi Digital', bangunanMakmalBaru: 'C25', bilikMakmalBaru: '02.110', jabatanMakmalBaru: 'Pembuatan' }, base)));
+      const r = BmFx.row(res.refNo);
+      t.eq(r.nama_makmal, 'Makmal Fabrikasi Digital (makmal baharu)'); t.eq(Number(r.bilangan_tambahan), 30); t.eq(r.makmal, '');
+      TestAssert.apiFail(BmFx.pc(Object.assign({ namaMakmalBaru: '  makmal fabrikasi   DIGITAL ' }, base)), ERROR_CODES.CONFLICT, 'nama sama');
+      TestAssert.apiOk(TestHelpers.call(a.token, 'crud.setStatus', { module: 'keperluan', id: r.id, status: 'DISAHKAN' }));
+      const r2 = BmFx.row(res.refNo);
+      t.ok(r2.makmal, 'dipautkan');
+      const lab = Repo.of('MAKMAL').findById(r2.makmal);
+      t.eq(lab.nama, 'Makmal Fabrikasi Digital'); t.eq(lab.kod, 'C25-02.110'); t.eq(lab.bangunan, 'C25'); t.eq(lab.penyelaras, 'Dr. Pemilik Contoh');
+      t.eq(r2.nama_makmal, 'C25-02.110 · Makmal Fabrikasi Digital');
+    }],
+
+    ['Dapatkan semula link (tiada pendedahan), link kongsi untuk admin sahaja, admin boleh isi tanpa maklumat pemohon', function (t) {
+      AppFx.real();
+      const a = TestHelpers.admin(ROLES.ADMIN);
+      const lab = AppFx.lab(a, 'BM-04');
+      const res = TestAssert.apiOk(BmFx.pc({ makmal: lab.id }));
+      const tok = KeperluanHooks.lastToken_;
+      const row = BmFx.row(res.refNo);
+      const wrong = TestAssert.apiOk(api({ action: 'keperluan.awamPautan', payload: { refNo: res.refNo, email: 'lain@utm.my' } }));
+      t.ok(wrong.sent); t.eq(KeperluanHooks.lastToken_, tok, 'email salah → tiada link baharu');
+      const right = TestAssert.apiOk(api({ action: 'keperluan.awamPautan', payload: { refNo: res.refNo.toLowerCase(), email: row.email_pemohon.toUpperCase() } }));
+      t.eq(right.message, wrong.message, 'jawapan sama');
+      t.ok(KeperluanHooks.lastToken_ !== tok); TestAssert.apiFail(BmFx.get(tok), ERROR_CODES.NOT_FOUND);
+      const u = TestHelpers.user('biasa-bm');
+      TestAssert.apiFail(TestHelpers.call(u.token, 'keperluan.pautanBorang', {}), ERROR_CODES.FORBIDDEN);
+      t.ok(/#\/banci-makmal$/.test(TestAssert.apiOk(TestHelpers.call(a.token, 'keperluan.pautanBorang', {})).path));
+      const lab2 = AppFx.lab(a, 'BM-05');
+      TestAssert.apiOk(TestHelpers.call(a.token, 'crud.create', { module: 'keperluan', makmal: lab2.id, tahun: 2026, jumlahSediaAda: 10, berfungsi: 10, sasaranJumlah: 10, keutamaan: 'RENDAH', justifikasi: 'Diisi oleh Unit IT bagi pihak makmal.' }), 'admin tanpa maklumat pemohon');
+      SettingsRepository.setMany({ KEPERLUAN_DOMAIN_EMAIL: '*' }, 'TEST');
+      t.ok(KeperluanHooks.emailAllowed('sesiapa@gmail.com'), 'tetapan * → semua domain');
+      SettingsRepository.setMany({ KEPERLUAN_DOMAIN_EMAIL: 'utm.my' }, 'TEST');
+      t.ok(!KeperluanHooks.emailAllowed('x@notutm.my'), 'bukan subdomain');
     }]
   ]
 };

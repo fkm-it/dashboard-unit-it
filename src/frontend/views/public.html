@@ -66,7 +66,7 @@
         </section>
         <div class="section" id="ciri" style="padding-top:0">
           <div class="feature-grid">${(KD.landingCards || []).concat((publicMods.length ? publicMods : mods).map((m) => ({
-            href: m.publicForm && c.ALLOW_PUBLIC_SUBMISSION !== false ? '/borang/' + m.key : '/log-masuk',
+            href: m.publicForm && c.ALLOW_PUBLIC_SUBMISSION !== false ? ((KD.publicFormPath && KD.publicFormPath[m.key]) || '/borang/' + m.key) : '/log-masuk',
             icon: m.icon, title: m.publicForm ? (m.publicForm.title || m.label) : m.labelPlural, text: m.description || '' }))).slice(0, 3)
             .map((x) => html`<a class="feature" href="#${x.href}">${icon(x.icon)}<h3>${t(x.title)}</h3><p>${t(x.text)}</p></a>`)}</div>
         </div>

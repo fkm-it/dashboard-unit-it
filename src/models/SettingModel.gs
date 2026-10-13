@@ -32,6 +32,7 @@ const SETTINGS_DEFS = Object.freeze({
   GANTI_HARGA_LALAI: { type: 'int', default: 4500, min: 0, max: 1000000, minRole: 'ADMIN', public: false, description: 'Anggaran harga pengganti (RM) jika nilai perolehan asal tiada' },
   TINDAKAN_SASARAN_HARI: { type: 'int', default: 30, min: 1, max: 365, minRole: 'ADMIN', public: false, description: 'Tindakan KEWPA: tempoh sasaran penyelesaian (hari) bagi tindakan baharu' },
   EMAIL_RINGKASAN_BULANAN: { type: 'bool', default: true, minRole: 'ADMIN', public: false, description: 'Hantar email ringkasan aset IT setiap awal bulan kepada pengguna Pengurusan & Admin' },
+  KEPERLUAN_DOMAIN_EMAIL: { type: 'string', default: 'utm.my', max: 200, minRole: 'ADMIN', public: true, description: 'Borang banci makmal: domain email dibenarkan (dipisah koma; subdomain diterima, cth. utm.my). * = semua domain' },
   EMAIL_RINGKASAN_TAMBAHAN: { type: 'string', default: '', max: 400, minRole: 'ADMIN', public: false, description: 'Penerima tambahan email ringkasan bulanan (dipisah koma), cth. pejabat Dekan' }
 });
 

@@ -31,11 +31,23 @@ const Migration = {
     { id: 'MODULE_TIKET_75AFC152', description: 'Modul Tiket: sheet TIKET & lajur', up: function () { return SheetManager.ensure('TIKET'); } },
     { id: 'MODULE_ASET_A2CE088D', description: 'Modul Aset IT: sheet ASET & lajur', up: function () { return SheetManager.ensure('ASET'); } },
     { id: 'MODULE_TINDAKAN_F54CF4D8', description: 'Modul Tindakan KEWPA: sheet TINDAKAN & lajur', up: function () { return SheetManager.ensure('TINDAKAN'); } },
-    { id: 'MODULE_KEPERLUAN_4E2231D7', description: 'Modul Keperluan Komputer Makmal: sheet KEPERLUAN & lajur', up: function () { return SheetManager.ensure('KEPERLUAN'); } },
+    { id: 'MODULE_KEPERLUAN_92029EE7', description: 'Modul Keperluan Komputer Makmal: sheet KEPERLUAN & lajur', up: function () { return SheetManager.ensure('KEPERLUAN'); } },
     { id: 'MODULE_MAKMAL_4DB65B6D', description: 'Modul Makmal: sheet MAKMAL & lajur', up: function () { return SheetManager.ensure('MAKMAL'); } },
     { id: 'MODULE_PEGAWAI_80FC51F6', description: 'Modul Pegawai IT: sheet PEGAWAI & lajur', up: function () { return SheetManager.ensure('PEGAWAI'); } },
     // @generator:migrations:end
     // Migrasi tulisan tangan (data) — tambah di bawah dengan ID MIGRATION_00N.
+    {
+      id: 'MIGRATION_004',
+      description: 'Keperluan makmal: isi nama_makmal bagi rekod sedia ada (tajuk senarai)',
+      up: function () {
+        const repo = CrudEngine.repo(CrudEngine.get('keperluan'));
+        const labs = {};
+        CrudEngine.repo(CrudEngine.get('makmal')).all().forEach(function (l) { labs[l.id] = l.kod ? l.kod + ' · ' + l.nama : l.nama; });
+        const patch = {};
+        repo.all().forEach(function (r) { if (!r.nama_makmal && r.makmal && labs[r.makmal]) patch[r.id] = { nama_makmal: labs[r.makmal] }; });
+        return { updated: Object.keys(patch).length ? repo.updateMany(patch) : 0 };
+      }
+    },
   ],
 
   applied: function () {

@@ -1,0 +1,243 @@
+<style>
+.bm-wrap { width: min(860px, 100%); margin: 0 auto; padding: var(--sp-6) var(--sp-4) var(--sp-10); }
+.bm-card { background: var(--white); border: 1px solid var(--line); border-radius: var(--r-lg); padding: var(--sp-6); box-shadow: var(--shadow-lift); }
+.bm-head h1 { font-size: var(--fs-2xl); margin: var(--sp-2) 0; }
+.bm-sec { border-top: 1px solid var(--line); padding-top: var(--sp-5); margin-top: var(--sp-5); }
+.bm-sec > h2 { font-size: var(--fs-lg); margin-bottom: var(--sp-1); display: flex; gap: 10px; align-items: center; }
+.bm-sec > p { margin-bottom: var(--sp-4); }
+.bm-num { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--brand); color: #fff; font-size: var(--fs-sm); font-weight: 700; flex: none; }
+.bm-calc { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--sp-3); margin-top: var(--sp-4); }
+.bm-calc div { background: var(--canvas-200); border-radius: var(--r-md); padding: 10px 12px; min-width: 0; }
+.bm-calc b { display: block; font-size: var(--fs-xl); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bm-warn { color: var(--danger); font-weight: 600; }
+.bm-status { border-radius: var(--r-md); padding: 12px 14px; margin-top: var(--sp-4); background: var(--canvas-200); }
+.bm-status.is-warn { background: #FEF3C7; }
+.bm-status.is-ok { background: #DCFCE7; }
+.bm-ro { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3); }
+.bm-ro dt { font-size: var(--fs-xs); color: var(--muted); }
+.bm-ro dd { margin: 0; font-weight: 600; }
+.bm-share { display: flex; gap: var(--sp-2); }
+.bm-share .input { flex: 1; min-width: 0; font-size: var(--fs-sm); }
+@media (max-width: 640px) {
+  .bm-wrap { padding: var(--sp-4) var(--sp-3) var(--sp-8); }
+  .bm-card { padding: var(--sp-5) var(--sp-4); }
+  .bm-calc { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .bm-calc div:last-child { grid-column: 1 / -1; }
+  .bm-ro { grid-template-columns: minmax(0, 1fr); }
+  .bm-share { flex-direction: column; }
+}
+</style>
+<script>
+/**
+ * Borang awam Banci & Keperluan Komputer Makmal (#/banci-makmal) — link dikongsi kepada pemilik / pengurus makmal.
+ *   #/banci-makmal          → borang baharu (tanpa log masuk)
+ *   #/banci-makmal?t=TOKEN  → lihat / kemas kini borang melalui link peribadi yang diemel
+ * Admin: butang "Kongsi link borang" di senarai Keperluan Makmal.
+ */
+(function (KD) {
+  'use strict';
+  const { html, raw, qs, on, fmtNum } = KD.utils;
+  const { icon, toast, toastError, errorState, skeletonList, busy, fieldErrors, modal } = KD.ui;
+  const NEW = '__baru';
+  const rm = (n) => 'RM ' + Number(n || 0).toLocaleString('ms-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  const SECTIONS = [
+    { n: 1, title: 'Maklumat pemohon', note: 'Pemilik, ketua atau pengurus makmal.', keys: ['namaPemohon', 'noStaf', 'emailPemohon', 'peranan', 'telefonPemohon'] },
+    { n: 2, title: 'Makmal', note: 'Satu borang bagi setiap makmal bagi setiap tahun.', keys: ['tahun', 'makmal', 'namaMakmalBaru', 'bangunanMakmalBaru', 'bilikMakmalBaru', 'jabatanMakmalBaru'] },
+    { n: 3, title: 'Banci komputer sedia ada', note: 'Berfungsi + rosak (boleh dibaiki) + rosak (tidak ekonomi) mesti sama dengan jumlah sedia ada. Makmal baharu: isi 0.', keys: ['jumlahSediaAda', 'berfungsi', 'tidakSesuai', 'rosakBolehBaiki', 'rosakLupus'] },
+    { n: 4, title: 'Permohonan penggantian / tambahan', note: 'Bilangan penggantian, tambahan dan anggaran kos dikira automatik.', keys: ['sasaranJumlah', 'keutamaan', 'hargaSeunit', 'sumberHarga', 'spesifikasi', 'perisian', 'justifikasi'] }
+  ];
+  const NEW_KEYS = ['namaMakmalBaru', 'bangunanMakmalBaru', 'bilikMakmalBaru', 'jabatanMakmalBaru'];
+  const PUB_REQ = ['namaPemohon', 'noStaf', 'emailPemohon', 'peranan'];
+
+  const num = (form, k) => { const e = form.elements[k]; const n = Number(e && e.value); return isFinite(n) ? n : 0; };
+
+  function compute(form) {
+    const n = { sedia: num(form, 'jumlahSediaAda'), berfungsi: num(form, 'berfungsi'), tidakSesuai: num(form, 'tidakSesuai'), baiki: num(form, 'rosakBolehBaiki'), lupus: num(form, 'rosakLupus'), sasaran: num(form, 'sasaranJumlah'), harga: num(form, 'hargaSeunit') };
+    const kekal = n.berfungsi - n.tidakSesuai + n.baiki;
+    const ganti = n.tidakSesuai + n.lupus;
+    const tambahan = Math.max(0, n.sasaran - kekal - ganti);
+    return { n, kekal, ganti, tambahan, kos: (ganti + tambahan) * n.harga, sumOk: n.berfungsi + n.baiki + n.lupus === n.sedia, sesuaiOk: n.tidakSesuai <= n.berfungsi };
+  }
+
+  function calcBox(c) {
+    return html`<div class="bm-calc" aria-live="polite">
+      <div><span class="xs muted">Dikekalkan</span><b>${fmtNum(Math.max(0, c.kekal))}</b></div>
+      <div><span class="xs muted">Penggantian</span><b>${fmtNum(c.ganti)}</b></div>
+      <div><span class="xs muted">Tambahan</span><b>${fmtNum(c.tambahan)}</b></div>
+      <div><span class="xs muted">Anggaran kos</span><b>${c.n.harga ? rm(c.kos) : '—'}</b></div></div>
+      ${!c.sumOk ? html`<p class="small bm-warn mt-2">Berfungsi (${fmtNum(c.n.berfungsi)}) + rosak boleh dibaiki (${fmtNum(c.n.baiki)}) + rosak tidak ekonomi (${fmtNum(c.n.lupus)}) = ${fmtNum(c.n.berfungsi + c.n.baiki + c.n.lupus)}, tidak sama dengan jumlah sedia ada (${fmtNum(c.n.sedia)}).</p>` : ''}
+      ${!c.sesuaiOk ? html`<p class="small bm-warn mt-2">"Tidak lagi sesuai" tidak boleh melebihi bilangan berfungsi.</p>` : ''}`;
+  }
+
+  function labSelect(f, opts, value, isNew) {
+    return html`<div class="field field-wide"><label class="label" for="bm-makmal">${f.label}</label>
+      <select class="select" id="bm-makmal" name="makmal"><option value="">— Pilih makmal —</option>${opts.map((o) => html`<option value="${o.value}" ${value === o.value ? raw('selected') : ''}>${o.label}${o.hint ? ' — ' + o.hint : ''}</option>`)}
+      <option value="${NEW}" ${isNew ? raw('selected') : ''}>+ Makmal baharu / tiada dalam senarai</option></select><span class="hint">${f.hint || ''}</span></div>`;
+  }
+
+  /** Bina borang ikut seksyen. mode: 'create' | 'edit' */
+  function formHtml(m, refOptions, values, mode, meta) {
+    const byKey = {};
+    m.fields.forEach((f) => { byKey[f.key] = f; });
+    const v = values || {};
+    const isNew = mode === 'edit' ? !v.makmal : false;
+    const field = (k) => {
+      const f = byKey[k];
+      if (!f) return '';
+      if (mode === 'edit' && (k === 'tahun' || k === 'makmal' || k === 'emailPemohon' || k === 'namaMakmalBaru')) return '';
+      if (k === 'makmal') return labSelect(f, (refOptions && refOptions.makmal) || [], KD.crud.prefill(f) || '', false);
+      const ff = NEW_KEYS.indexOf(k) >= 0 ? Object.assign({}, f, { required: k === 'namaMakmalBaru' }) : PUB_REQ.indexOf(k) >= 0 ? Object.assign({}, f, { required: true, hint: (f.hint || '').replace(/\s*Wajib dalam borang awam\.?/, '') }) : f;
+      const inp = KD.crud.fieldInput(ff, { value: mode === 'edit' ? v[k] : KD.crud.prefill(f), idPrefix: 'bm-', refOptions });
+      return NEW_KEYS.indexOf(k) >= 0 ? html`<div data-new-lab ${mode === 'edit' && isNew ? '' : raw('hidden')} class="${k === 'namaMakmalBaru' ? 'field-wide' : ''}">${inp}</div>` : inp;
+    };
+    return html`${SECTIONS.map((s) => html`<section class="bm-sec"><h2><span class="bm-num">${s.n}</span>${s.title}</h2><p class="small muted">${s.note}</p>
+        ${mode === 'edit' && s.n === 2 ? html`<dl class="bm-ro mb-4"><div><dt>Makmal</dt><dd>${meta.namaMakmal}</dd></div><div><dt>Tahun</dt><dd>${v.tahun}</dd></div></dl>` : ''}
+        ${mode === 'edit' && s.n === 1 ? html`<dl class="bm-ro mb-4"><div><dt>Email (link dihantar ke sini)</dt><dd>${v.emailPemohon}</dd></div></dl>` : ''}
+        <div class="form-grid">${s.keys.map(field)}</div>
+        ${s.n === 4 ? html`<div data-calc></div>` : ''}</section>`)}`;
+  }
+
+  function bindCalc(form) {
+    const draw = () => { qs('[data-calc]', form).innerHTML = calcBox(compute(form)).s; };
+    on(form, 'input', 'input', draw);
+    draw();
+    const sel = form.elements.makmal;
+    if (sel && sel.tagName === 'SELECT') {
+      const toggle = () => { form.querySelectorAll('[data-new-lab]').forEach((x) => { x.hidden = sel.value !== NEW; }); };
+      sel.addEventListener('change', toggle);
+      toggle();
+    }
+  }
+
+  function shell(el, inner) {
+    el.innerHTML = html`${KD.views.publicTop ? KD.views.publicTop() : ''}<div class="bm-wrap">${inner}</div>`.s;
+  }
+
+  function resendBox() {
+    return html`<details class="mt-6"><summary class="small" style="cursor:pointer">Sudah hantar borang dan perlu kemas kini? Dapatkan semula link</summary>
+      <form class="mt-4" data-resend novalidate><div class="form-grid">
+        <div class="field"><label class="label" for="rs-ref">No. rujukan</label><input class="input" id="rs-ref" name="refNo" required maxlength="40" placeholder="cth. KPM-2026-001"></div>
+        <div class="field"><label class="label" for="rs-email">Email pemohon</label><input class="input" id="rs-email" name="email" type="email" required autocomplete="email"></div></div>
+        <button class="btn btn-outline mt-4" type="submit">${icon('mail')}Hantar link ke email</button></form></details>`;
+  }
+
+  function bindResend(el) {
+    on(el, 'submit', '[data-resend]', (e, f) => {
+      e.preventDefault();
+      busy(qs('button[type="submit"]', f), async () => {
+        try {
+          const r = await KD.api.call('keperluan.awamPautan', { refNo: f.refNo.value.trim(), email: f.email.value.trim() });
+          toast(r.message);
+        } catch (err) { if (!fieldErrors(f, err)) toastError(err); }
+      });
+    });
+  }
+
+  KD.views.banciMakmal = {
+    async render(el, params, query) {
+      shell(el, html`<div class="bm-card">${skeletonList(3)}</div>`);
+      const token = query && query.t;
+      let meta;
+      try { meta = await KD.api.publicForm('keperluan'); } catch (err) { shell(el, html`<div class="bm-card">${errorState(err)}</div>`); return; }
+      const m = meta.module;
+      const pf = m.publicForm || {};
+      if (token) return renderEdit(el, m, meta, token);
+
+      shell(el, html`<div class="bm-card"><div class="bm-head">${icon('briefcase', 'i-lg')}<h1>${pf.title || m.label}</h1><p class="muted">${pf.intro || ''}</p></div>
+        <form data-bm novalidate>${formHtml(m, meta.refOptions, null, 'create')}
+          <div class="sr-only" aria-hidden="true"><label>Laman web<input name="website" tabindex="-1" autocomplete="off"></label></div>
+          <button class="btn btn-primary btn-block mt-6" type="submit">${icon('send')}Hantar borang</button></form>
+        ${resendBox()}</div>`);
+      const form = qs('[data-bm]', el);
+      bindCalc(form);
+      bindResend(el);
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        busy(qs('button[type="submit"]', form), async () => {
+          try {
+            const p = await KD.crud.collect(form, m.fields.filter((f) => f.type !== 'files'), null);
+            if (p.makmal === NEW) p.makmal = ''; else NEW_KEYS.forEach((k) => { p[k] = ''; });
+            p.formToken = meta.formToken;
+            p.website = form.elements.website.value;
+            const res = await KD.api.publicCreate('keperluan', p);
+            shell(el, html`<div class="bm-card success-card">${icon('check', 'i-lg')}<h2>Borang dihantar</h2><p class="muted">${pf.successMessage || ''}</p>
+              ${res.refNo ? html`<div class="rec-ref">${res.refNo}</div><p class="xs muted mt-2">Simpan nombor rujukan ini. Semak folder spam jika email tidak diterima.</p>` : ''}
+              <div class="row row-wrap mt-6" style="justify-content:center"><a class="btn btn-outline" href="#/banci-makmal" data-again>Isi borang makmal lain</a></div></div>`);
+            on(el, 'click', '[data-again]', (ev) => { ev.preventDefault(); KD.router.render(); });
+          } catch (err) {
+            if (!fieldErrors(form, err)) toastError(err);
+            if (err.code === 'VALIDATION_ERROR' && /tamat tempoh|terlalu cepat/.test(err.message)) {
+              try { meta.formToken = (await KD.api.publicForm('keperluan')).formToken; } catch (e2) { /* abaikan */ }
+            }
+          }
+        });
+      });
+    }
+  };
+
+  async function renderEdit(el, m, meta, token) {
+    let d;
+    try { d = await KD.api.call('keperluan.awamGet', { t: token }); } catch (err) {
+      shell(el, html`<div class="bm-card"><h2>Link tidak sah atau telah tamat</h2><p class="muted mt-2">Link ini mungkin telah diganti dengan link baharu, atau borang telah diproses oleh Unit IT. Minta link baharu di bawah.</p>${resendBox()}</div>`);
+      bindResend(el);
+      return;
+    }
+    const tone = d.status === 'DIKEMBALIKAN' ? 'is-warn' : d.status === 'DISAHKAN' ? 'is-ok' : '';
+    const statusBox = html`<div class="bm-status ${tone}"><b>Status: ${d.statusLabel}</b>${d.statusNote ? html`<div class="small mt-1">Catatan Unit IT: ${d.statusNote}</div>` : ''}${d.catatanIt ? html`<div class="small mt-1">${d.catatanIt}</div>` : ''}</div>`;
+    if (!d.canEdit) {
+      const v = d.values;
+      shell(el, html`<div class="bm-card"><div class="bm-head">${icon('briefcase', 'i-lg')}<h1>Borang ${d.refNo}</h1><p class="muted">${d.namaMakmal} · tahun ${v.tahun}</p></div>${statusBox}
+        <section class="bm-sec"><dl class="bm-ro">
+          <div><dt>Jumlah sedia ada</dt><dd>${fmtNum(v.jumlahSediaAda)}</dd></div><div><dt>Jumlah diperlukan</dt><dd>${fmtNum(v.sasaranJumlah)}</dd></div>
+          <div><dt>Penggantian</dt><dd>${fmtNum(d.computed.ganti)}</dd></div><div><dt>Tambahan</dt><dd>${fmtNum(d.computed.tambahan)}</dd></div>
+          <div><dt>Anggaran kos</dt><dd>${rm(d.computed.kos)}</dd></div></dl>
+          <p class="small muted mt-4">Borang ini telah diproses dan tidak boleh dikemas kini lagi. Hubungi Unit IT FKM untuk sebarang pindaan.</p></section></div>`);
+      return;
+    }
+    shell(el, html`<div class="bm-card"><div class="bm-head">${icon('briefcase', 'i-lg')}<h1>Kemas kini borang ${d.refNo}</h1><p class="muted">${d.namaMakmal} · tahun ${d.values.tahun}. Link ini peribadi; jangan kongsikan.</p></div>${statusBox}
+      <form data-bm novalidate>${formHtml(m, meta.refOptions, d.values, 'edit', d)}
+        <button class="btn btn-primary btn-block mt-6" type="submit">${icon('check')}${d.status === 'DIKEMBALIKAN' ? 'Simpan & hantar semula' : 'Simpan perubahan'}</button></form></div>`);
+    const form = qs('[data-bm]', el);
+    bindCalc(form);
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      busy(qs('button[type="submit"]', form), async () => {
+        try {
+          const skip = ['tahun', 'makmal', 'emailPemohon', 'namaMakmalBaru'];
+          const p = await KD.crud.collect(form, m.fields.filter((f) => f.type !== 'files' && skip.indexOf(f.key) < 0), null);
+          p.t = token;
+          await KD.api.call('keperluan.awamKemaskini', p);
+          toast('Borang dikemas kini.');
+          KD.router.render();
+        } catch (err) { if (!fieldErrors(form, err)) toastError(err); }
+      });
+    });
+  }
+
+  /* Admin: kongsi link borang dari senarai Keperluan Makmal */
+  KD.listActions.keperluan = {
+    render: () => html`<button class="btn btn-outline" data-list-act="kongsi">${icon('share')}Kongsi link borang</button>`,
+    run: async (act, b) => {
+      let url = '';
+      try { url = (await KD.api.call('keperluan.pautanBorang', {})).url; } catch (err) { toastError(err); return; }
+      if (!/^https?:/.test(url)) url = location.href.split('#')[0] + '#/banci-makmal';
+      const md = modal({
+        title: 'Link borang banci makmal',
+        body: html`<p class="small">Kongsikan link ini kepada pemilik / ketua / pengurus makmal (email, WhatsApp). Mereka tidak perlu log masuk; setiap pemohon menerima link peribadi melalui email untuk mengemas kini borang sehingga disahkan.</p>
+          <div class="bm-share mt-4"><input class="input" readonly value="${url}" data-url aria-label="Link borang"><button class="btn btn-primary" data-copy>${icon('copy')}Salin</button></div>
+          <p class="xs muted mt-2">Email pemohon mesti dalam domain dibenarkan (Tetapan → KEPERLUAN_DOMAIN_EMAIL). Borang awam boleh ditutup sementara melalui Tetapan → Benarkan borang awam.</p>`,
+        foot: html`<a class="btn btn-outline" href="${url}" target="_blank" rel="noopener">${icon('eye')}Buka borang</a><button class="btn btn-ghost" data-close>Tutup</button>`
+      });
+      on(md.el, 'click', '[data-copy]', async () => {
+        const inp = qs('[data-url]', md.el);
+        try { await navigator.clipboard.writeText(inp.value); } catch (e) { inp.select(); document.execCommand('copy'); }
+        toast('Link disalin.');
+      });
+    }
+  };
+
+  KD.extraRoutes.push({ path: '/banci-makmal', view: 'banciMakmal', access: 'public', layout: 'public', title: 'Banci & Keperluan Komputer Makmal' });
+  KD.publicFormPath = Object.assign(KD.publicFormPath || {}, { keperluan: '/banci-makmal' });
+})(window.KD);
+</script>

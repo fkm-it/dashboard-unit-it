@@ -72,6 +72,12 @@ const SCHEMA = Object.freeze({
     columns: ['migration_id', 'description', 'applied_at', 'applied_by'],
     types: {}
   },
+  /** Link edit peribadi untuk borang awam (cth. banci makmal). Hanya hash token disimpan; dilindungi. */
+  PAUTAN_EDIT: {
+    sheet: 'PAUTAN_EDIT', id: 'token_hash', hidden: true, protect: true,
+    columns: ['token_hash', 'modul', 'record_id', 'email', 'created_at', 'expires_at', 'revoked_at', 'used_at'],
+    types: {}
+  },
   /** Ringkasan aset IT setiap bulan (satu baris sebulan, dikemas kini setiap hari; baris bulan lepas = nilai akhir bulan). */
   RINGKASAN_BULANAN: {
     sheet: 'RINGKASAN_BULANAN', id: 'bulan',
@@ -101,7 +107,7 @@ const SCHEMA = Object.freeze({
   },
   KEPERLUAN: {
     sheet: 'KEPERLUAN', id: 'id', prefix: 'KP', module: 'keperluan',
-    columns: ['id', 'ref_no', 'owner_user_id', 'owner_name', 'makmal', 'tahun', 'jumlah_sedia_ada', 'berfungsi', 'tidak_sesuai', 'rosak_boleh_baiki', 'rosak_lupus', 'sasaran_jumlah', 'bilangan_ganti', 'bilangan_tambahan', 'keutamaan', 'spesifikasi', 'perisian', 'justifikasi', 'harga_seunit', 'sumber_harga', 'anggaran_kos', 'lampiran', 'catatan_it', 'status', 'status_note', 'status_changed_at', 'status_changed_by', 'state', 'created_at', 'updated_at', 'deleted_at'],
+    columns: ['id', 'ref_no', 'owner_user_id', 'owner_name', 'nama_pemohon', 'no_staf', 'email_pemohon', 'peranan', 'telefon_pemohon', 'makmal', 'nama_makmal_baru', 'bangunan_makmal_baru', 'bilik_makmal_baru', 'jabatan_makmal_baru', 'nama_makmal', 'tahun', 'jumlah_sedia_ada', 'berfungsi', 'tidak_sesuai', 'rosak_boleh_baiki', 'rosak_lupus', 'sasaran_jumlah', 'bilangan_ganti', 'bilangan_tambahan', 'keutamaan', 'spesifikasi', 'perisian', 'justifikasi', 'harga_seunit', 'sumber_harga', 'anggaran_kos', 'lampiran', 'catatan_it', 'status', 'status_note', 'status_changed_at', 'status_changed_by', 'state', 'created_at', 'updated_at', 'deleted_at'],
     types: {'tahun': 'intOrNull', 'jumlah_sedia_ada': 'intOrNull', 'berfungsi': 'intOrNull', 'tidak_sesuai': 'intOrNull', 'rosak_boleh_baiki': 'intOrNull', 'rosak_lupus': 'intOrNull', 'sasaran_jumlah': 'intOrNull', 'bilangan_ganti': 'intOrNull', 'bilangan_tambahan': 'intOrNull', 'lampiran': 'int'}
   },
   MAKMAL: {
