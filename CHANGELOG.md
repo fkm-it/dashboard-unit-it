@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 1.13.2 — 2026-10-14 · Supabase aktif
+- Data dipindahkan ke Supabase (`pindahKeSupabase`): 22 sheet, 693 baris, semuanya tersulit.
+- Laman web kini memanggil Supabase terus (`webUsesEdge: true`). Pautan lama `/exec` diteruskan ke Supabase secara automatik.
+- Berpatah balik pada bila-bila masa: `pindahKeSheets()` dan tukar `webUsesEdge` kepada `false`.
+
 ## 1.13.1 — 2026-10-14 · Projek Supabase disediakan (data belum dipindah)
 - Projek Supabase `dashboard-unit-it-fkm` (Singapura) dicipta; jadual storan tersulit (`private.*`) dipasang.
 - `backend.json` ditambah dengan `webUsesEdge: false`: laman web masih memanggil Apps Script dan data kekal di Google Sheets.

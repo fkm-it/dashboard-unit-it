@@ -3,5 +3,5 @@
   "projectRef": "ajlxptgbwxnswcmyassf",
   "apiUrl": "https://ajlxptgbwxnswcmyassf.supabase.co/functions/v1/api",
   "gasUrl": "https://script.google.com/macros/s/AKfycbyauYE2c9XvekTu4AHyzKpvtsciZ5JkfbDmUqY_uGBpr9bhyCr_ycscYfi0XhwoT_5a/exec",
-  "webUsesEdge": false
+  "webUsesEdge": true
 }
