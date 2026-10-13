@@ -10,7 +10,7 @@ const MakmalModule = Object.freeze(Object.assign(
     "icon": "home",
     "prefix": "MK",
     "refFormat": "MK-{SEQ3}",
-    "description": "Senarai induk makmal FKM: lokasi, kapasiti dan penyelaras.",
+    "description": "Senarai induk makmal FKM: lokasi, kapasiti, penyelaras, staf makmal, spesifikasi komputer dan perisian.",
     "access": {
       "create": "ADMIN",
       "list": "ALL",
@@ -63,6 +63,29 @@ const MakmalModule = Object.freeze(Object.assign(
         "search": true,
         "placeholder": "cth. Makmal CAD",
         "column": "nama"
+      },
+      {
+        "key": "jenisMakmal",
+        "label": "Jenis makmal",
+        "type": "enum",
+        "default": "KEJURUTERAAN",
+        "list": true,
+        "filter": true,
+        "options": [
+          {
+            "value": "KOMPUTER",
+            "label": "Makmal komputer"
+          },
+          {
+            "value": "KEJURUTERAAN",
+            "label": "Makmal kejuruteraan / pengajaran"
+          },
+          {
+            "value": "UNIT",
+            "label": "Unit / bilik sokongan"
+          }
+        ],
+        "column": "jenis_makmal"
       },
       {
         "key": "bangunan",
@@ -138,6 +161,14 @@ const MakmalModule = Object.freeze(Object.assign(
         "min": 0,
         "max": 1000,
         "column": "pengguna_sesi"
+      },
+      {
+        "key": "spesifikasiKomputer",
+        "label": "Spesifikasi komputer (ringkasan)",
+        "type": "text",
+        "max": 3000,
+        "hint": "Konfigurasi set komputer makmal (model, CPU, RAM, GPU, storan, OS).",
+        "column": "spesifikasi_komputer"
       },
       {
         "key": "catatan",

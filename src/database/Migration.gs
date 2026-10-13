@@ -32,7 +32,9 @@ const Migration = {
     { id: 'MODULE_ASET_A2CE088D', description: 'Modul Aset IT: sheet ASET & lajur', up: function () { return SheetManager.ensure('ASET'); } },
     { id: 'MODULE_TINDAKAN_F54CF4D8', description: 'Modul Tindakan KEWPA: sheet TINDAKAN & lajur', up: function () { return SheetManager.ensure('TINDAKAN'); } },
     { id: 'MODULE_KEPERLUAN_92029EE7', description: 'Modul Keperluan Komputer Makmal: sheet KEPERLUAN & lajur', up: function () { return SheetManager.ensure('KEPERLUAN'); } },
-    { id: 'MODULE_MAKMAL_4DB65B6D', description: 'Modul Makmal: sheet MAKMAL & lajur', up: function () { return SheetManager.ensure('MAKMAL'); } },
+    { id: 'MODULE_MAKMAL_6C756663', description: 'Modul Makmal: sheet MAKMAL & lajur', up: function () { return SheetManager.ensure('MAKMAL'); } },
+    { id: 'MODULE_PERISIAN_89847E0B', description: 'Modul Perisian & Lesen: sheet PERISIAN & lajur', up: function () { return SheetManager.ensure('PERISIAN'); } },
+    { id: 'MODULE_STAF_E03295A9', description: 'Modul Staf Makmal: sheet STAF & lajur', up: function () { return SheetManager.ensure('STAF'); } },
     { id: 'MODULE_PEGAWAI_80FC51F6', description: 'Modul Pegawai IT: sheet PEGAWAI & lajur', up: function () { return SheetManager.ensure('PEGAWAI'); } },
     // @generator:migrations:end
     // Migrasi tulisan tangan (data) — tambah di bawah dengan ID MIGRATION_00N.

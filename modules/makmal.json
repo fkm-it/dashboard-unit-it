@@ -5,7 +5,7 @@
   "icon": "home",
   "prefix": "MK",
   "refFormat": "MK-{SEQ3}",
-  "description": "Senarai induk makmal FKM: lokasi, kapasiti dan penyelaras.",
+  "description": "Senarai induk makmal FKM: lokasi, kapasiti, penyelaras, staf makmal, spesifikasi komputer dan perisian.",
   "access": {
     "create": "ADMIN",
     "list": "ALL",
@@ -55,6 +55,28 @@
       "list": true,
       "search": true,
       "placeholder": "cth. Makmal CAD"
+    },
+    {
+      "key": "jenisMakmal",
+      "label": "Jenis makmal",
+      "type": "enum",
+      "default": "KEJURUTERAAN",
+      "list": true,
+      "filter": true,
+      "options": [
+        {
+          "value": "KOMPUTER",
+          "label": "Makmal komputer"
+        },
+        {
+          "value": "KEJURUTERAAN",
+          "label": "Makmal kejuruteraan / pengajaran"
+        },
+        {
+          "value": "UNIT",
+          "label": "Unit / bilik sokongan"
+        }
+      ]
     },
     {
       "key": "bangunan",
@@ -121,6 +143,13 @@
       "type": "int",
       "min": 0,
       "max": 1000
+    },
+    {
+      "key": "spesifikasiKomputer",
+      "label": "Spesifikasi komputer (ringkasan)",
+      "type": "text",
+      "max": 3000,
+      "hint": "Konfigurasi set komputer makmal (model, CPU, RAM, GPU, storan, OS)."
     },
     {
       "key": "catatan",

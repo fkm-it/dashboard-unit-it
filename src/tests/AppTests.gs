@@ -4,7 +4,7 @@
  * Dalam Apps Script: runTestsPart5. Dalam Node: npm test.
  */
 const AppTests = {
-  suites: function () { return [TestSuiteDashboardIT, TestSuiteUtmfin, TestSuiteMaintenance, TestSuiteNilai, TestSuitePengurusan, TestSuiteKewpa, TestSuiteTrend, TestSuiteBanci]; }
+  suites: function () { return [TestSuiteDashboardIT, TestSuiteUtmfin, TestSuiteMaintenance, TestSuiteNilai, TestSuitePengurusan, TestSuiteKewpa, TestSuiteTrend, TestSuiteBanci, TestSuiteDataMakmal]; }
 };
 
 const AppFx = {
@@ -725,6 +725,96 @@ const TestSuiteBanci = {
       t.ok(KeperluanHooks.emailAllowed('sesiapa@gmail.com'), 'tetapan * → semua domain');
       SettingsRepository.setMany({ KEPERLUAN_DOMAIN_EMAIL: 'utm.my' }, 'TEST');
       t.ok(!KeperluanHooks.emailAllowed('x@notutm.my'), 'bukan subdomain');
+    }]
+  ]
+};
+
+const TestSuiteDataMakmal = {
+  name: 'Import makmal, staf, perisian & banci',
+  tests: [
+    ['Import makmal (upsert ikut kod), staf (ref ikut kod/nama, upsert no. pekerja), perisian (upsert makmal+nama), pegawai (email)', function (t) {
+      AppFx.real();
+      const a = TestHelpers.admin(ROLES.ADMIN);
+      const r1 = TestAssert.apiOk(TestHelpers.call(a.token, 'makmal.import', { rows: [
+        { kod: 'DM-01', nama: 'Makmal Ujian Bendalir', jenisMakmal: 'Makmal kejuruteraan / pengajaran', bangunan: 'E07' },
+        { kod: 'DM-02', nama: 'Makmal Komputer Ujian', jenisMakmal: 'KOMPUTER', tempatKomputer: '40', spesifikasiKomputer: 'SET 1: 40 × PC' }
+      ] }));
+      t.eq(r1.created, 2);
+      const r2 = TestAssert.apiOk(TestHelpers.call(a.token, 'makmal.import', { rows: [{ kod: 'dm-02', penyelaras: 'Penyelaras Ujian' }] }));
+      t.eq(r2.created, 0); t.eq(r2.updated, 1, 'kod tidak peka huruf');
+      const lab2 = Repo.of('MAKMAL').all().filter(function (l) { return String(l.kod).toUpperCase() === 'DM-02'; })[0];
+      t.eq(lab2.penyelaras, 'Penyelaras Ujian');
+      TestAssert.apiOk(TestHelpers.call(a.token, 'makmal.import', { rows: [{ kod: 'DM-03', nama: 'Makmal Lokasi', kodLokasi: 'J.C99.01.101' }] }));
+      const r3 = TestAssert.apiOk(TestHelpers.call(a.token, 'makmal.import', { rows: [{ kod: 'DM-03-BARU', nama: 'Makmal Lokasi (nama baharu)', kodLokasi: 'J.C99.01.101' }] }));
+      t.eq(r3.created, 0, 'padan ikut kod lokasi'); t.eq(r3.updated, 1); t.eq(lab2.nama, 'Makmal Komputer Ujian', 'medan lain kekal'); t.eq(lab2.jenis_makmal, 'KOMPUTER');
+      const s1 = TestAssert.apiOk(TestHelpers.call(a.token, 'staf.import', { rows: [
+        { nama: 'Staf Satu', noPekerja: '90001', makmal: 'DM-01', email: 'staf1@test.local' },
+        { nama: 'Staf Dua', noPekerja: '90002', makmal: 'Makmal Komputer Ujian', email: ' Staf2@Test.local ' },
+        { nama: 'Staf Pendua', noPekerja: '90001' }
+      ] }));
+      t.eq(s1.created, 2); t.eq(s1.skippedCount, 1, 'pendua dalam fail dilangkau');
+      const st2 = Repo.of('STAF').all().filter(function (x) { return x.no_pekerja === '90002'; })[0];
+      t.eq(st2.makmal, lab2.id, 'makmal ikut nama'); t.eq(st2.email, 'staf2@test.local'); t.eq(String(st2.terima_banci).toUpperCase(), 'TRUE', 'lalai terima banci');
+      const bad = TestAssert.apiOk(TestHelpers.call(a.token, 'staf.import', { rows: [{ nama: 'X', noPekerja: '90009', makmal: 'TIADA-LAB' }] }));
+      t.eq(bad.errorCount, 1); t.ok(bad.dryRun, 'ralat → tiada ditulis');
+      TestAssert.apiOk(TestHelpers.call(a.token, 'staf.import', { rows: [{ noPekerja: '90001', jawatan: 'Penolong Jurutera' }] }));
+      t.eq(Repo.of('STAF').all().filter(function (x) { return x.no_pekerja === '90001'; }).length, 1);
+      const p1 = TestAssert.apiOk(TestHelpers.call(a.token, 'perisian.import', { rows: [
+        { makmal: 'DM-02', nama: 'Solidworks 2024', jenisLesen: 'Berlesen', sumberLesen: 'FKM Server', bilLesen: '3000' },
+        { makmal: 'DM-02', nama: 'GNU Octave', jenisLesen: 'SUMBER_TERBUKA', bilLesen: '5' }
+      ] }));
+      t.eq(p1.created, 2);
+      const oct = Repo.of('PERISIAN').all().filter(function (x) { return x.nama === 'GNU Octave'; })[0];
+      t.eq(oct.bil_lesen, '', 'sumber terbuka → tiada bilangan lesen');
+      t.eq(TestAssert.apiOk(TestHelpers.call(a.token, 'perisian.import', { rows: [{ makmal: 'DM-02', nama: 'solidworks 2024', bilLesen: '20' }] })).updated, 1);
+      TestAssert.apiFail(TestHelpers.call(a.token, 'crud.create', { module: 'perisian', makmal: lab2.id, nama: 'Solidworks 2024', jenisLesen: 'BERLESEN' }), ERROR_CODES.CONFLICT);
+      const g = TestAssert.apiOk(TestHelpers.call(a.token, 'pegawai.import', { rows: [{ nama: 'Pegawai Import', email: 'pgimport@test.local', jawatan: 'Juruteknik' }, { nama: 'Pegawai Import B', email: 'PGIMPORT@test.local' }] }));
+      t.eq(g.created, 1); t.eq(g.skippedCount, 1);
+      /* Butiran makmal: perisian untuk semua, staf untuk admin sahaja */
+      const dA = TestAssert.apiOk(TestHelpers.call(a.token, 'crud.get', { module: 'makmal', id: lab2.id }));
+      t.eq(dA.perisian.length, 2); t.eq(dA.staf.length, 1);
+      const u = TestHelpers.user('biasa-makmal');
+      const dU = TestAssert.apiOk(TestHelpers.call(u.token, 'crud.get', { module: 'makmal', id: lab2.id }));
+      t.ok(!dU.staf, 'pengguna biasa tidak nampak staf');
+      ['makmal.import', 'staf.import', 'perisian.import', 'pegawai.import', 'keperluan.statusBanci', 'keperluan.emelBanci'].forEach(function (r) {
+        TestAssert.apiFail(TestHelpers.call(u.token, r, { rows: [{ nama: 'x' }] }), ERROR_CODES.FORBIDDEN, r);
+      });
+    }],
+
+    ['Status banci & emel link kepada staf makmal yang belum hantar (makmal dipilih dalam link)', function (t) {
+      AppFx.real();
+      const a = TestHelpers.admin(ROLES.ADMIN);
+      TestAssert.apiOk(TestHelpers.call(a.token, 'makmal.import', { rows: [{ kod: 'BN-IT', nama: 'Makmal Komputer Banci', jenisMakmal: 'KOMPUTER', emailPenyelaras: 'unitit@test.local' }, { kod: 'BN-01', nama: 'Makmal Banci Satu' }, { kod: 'BN-02', nama: 'Makmal Banci Dua', emailPenyelaras: 'penyelaras.bn2@test.local' }, { kod: 'BN-03', nama: 'Makmal Banci Tiga' }] }));
+      TestAssert.apiOk(TestHelpers.call(a.token, 'staf.import', { rows: [
+        { nama: 'Staf BN A', noPekerja: '80001', makmal: 'BN-01', email: 'bna@test.local' },
+        { nama: 'Staf BN B', noPekerja: '80002', makmal: 'BN-01', email: 'bnb@test.local' },
+        { nama: 'Staf BN C', noPekerja: '80003', makmal: 'BN-01', email: 'bnc@test.local', terimaBanci: 'Tidak' },
+        { nama: 'Staf BN D', noPekerja: '80004', makmal: 'BN-03', email: 'bnd@test.local' }
+      ] }));
+      const lab3 = Repo.of('MAKMAL').all().filter(function (l) { return l.kod === 'BN-03'; })[0];
+      const yr = Number(DateUtils.format(new Date(), 'yyyy'));
+      const u = TestHelpers.user('penyelaras-bn');
+      TestAssert.apiOk(AppFx.need(u, lab3, { tahun: yr }));
+      const st = TestAssert.apiOk(TestHelpers.call(a.token, 'keperluan.statusBanci', {}));
+      const it = function (kod) { return st.items.filter(function (i) { return i.label.indexOf(kod) === 0; })[0]; };
+      t.eq(it('BN-01').penerima, 2, 'staf yang tidak terima banci dikecualikan'); t.eq(it('BN-02').penerima, 1, 'penyelaras sebagai sandaran');
+      t.ok(it('BN-03').dihantar && it('BN-03').refNo, 'telah hantar');
+      t.ok(it('BN-IT').unitIt && it('BN-IT').penerima === 0, 'makmal komputer diisi Unit IT');
+      const labIt = Repo.of('MAKMAL').all().filter(function (l) { return l.kod === 'BN-IT'; })[0];
+      t.eq(TestAssert.apiOk(TestHelpers.call(a.token, 'keperluan.emelBanci', { makmal: [labIt.id] })).penerima, 0, 'makmal komputer tidak diemel');
+      t.ok(st.items.indexOf(it('BN-01')) < st.items.indexOf(it('BN-03')), 'belum hantar di atas');
+      const box = KwFx.mails();
+      const before = box ? box.length : 0;
+      const lab1 = Repo.of('MAKMAL').all().filter(function (l) { return l.kod === 'BN-01'; })[0];
+      const r = TestAssert.apiOk(TestHelpers.call(a.token, 'keperluan.emelBanci', { makmal: [lab1.id, lab3.id] }));
+      t.eq(r.makmal, 1, 'makmal yang telah hantar tidak diemel'); t.eq(r.penerima, 2);
+      if (box) {
+        const sent = box.slice(before);
+        t.eq(sent.length, 2); t.ok(sent.every(function (m) { return /BN-01/.test(m.subject); }));
+        t.ok(sent.some(function (m) { return m.to === 'bna@test.local'; }) && !sent.some(function (m) { return m.to === 'bnc@test.local' || m.to === 'bnd@test.local'; }));
+      }
+      const tst = TestAssert.apiOk(TestHelpers.call(a.token, 'keperluan.emelBanci', { ujian: true }));
+      t.eq(tst.penerima, 1); t.ok(tst.ujian);
     }]
   ]
 };

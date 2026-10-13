@@ -56,7 +56,99 @@ const KeperluanHooks = {
     'keperluan.awamGet': { role: 'PUBLIC', fn: function (payload) { return KeperluanHooks.publicGet(payload || {}); } },
     'keperluan.awamKemaskini': { role: 'PUBLIC', fn: function (payload) { return KeperluanHooks.publicUpdate(payload || {}); } },
     'keperluan.awamPautan': { role: 'PUBLIC', fn: function (payload) { return KeperluanHooks.resendLink(payload || {}); } },
-    'keperluan.pautanBorang': { role: 'ADMIN', fn: function () { return { url: PushService.baseUrl() + KeperluanHooks.ROUTE, path: KeperluanHooks.ROUTE }; } }
+    'keperluan.pautanBorang': { role: 'ADMIN', fn: function () { return { url: PushService.baseUrl() + KeperluanHooks.ROUTE, path: KeperluanHooks.ROUTE }; } },
+    'keperluan.statusBanci': { role: 'ADMIN', fn: function (payload) { return KeperluanHooks.censusStatus(payload || {}); } },
+    'keperluan.emelBanci': { role: 'ADMIN', fn: function (payload, ctx) { return KeperluanHooks.emailCensus(payload || {}, ctx); } }
+  },
+
+  // ---------------------------------------------------------------- Jejak banci & hantar link kepada staf makmal
+
+  year_: function (payload) {
+    const y = Number(payload && payload.tahun);
+    return y >= 2000 && y <= 2100 ? y : Number(DateUtils.format(new Date(), 'yyyy'));
+  },
+
+  /** Penerima bagi setiap makmal: staf aktif (terima banci) dengan email; jika tiada, email penyelaras. */
+  recipients_: function () {
+    const by = {};
+    let staf = [];
+    try { staf = CrudEngine.repo(CrudEngine.get('staf')).all(); } catch (e) { staf = []; }
+    staf.forEach(function (s) {
+      if (s.state !== 'ACTIVE' || s.status === 'TIDAK_AKTIF' || !s.makmal || !s.email || String(s.terima_banci).toUpperCase() === 'FALSE') return;
+      (by[s.makmal] = by[s.makmal] || []).push({ nama: s.nama, email: String(s.email).toLowerCase() });
+    });
+    return by;
+  },
+
+  /** Status banci tahun semasa bagi setiap makmal aktif. */
+  censusStatus: function (payload) {
+    const tahun = KeperluanHooks.year_(payload);
+    const sub = {};
+    KeperluanHooks.repo_().all().forEach(function (r) {
+      if (r.state === 'ACTIVE' && r.makmal && Number(r.tahun) === tahun && r.status !== 'DITOLAK') sub[r.makmal] = r;
+    });
+    const rec = KeperluanHooks.recipients_();
+    const items = CrudEngine.repo(CrudEngine.get('makmal')).all().filter(function (l) { return l.state === 'ACTIVE' && l.status !== 'TIDAK_AKTIF'; })
+      .map(function (l) {
+        const r = sub[l.id];
+        const to = rec[l.id] || (l.email_penyelaras ? [{ nama: l.penyelaras, email: String(l.email_penyelaras).toLowerCase() }] : []);
+        const unitIt = l.jenis_makmal === 'KOMPUTER';
+        return { id: l.id, label: l.kod ? l.kod + ' · ' + l.nama : l.nama, jenis: l.jenis_makmal || '', unitIt: unitIt, dihantar: !!r, refNo: r ? r.ref_no : '', status: r ? r.status : '', penerima: unitIt ? 0 : to.length };
+      }).sort(function (a, b) { return (a.dihantar - b.dihantar) || (a.unitIt - b.unitIt) || (a.label < b.label ? -1 : 1); });
+    const belum = items.filter(function (i) { return !i.dihantar; });
+    return {
+      tahun: tahun, items: items, jumlah: items.length, dihantar: items.length - belum.length, belum: belum.length,
+      unitIt: belum.filter(function (i) { return i.unitIt; }).length,
+      tanpaPenerima: belum.filter(function (i) { return !i.unitIt && !i.penerima; }).length,
+      bolehEmel: belum.filter(function (i) { return !i.unitIt && i.penerima; }).length
+    };
+  },
+
+  /**
+   * Emel link borang (makmal dipilih awal) kepada staf makmal yang belum menghantar banci tahun ini.
+   * @param {{tahun?:number, makmal?:string[], ujian?:boolean}} payload makmal kosong = semua yang belum hantar
+   */
+  emailCensus: function (payload, ctx) {
+    const st = KeperluanHooks.censusStatus(payload);
+    const want = Array.isArray(payload.makmal) && payload.makmal.length ? payload.makmal : null;
+    /* Makmal komputer diisi sendiri oleh Unit IT — tidak diemel */
+    const labs = st.items.filter(function (i) { return !i.dihantar && !i.unitIt && (!want || want.indexOf(i.id) >= 0); });
+    const rec = KeperluanHooks.recipients_();
+    const labRows = {};
+    CrudEngine.repo(CrudEngine.get('makmal')).all().forEach(function (l) { labRows[l.id] = l; });
+    let app = '';
+    if (!PushService.baseUrl()) { try { app = ScriptApp.getService().getUrl() || ''; } catch (e) { app = ''; } }
+    const lines = function (lab, nama) {
+      const L = ['Salam ' + (nama || 'tuan/puan') + ',',
+        'Unit IT FKM sedang mengumpul banci komputer makmal dan permohonan penggantian/tambahan komputer bagi tahun ' + st.tahun + '.',
+        'Mohon isi satu borang bagi ' + lab.label + ' melalui butang di bawah. Log masuk tidak diperlukan; gunakan email rasmi UTM. Selepas dihantar, link untuk mengemas kini borang akan diemel kepada anda.',
+        'Jika makmal anda tiada komputer, isi jumlah sedia ada 0 dan nyatakan keperluan (jika ada). Terima kasih.'];
+      if (app) L.push('Link borang: ' + app + path(lab.id));
+      return L;
+    };
+    const path = function (id) { return KeperluanHooks.ROUTE + '?makmal=' + encodeURIComponent(id); };
+    const subject = 'Banci & keperluan komputer makmal ' + st.tahun;
+    if (payload.ujian) {
+      const em = ctx && ctx.user && ctx.user.email;
+      if (!em) throw Errors.validation('Akaun anda tiada email.');
+      const lab = labs[0] || st.items[0];
+      if (!lab) throw Errors.validation('Tiada makmal aktif.');
+      const ok = NotificationService.email(em, subject + ' (ujian) — ' + lab.label, lines(lab, (ctx.user && ctx.user.full_name) || ''), { force: true, path: path(lab.id) });
+      return { ujian: true, makmal: 1, penerima: 1, dihantar: ok ? 1 : 0 };
+    }
+    let penerima = 0, sent = 0;
+    const tanpa = [];
+    labs.forEach(function (lab) {
+      const l = labRows[lab.id] || {};
+      const to = rec[lab.id] || (l.email_penyelaras ? [{ nama: l.penyelaras, email: String(l.email_penyelaras).toLowerCase() }] : []);
+      if (!to.length) { tanpa.push(lab.label); return; }
+      to.forEach(function (r) {
+        penerima++;
+        if (NotificationService.email(r.email, subject + ' — ' + lab.label, lines(lab, r.nama), { force: true, path: path(lab.id) })) sent++;
+      });
+    });
+    AuditService.log(ctx, AUDIT_ACTIONS.RECORD_STATUS, KeperluanHooks.def_().sheet, '', 'Link banci ' + st.tahun + ' diemel: ' + labs.length + ' makmal, ' + sent + ' penerima');
+    return { makmal: labs.length - tanpa.length, penerima: penerima, dihantar: sent, tanpaPenerima: tanpa };
   },
 
   def_: function () { return CrudEngine.get('keperluan'); },

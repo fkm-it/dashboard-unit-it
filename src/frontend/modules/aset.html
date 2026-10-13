@@ -266,6 +266,76 @@
   const importFields = () => (KD.moduleOf('aset').fields || []).filter((f) => f.type !== 'files' && !f.readonly);
   const norm = (s) => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
 
+  /* Import generik modul lain (laluan <modul>.import) */
+  const GEN = [{ key: 'makmal', label: 'Makmal' }, { key: 'staf', label: 'Staf makmal' }, { key: 'perisian', label: 'Perisian & lesen' }, { key: 'pegawai', label: 'Pegawai IT' }];
+  function bindGeneric(el) {
+    const out = qs('[data-gout]', el);
+    let rows = [];
+    let kind = 'makmal';
+    const fieldsOf = (k) => ((KD.moduleOf(k) || {}).fields || []).filter((f) => f.type !== 'files' && !f.readonly);
+    on(el, 'change', '[data-gkind]', (e, s2) => { kind = s2.value; rows = []; out.innerHTML = ''; });
+    on(el, 'click', '[data-act="gtpl"]', () => {
+      const fs = fieldsOf(kind);
+      downloadText(toCsv([fs.map((f) => f.key), fs.map((f) => '# ' + f.label)]), 'text/csv', 'templat-import-' + kind + '.csv');
+      toast('Templat dimuat turun. Padam baris "#" sebelum import.');
+    });
+    on(el, 'change', '[data-gfile]', async (e) => {
+      const file = e.target.files[0];
+      e.target.value = '';
+      if (!file) return;
+      const fs = fieldsOf(kind);
+      const grid = parseCsv(await file.text()).filter((r) => !String(r[0] || '').trim().startsWith('#'));
+      if (grid.length < 2) { out.innerHTML = empty('Tiada data', 'Fail perlu ada pengepala dan sekurang-kurangnya satu baris.').s; return; }
+      const byName = { status: 'status' };
+      fs.forEach((f) => { byName[norm(f.key)] = f.key; byName[norm(f.label)] = f.key; });
+      const header = grid[0].map((h) => byName[norm(h)] || null);
+      const unknown = grid[0].filter((h, i) => !header[i] && String(h).trim());
+      rows = grid.slice(1).map((r) => { const o = {}; header.forEach((k, i) => { if (k && r[i] !== undefined && String(r[i]).trim() !== '') o[k] = String(r[i]).trim(); }); return o; })
+        .filter((o) => Object.keys(o).length);
+      const cols = header.filter(Boolean);
+      const lbl = (c) => (fs.find((f) => f.key === c) || { label: 'Status' }).label;
+      out.innerHTML = html`<div class="small"><b>${file.name}</b> · ${(GEN.find((g) => g.key === kind) || {}).label} · ${fmtNum(rows.length)} baris · ${fmtNum(cols.length)} lajur dikenali</div>
+        ${unknown.length ? html`<p class="small" style="color:var(--warn)">${icon('alert', 'i-sm')} Lajur tidak dikenali (diabaikan): ${unknown.join(', ')}</p>` : ''}
+        <div class="im-scroll mt-2"><table class="xo-table"><thead><tr>${cols.slice(0, 6).map((c) => html`<th>${lbl(c)}</th>`)}</tr></thead>
+        <tbody>${rows.slice(0, 5).map((r) => html`<tr>${cols.slice(0, 6).map((c) => html`<td>${r[c] || ''}</td>`)}</tr>`)}</tbody></table></div>
+        <div class="row row-wrap mt-4"><button class="btn btn-outline" data-act="gcheck">${icon('check')}Semak data</button><button class="btn btn-primary" data-act="gimport" disabled>${icon('download')}Import ${fmtNum(rows.length)} rekod</button></div>
+        <div data-gres class="mt-4"></div>`.s;
+    });
+    const go = async (dryRun, btn) => {
+      const res = qs('[data-gres]', out);
+      const t = { created: 0, updated: 0, errors: [], errorCount: 0, skipped: [], skippedCount: 0 };
+      try {
+        await busy(btn, async () => {
+          for (let i = 0; i < rows.length; i += 500) {
+            const r = await KD.api.call(kind + '.import', { rows: rows.slice(i, i + 500), dryRun, offset: i });
+            t.created += r.created; t.updated += r.updated; t.errorCount += r.errorCount; t.errors = t.errors.concat(r.errors);
+            t.skippedCount += r.skippedCount; t.skipped = t.skipped.concat(r.skipped);
+            if (!dryRun && r.errorCount) break;
+          }
+        });
+      } catch (err) { toastError(err); return; }
+      const ib = qs('[data-act="gimport"]', out);
+      const skip = t.skippedCount ? html`<details class="mt-2 small"><summary style="cursor:pointer;color:var(--warn)">${fmtNum(t.skippedCount)} baris dilangkau</summary><ul>${t.skipped.map((x) => html`<li>Baris ${x.line}: ${x.reason}</li>`)}</ul></details>` : '';
+      if (t.errorCount) {
+        ib.disabled = true;
+        res.innerHTML = html`<div class="small" style="color:var(--danger)"><b>${fmtNum(t.errorCount)} ralat.</b> Tiada data ditulis.</div>
+          <div class="im-scroll mt-2"><table class="xo-table"><thead><tr><th>Baris</th><th>Rekod</th><th>Ralat</th></tr></thead><tbody>${t.errors.map((x) => html`<tr><td class="num">${x.line}</td><td>${x.noAset}</td><td>${x.message}</td></tr>`)}</tbody></table></div>`.s;
+        return;
+      }
+      ib.disabled = !dryRun;
+      res.innerHTML = html`<div class="small" style="color:var(--success)">${icon('check', 'i-sm')} <b>${dryRun ? 'Semakan lulus.' : 'Import selesai.'}</b> ${fmtNum(t.created)} ${dryRun ? 'akan ditambah' : 'ditambah'}, ${fmtNum(t.updated)} ${dryRun ? 'akan dikemas kini' : 'dikemas kini'}.${dryRun ? '' : html` <a href="#/admin/${kind}">Lihat senarai</a>`}</div>${skip}`.s;
+      if (!dryRun) toast('Import selesai.');
+    };
+    on(el, 'click', '[data-act="gcheck"]', (e, b) => go(true, b));
+    on(el, 'click', '[data-act="gimport"]', (e, b) => go(false, b));
+  }
+
+  /* Butiran makmal: perisian & staf */
+  KD.detailSide.makmal = (d) => (d.perisian && d.perisian.length) || (d.staf && d.staf.length) ? html`<div class="status-note">
+    ${d.staf && d.staf.length ? html`<strong>Staf makmal (${d.staf.length})</strong><ul class="small" style="margin:6px 0 10px;padding-left:18px">${d.staf.map((x) => html`<li>${x.nama}${x.jawatan ? html` <span class="muted">· ${x.jawatan}</span>` : ''}</li>`)}</ul>` : ''}
+    ${d.perisian && d.perisian.length ? html`<strong>Perisian (${d.perisian.length})</strong><ul class="small" style="margin:6px 0 0;padding-left:18px">${d.perisian.map((x) => html`<li>${x.nama} <span class="muted">· ${x.jenisLesen === 'SUMBER_TERBUKA' ? 'sumber terbuka' : (x.sumberLesen || 'berlesen') + (x.bilLesen ? ', ' + fmtNum(x.bilLesen) + ' lesen' : '')}</span></li>`)}</ul>` : ''}
+    <div class="mt-2"><a class="small" href="#/admin/perisian?f_makmal=${d.id}">Urus perisian →</a></div></div>` : '';
+
   KD.views.importAset = {
     async render(el) {
       const fields = importFields();
@@ -282,7 +352,14 @@
           <select class="select" data-labmin style="width:auto;display:inline-block;padding:2px 28px 2px 8px;height:auto" aria-label="Minimum PC">${[1, 2, 3, 5, 10].map((n) => html`<option value="${n}" ${n === 3 ? raw('selected') : ''}>${n}</option>`)}</select>
           PC dijadikan rekod Makmal, kemudian aset dipautkan ke makmal itu. Makmal sedia ada (ikut kod lokasi) tidak diduplikasi. Nama makmal boleh dikemas kini kemudian.</p>
           <div class="row row-wrap mt-2"><button class="btn btn-outline" data-act="labs-preview">${icon('eye')}Pratonton</button><button class="btn btn-primary" data-act="labs-run">${icon('plus')}Jana & pautkan</button></div>
-          <div data-labout class="mt-4"></div></section>`.s;
+          <div data-labout class="mt-4"></div></section>
+        <section class="panel mt-4" data-gen><div class="panel-head"><h3>Import data makmal, staf, perisian & pegawai</h3></div>
+          <p class="small muted">Rekod sedia ada dikemas kini (tiada pendua): makmal ikut <b>kod</b>, staf ikut <b>no. pekerja</b>, perisian ikut <b>makmal + nama perisian</b>, pegawai IT ikut <b>email</b>. Makmal dalam fail staf/perisian ditulis sebagai kod atau nama makmal. Import makmal dahulu.</p>
+          <div class="row row-wrap mt-2" style="align-items:center"><select class="select" data-gkind style="width:auto" aria-label="Jenis data">${GEN.map((g) => html`<option value="${g.key}">${g.label}</option>`)}</select>
+            <button class="btn btn-outline" data-act="gtpl">${icon('download')}Templat CSV</button>
+            <label class="btn btn-primary" style="cursor:pointer">${icon('download')}Pilih fail CSV<input type="file" accept=".csv,text/csv" data-gfile class="sr-only"></label></div>
+          <div data-gout class="mt-4"></div></section>`.s;
+      bindGeneric(el);
       const out = qs('[data-out]', el);
       let rows = [];
 

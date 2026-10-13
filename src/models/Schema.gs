@@ -112,8 +112,18 @@ const SCHEMA = Object.freeze({
   },
   MAKMAL: {
     sheet: 'MAKMAL', id: 'id', prefix: 'MK', module: 'makmal',
-    columns: ['id', 'ref_no', 'owner_user_id', 'owner_name', 'kod', 'nama', 'bangunan', 'bilik', 'kod_lokasi', 'jabatan', 'penyelaras', 'email_penyelaras', 'kapasiti', 'tempat_komputer', 'pengguna_sesi', 'catatan', 'status', 'status_note', 'status_changed_at', 'status_changed_by', 'state', 'created_at', 'updated_at', 'deleted_at'],
+    columns: ['id', 'ref_no', 'owner_user_id', 'owner_name', 'kod', 'nama', 'jenis_makmal', 'bangunan', 'bilik', 'kod_lokasi', 'jabatan', 'penyelaras', 'email_penyelaras', 'kapasiti', 'tempat_komputer', 'pengguna_sesi', 'spesifikasi_komputer', 'catatan', 'status', 'status_note', 'status_changed_at', 'status_changed_by', 'state', 'created_at', 'updated_at', 'deleted_at'],
     types: {'kapasiti': 'intOrNull', 'tempat_komputer': 'intOrNull', 'pengguna_sesi': 'intOrNull'}
+  },
+  PERISIAN: {
+    sheet: 'PERISIAN', id: 'id', prefix: 'PS', module: 'perisian',
+    columns: ['id', 'ref_no', 'owner_user_id', 'owner_name', 'makmal', 'nama', 'kategori', 'jenis_lesen', 'sumber_lesen', 'bil_lesen', 'sistem_operasi', 'tahun', 'tamat_lesen', 'catatan', 'status', 'status_note', 'status_changed_at', 'status_changed_by', 'state', 'created_at', 'updated_at', 'deleted_at'],
+    types: {'bil_lesen': 'intOrNull', 'tahun': 'intOrNull'}
+  },
+  STAF: {
+    sheet: 'STAF', id: 'id', prefix: 'SF', module: 'staf',
+    columns: ['id', 'ref_no', 'owner_user_id', 'owner_name', 'nama', 'no_pekerja', 'makmal', 'unit', 'jawatan', 'gred', 'email', 'telefon', 'blok', 'terima_banci', 'status', 'status_note', 'status_changed_at', 'status_changed_by', 'state', 'created_at', 'updated_at', 'deleted_at'],
+    types: {'terima_banci': 'bool'}
   },
   PEGAWAI: {
     sheet: 'PEGAWAI', id: 'id', prefix: 'PG', module: 'pegawai',

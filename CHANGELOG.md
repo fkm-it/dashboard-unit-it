@@ -1,5 +1,25 @@
 # CHANGELOG
 
+## 1.7.0 — 2026-10-13 · Data makmal: staf, perisian & spesifikasi komputer
+### Ditambah
+- **Staf Makmal**: modul baharu untuk staf makmal FKM. Medan: no. pekerja, makmal/unit, jawatan, gred, email, telefon, blok dan *terima link borang banci*. Hanya admin boleh melihat modul ini.
+- **Perisian & Lesen**: modul baharu untuk perisian setiap makmal. Medan: kategori, jenis lesen (berlesen atau sumber terbuka), sumber lesen, bilangan lesen, OS dan tarikh tamat. Sistem tidak membenarkan pendua bagi makmal + perisian yang sama.
+- **Makmal**: medan baharu *jenis makmal* (komputer, kejuruteraan atau unit) dan *spesifikasi komputer*.
+  - Butiran makmal kini memaparkan senarai perisian.
+  - Staf makmal turut dipaparkan, tetapi untuk admin sahaja.
+- **Import data lain** di halaman Import aset, untuk makmal, staf, perisian dan pegawai IT. Rekod sedia ada dikemas kini (upsert), jadi tiada pendua dicipta.
+  - Makmal dipadankan ikut kod, kemudian ikut kod lokasi UTMFin.
+  - Staf dipadankan ikut no. pekerja.
+  - Perisian dipadankan ikut makmal + nama.
+  - Pegawai IT dipadankan ikut email.
+  - Rujukan makmal boleh ditulis sebagai kod atau nama.
+  - Setiap jenis data ada templat CSV.
+- **Status banci & hantar link** di *Keperluan Makmal*:
+  - Paparan status setiap makmal bagi tahun semasa: sudah atau belum hantar, dan bilangan penerima.
+  - Butang untuk emel link borang kepada staf makmal yang belum hantar. Makmal dalam link dipilih secara automatik melalui `#/banci-makmal?makmal=…`.
+  - Makmal komputer diisi oleh Unit IT dan tidak diemel.
+  - Ada pilihan menghantar email ujian.
+
 ## 1.6.0 — 2026-10-13 · Link borang banci & keperluan komputer makmal
 ### Ditambah
 - **Borang awam `#/banci-makmal`**: link yang boleh dikongsi kepada pemilik, ketua atau pengurus makmal. Mereka tidak perlu log masuk.

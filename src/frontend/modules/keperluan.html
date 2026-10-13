@@ -86,7 +86,7 @@
       const f = byKey[k];
       if (!f) return '';
       if (mode === 'edit' && (k === 'tahun' || k === 'makmal' || k === 'emailPemohon' || k === 'namaMakmalBaru')) return '';
-      if (k === 'makmal') return labSelect(f, (refOptions && refOptions.makmal) || [], KD.crud.prefill(f) || '', false);
+      if (k === 'makmal') return labSelect(f, (refOptions && refOptions.makmal) || [], (meta && meta.preLab) || KD.crud.prefill(f) || '', false);
       const ff = NEW_KEYS.indexOf(k) >= 0 ? Object.assign({}, f, { required: k === 'namaMakmalBaru' }) : PUB_REQ.indexOf(k) >= 0 ? Object.assign({}, f, { required: true, hint: (f.hint || '').replace(/\s*Wajib dalam borang awam\.?/, '') }) : f;
       const inp = KD.crud.fieldInput(ff, { value: mode === 'edit' ? v[k] : KD.crud.prefill(f), idPrefix: 'bm-', refOptions });
       return NEW_KEYS.indexOf(k) >= 0 ? html`<div data-new-lab ${mode === 'edit' && isNew ? '' : raw('hidden')} class="${k === 'namaMakmalBaru' ? 'field-wide' : ''}">${inp}</div>` : inp;
@@ -145,7 +145,7 @@
       if (token) return renderEdit(el, m, meta, token);
 
       shell(el, html`<div class="bm-card"><div class="bm-head">${icon('briefcase', 'i-lg')}<h1>${pf.title || m.label}</h1><p class="muted">${pf.intro || ''}</p></div>
-        <form data-bm novalidate>${formHtml(m, meta.refOptions, null, 'create')}
+        <form data-bm novalidate>${formHtml(m, meta.refOptions, null, 'create', { preLab: query && query.makmal })}
           <div class="sr-only" aria-hidden="true"><label>Laman web<input name="website" tabindex="-1" autocomplete="off"></label></div>
           <button class="btn btn-primary btn-block mt-6" type="submit">${icon('send')}Hantar borang</button></form>
         ${resendBox()}</div>`);
@@ -217,8 +217,9 @@
 
   /* Admin: kongsi link borang dari senarai Keperluan Makmal */
   KD.listActions.keperluan = {
-    render: () => html`<button class="btn btn-outline" data-list-act="kongsi">${icon('share')}Kongsi link borang</button>`,
+    render: () => html`<button class="btn btn-outline" data-list-act="banci">${icon('users')}Status banci & hantar link</button><button class="btn btn-outline" data-list-act="kongsi">${icon('share')}Kongsi link borang</button>`,
     run: async (act, b) => {
+      if (act === 'banci') return censusModal(b);
       let url = '';
       try { url = (await KD.api.call('keperluan.pautanBorang', {})).url; } catch (err) { toastError(err); return; }
       if (!/^https?:/.test(url)) url = location.href.split('#')[0] + '#/banci-makmal';
@@ -236,6 +237,28 @@
       });
     }
   };
+
+  /* Admin: status banci tahun semasa bagi setiap makmal + emel link kepada staf makmal yang belum hantar */
+  async function censusModal(btn) {
+    let st;
+    try { st = await busy(btn, () => KD.api.call('keperluan.statusBanci', {})); } catch (err) { toastError(err); return; }
+    if (!st) return;
+    const md = modal({
+      title: 'Status banci makmal ' + st.tahun,
+      body: html`<p class="small"><b>${fmtNum(st.dihantar)}</b> daripada ${fmtNum(st.jumlah)} makmal telah menghantar borang. ${st.belum ? html`<b>${fmtNum(st.belum)}</b> belum${st.unitIt ? html`, termasuk ${fmtNum(st.unitIt)} makmal komputer yang diisi oleh Unit IT` : ''}${st.tanpaPenerima ? html`; ${fmtNum(st.tanpaPenerima)} tiada staf/email` : ''}.` : ''}</p>
+        <div class="im-scroll mt-2" style="max-height:46vh;overflow:auto"><table class="xo-table" style="min-width:0"><thead><tr><th>Makmal</th><th>Borang</th><th class="num">Penerima</th></tr></thead>
+        <tbody>${st.items.map((i) => html`<tr><td>${i.label}</td><td>${i.dihantar ? html`<span style="color:var(--success);font-weight:600">${i.refNo}</span>` : html`<span class="muted">Belum</span>`}</td><td class="num">${i.unitIt ? html`<span class="muted">Unit IT</span>` : i.penerima ? fmtNum(i.penerima) : html`<span style="color:var(--warn)">0</span>`}</td></tr>`)}</tbody></table></div>
+        <p class="xs muted mt-2">Penerima = staf makmal aktif dengan email (menu Staf Makmal); jika tiada, email penyelaras makmal. Link dalam email memilih makmal secara automatik.</p>`,
+      foot: html`<button class="btn btn-outline" data-cs="ujian">${icon('mail')}Ujian kepada saya</button><button class="btn btn-primary" data-cs="hantar" ${st.bolehEmel ? '' : raw('disabled')}>${icon('send')}Emel ${fmtNum(st.bolehEmel)} makmal belum hantar</button>`
+    });
+    on(md.el, 'click', '[data-cs]', (e, b2) => busy(b2, async () => {
+      try {
+        const r = await KD.api.call('keperluan.emelBanci', { ujian: b2.getAttribute('data-cs') === 'ujian' });
+        toast(r.ujian ? (r.dihantar ? 'Email ujian dihantar kepada anda.' : 'Email tidak dapat dihantar.') : 'Link diemel kepada ' + fmtNum(r.dihantar) + ' staf (' + fmtNum(r.makmal) + ' makmal).');
+        if (!r.ujian) md.close();
+      } catch (err) { toastError(err); }
+    }));
+  }
 
   KD.extraRoutes.push({ path: '/banci-makmal', view: 'banciMakmal', access: 'public', layout: 'public', title: 'Banci & Keperluan Komputer Makmal' });
   KD.publicFormPath = Object.assign(KD.publicFormPath || {}, { keperluan: '/banci-makmal' });

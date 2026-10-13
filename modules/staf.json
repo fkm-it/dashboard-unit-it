@@ -1,0 +1,109 @@
+{
+  "key": "staf",
+  "label": "Staf Makmal",
+  "labelPlural": "Staf Makmal",
+  "icon": "users",
+  "prefix": "SF",
+  "refFormat": "STF-{SEQ4}",
+  "description": "Staf makmal FKM (pemilik, pengurus dan juruteknik makmal). Digunakan untuk menghantar link borang banci makmal.",
+  "access": {
+    "create": "ADMIN",
+    "list": "OWN",
+    "edit": "ADMIN",
+    "delete": "ADMIN"
+  },
+  "statuses": [
+    {
+      "value": "AKTIF",
+      "label": "Aktif",
+      "tone": "success"
+    },
+    {
+      "value": "TIDAK_AKTIF",
+      "label": "Tidak aktif",
+      "tone": "muted"
+    }
+  ],
+  "notify": {
+    "adminsOnCreate": false,
+    "ownerOnStatus": false
+  },
+  "titleField": "nama",
+  "subtitleField": "unit",
+  "nav": {
+    "user": false,
+    "admin": true,
+    "order": 44
+  },
+  "fields": [
+    {
+      "key": "nama",
+      "label": "Nama",
+      "type": "string",
+      "required": true,
+      "max": 120,
+      "list": true,
+      "search": true
+    },
+    {
+      "key": "noPekerja",
+      "label": "No. pekerja",
+      "type": "string",
+      "max": 20,
+      "search": true
+    },
+    {
+      "key": "makmal",
+      "label": "Makmal",
+      "type": "ref",
+      "ref": "makmal",
+      "filter": true,
+      "list": true
+    },
+    {
+      "key": "unit",
+      "label": "Makmal / unit (seperti senarai staf)",
+      "type": "string",
+      "max": 120,
+      "search": true
+    },
+    {
+      "key": "jawatan",
+      "label": "Jawatan",
+      "type": "string",
+      "max": 120,
+      "search": true
+    },
+    {
+      "key": "gred",
+      "label": "Gred",
+      "type": "string",
+      "max": 20
+    },
+    {
+      "key": "email",
+      "label": "Email",
+      "type": "email",
+      "search": true
+    },
+    {
+      "key": "telefon",
+      "label": "No. telefon",
+      "type": "phone"
+    },
+    {
+      "key": "blok",
+      "label": "Blok",
+      "type": "string",
+      "max": 20
+    },
+    {
+      "key": "terimaBanci",
+      "label": "Terima link borang banci",
+      "type": "bool",
+      "default": true,
+      "filter": true,
+      "hint": "Staf ini menerima email link borang banci & keperluan komputer makmal."
+    }
+  ]
+}
