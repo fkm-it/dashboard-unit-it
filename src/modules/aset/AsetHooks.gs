@@ -37,18 +37,21 @@ const AsetHooks = {
   },
 
   routes: {
-    'aset.overview': { role: 'PENGURUSAN', fn: function (payload) { return AsetHooks.overview(payload || {}); } },
+    'aset.overview': { role: 'PENGURUSAN', fn: function (payload) { return AsetCache.get('aset.overview', payload, function () { return AsetHooks.overview(payload || {}); }); } },
     'aset.import': { role: 'ADMIN', fn: function (payload, ctx) { return AsetHooks.importRows(payload || {}, ctx); } },
     'aset.janaMakmal': { role: 'ADMIN', fn: function (payload, ctx) { return AsetHooks.generateLabs(payload || {}, ctx); } },
-    'aset.laporanNilai': { role: 'PENGURUSAN', fn: function (payload) { return AsetHooks.reportValue(payload || {}); } },
-    'aset.laporanGanti': { role: 'PENGURUSAN', fn: function (payload) { return AsetHooks.reportReplacement(payload || {}); } },
-    'aset.laporanLokasi': { role: 'PENGURUSAN', fn: function (payload) { return AsetHooks.reportLocation(payload || {}); } },
-    'aset.pelan': { role: 'PENGURUSAN', fn: function (payload) { return AsetHooks.reportPlan(payload || {}); } },
-    'aset.indeksMakmal': { role: 'PENGURUSAN', fn: function () { return AsetHooks.reportLabHealth(); } },
-    'aset.eksekutif': { role: 'PENGURUSAN', fn: function (payload) { return AsetHooks.reportExecutive(payload || {}); } },
-    'aset.trend': { role: 'PENGURUSAN', fn: function (payload) { return AsetTrend.trend(payload || {}); } },
+    'aset.laporanNilai': { role: 'PENGURUSAN', fn: function (payload) { return AsetCache.get('aset.laporanNilai', payload, function () { return AsetHooks.reportValue(payload || {}); }); } },
+    'aset.laporanGanti': { role: 'PENGURUSAN', fn: function (payload) { return AsetCache.get('aset.laporanGanti', payload, function () { return AsetHooks.reportReplacement(payload || {}); }); } },
+    'aset.laporanLokasi': { role: 'PENGURUSAN', fn: function (payload) { return AsetCache.get('aset.laporanLokasi', payload, function () { return AsetHooks.reportLocation(payload || {}); }); } },
+    'aset.pelan': { role: 'PENGURUSAN', fn: function (payload) { return AsetCache.get('aset.pelan', payload, function () { return AsetHooks.reportPlan(payload || {}); }); } },
+    'aset.indeksMakmal': { role: 'PENGURUSAN', fn: function () { return AsetCache.get('aset.indeksMakmal', {}, function () { return AsetHooks.reportLabHealth(); }); } },
+    'aset.eksekutif': { role: 'PENGURUSAN', fn: function (payload) { return AsetCache.get('aset.eksekutif', payload, function () { return AsetHooks.reportExecutive(payload || {}); }); } },
+    'aset.trend': { role: 'PENGURUSAN', fn: function (payload) { return AsetCache.get('aset.trend', payload, function () { return AsetTrend.trend(payload || {}); }); } },
     'aset.hantarRingkasan': { role: 'ADMIN', fn: function (payload, ctx) { return AsetTrend.sendNow(payload || {}, ctx); } }
   },
+
+  /** Setiap jam: panaskan cache laporan supaya paparan pertama pantas. */
+  hourly: function () { return AsetCache.warm(); },
 
   /** Harian: segerak tindakan KEWPA, simpan ringkasan bulanan, email ringkasan bulan lepas (sekali). */
   maintenance: function () { return AsetTrend.daily(); },

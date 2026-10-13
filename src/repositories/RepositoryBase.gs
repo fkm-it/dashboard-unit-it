@@ -112,11 +112,28 @@ class RepositoryBase {
     const ck = this.rowsCacheKey();
     const hit = Database.cacheGet(ck);
     if (hit) return hit;
-    const layout = this.layout();
     const sh = this.sheet();
-    const last = sh.getLastRow();
-    if (last < 2) return Database.cacheSet(ck, []);
-    const values = sh.getRange(2, 1, last - 1, layout.width).getValues();
+    let layout = Database.cacheGet('layout:' + this.def.sheet);
+    let values;
+    if (!layout) {
+      /* Satu bacaan (pengepala + data) dan bukannya empat panggilan perkhidmatan berasingan */
+      const grid = sh.getDataRange().getValues();
+      const header = (grid[0] || []).map(String);
+      const map = {};
+      header.forEach(function (h, i) { if (h) map[h] = i; });
+      const complete = header[0] === this.def.id && this.def.columns.every(function (c) { return map[c] !== undefined; });
+      if (complete) {
+        layout = Database.cacheSet('layout:' + this.def.sheet, { header: header, map: map, width: header.length, idIndex: map[this.def.id] });
+        values = grid.slice(1);
+      } else {
+        layout = this.layout(); /* lajur hilang → laluan migrasi automatik */
+      }
+    }
+    if (!values) {
+      const last = sh.getLastRow();
+      if (last < 2) return Database.cacheSet(ck, []);
+      values = sh.getRange(2, 1, last - 1, layout.width).getValues();
+    }
     const self = this;
     const rows = [];
     for (let i = 0; i < values.length; i++) {

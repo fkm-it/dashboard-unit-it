@@ -41,7 +41,31 @@
     });
   }
 
+  /*
+   * Cache memori ringkas (opt-in) untuk laporan baca-sahaja: KD.api.cacheable.add('modul.laporan').
+   * Kembali ke halaman yang sama dalam CACHE_MS → paparan serta-merta tanpa panggilan pelayan.
+   * Dikosongkan apabila sebarang tindakan menulis dijalankan, atau log masuk/keluar.
+   */
+  const CACHE_MS = 90000;
+  const memo = new Map();
+  const cacheable = new Set();
+  const WRITE = /(create|update|delete|restore|setstatus|import|segerak|jana|hantar|emel|kemaskini|login|logout|register|reset|password|settings|role|status\b)/i;
+  const clone = (v) => (v === undefined ? v : JSON.parse(JSON.stringify(v)));
+
   async function call(action, payload) {
+    if (cacheable.has(action)) {
+      const key = action + '|' + JSON.stringify(payload || {});
+      const hit = memo.get(key);
+      if (hit && Date.now() - hit.t < CACHE_MS) return clone(await hit.p);
+      const p = send(action, payload);
+      memo.set(key, { t: Date.now(), p });
+      try { return clone(await p); } catch (err) { memo.delete(key); throw err; }
+    }
+    if (WRITE.test(action)) memo.clear();
+    return send(action, payload);
+  }
+
+  async function send(action, payload) {
     const rid = newRid();
     for (let i = 0; ; i++) {
       try { return await once(action, payload, rid, i); } catch (err) {
@@ -53,6 +77,8 @@
 
   KD.api = {
     call,
+    cacheable,
+    clearCache: () => memo.clear(),
     ApiError,
     // Awam
     getConfig: () => call('public.config'),

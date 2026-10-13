@@ -362,11 +362,24 @@
         });
       if (cached) { KD.config = cached.config; KD.modules = cached.modules; fresh.catch(() => {}); }
       const tasks = [cached ? Promise.resolve() : fresh.catch(() => { KD.config = KD.config || {}; KD.modules = KD.modules || []; })];
+      let booted = false, meDone = false;
       if (auth.loggedIn()) {
-        tasks.push(KD.api.getCurrentUser().then((me) => { auth.updateUser(me.user); app.unread = me.unreadNotifications; }).catch((e) => { if (e.code === 'UNAUTHENTICATED') auth.clear(); }));
+        /*
+         * Profil pengguna disegarkan. Jika profil sudah ada dalam storan, halaman dipapar SERTA-MERTA (tanpa menunggu
+         * satu pusingan pelayan) dan profil dikemas kini di latar: peranan berubah → papar semula; sesi tamat → log masuk.
+         */
+        const roleBefore = auth.role();
+        const me = KD.api.getCurrentUser().then((r) => {
+          auth.updateUser(r.user);
+          if (!booted) { app.unread = r.unreadNotifications; meDone = true; return; }
+          app.setUnread(r.unreadNotifications);
+          if (auth.role() !== roleBefore) router.render();
+        }).catch((e) => { if (e.code === 'UNAUTHENTICATED') { if (booted) auth.expired(); else auth.clear(); } });
+        if (!auth.user()) tasks.push(me);
       }
       await Promise.all(tasks);
-      if (KD.pwa && auth.loggedIn()) KD.pwa.setBadge(app.unread);
+      booted = true;
+      if (KD.pwa && auth.loggedIn() && meDone) KD.pwa.setBadge(app.unread);
 
       const standalone = !!(KD.pwa && KD.pwa.isWeb() && KD.pwa.isStandalone());
       if (!location.hash && topHash) history.replaceState(null, '', '#' + topHash.replace(/^#/, ''));

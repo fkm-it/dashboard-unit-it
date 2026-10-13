@@ -21,9 +21,13 @@ const Database = (function () {
     return spreadsheet;
   }
 
+  /** Objek sheet (cache permintaan — elak getSheetByName berulang; setiap panggilan perkhidmatan ~30ms). */
   function sheet(name) {
+    const ck = 'sheet:' + name;
+    if (Object.prototype.hasOwnProperty.call(requestCache, ck)) return requestCache[ck];
     const sh = open().getSheetByName(name);
     if (!sh) throw new AppError(ERROR_CODES.CONFIG_ERROR, 'Struktur pangkalan data tidak lengkap. Jalankan setupDatabase().', { missingSheet: name });
+    requestCache[ck] = sh;
     return sh;
   }
 
@@ -99,10 +103,23 @@ const AppCache = {
     return CacheService.getScriptCache();
   },
 
+  CHUNK: 90000,
+  MAX_CHUNKS: 10,
+
   get: function (key) {
     try {
-      const raw = AppCache.store().get(AppCache.PREFIX + key);
-      return raw ? JSON.parse(raw) : null;
+      const store = AppCache.store();
+      const raw = store.get(AppCache.PREFIX + key);
+      if (!raw) return null;
+      const m = /^#C:(\d+)$/.exec(raw);
+      if (!m) return JSON.parse(raw);
+      /* Nilai besar disimpan dalam beberapa ketul (had CacheService 100KB setiap nilai) */
+      const keys = [];
+      for (let i = 0; i < Number(m[1]); i++) keys.push(AppCache.PREFIX + key + '#' + i);
+      const parts = store.getAll(keys);
+      let joined = '';
+      for (let j = 0; j < keys.length; j++) { if (!parts[keys[j]]) return null; joined += parts[keys[j]]; }
+      return JSON.parse(joined);
     } catch (e) {
       return null;
     }
@@ -111,7 +128,14 @@ const AppCache = {
   put: function (key, value, ttlSeconds) {
     try {
       const raw = JSON.stringify(value);
-      if (raw.length < 95000) AppCache.store().put(AppCache.PREFIX + key, raw, Math.min(21600, ttlSeconds || 300));
+      const ttl = Math.min(21600, ttlSeconds || 300);
+      if (raw.length < 95000) { AppCache.store().put(AppCache.PREFIX + key, raw, ttl); return; }
+      const n = Math.ceil(raw.length / AppCache.CHUNK);
+      if (n > AppCache.MAX_CHUNKS) return;
+      const items = {};
+      for (let i = 0; i < n; i++) items[AppCache.PREFIX + key + '#' + i] = raw.slice(i * AppCache.CHUNK, (i + 1) * AppCache.CHUNK);
+      items[AppCache.PREFIX + key] = '#C:' + n;
+      AppCache.store().putAll(items, ttl);
     } catch (e) {
       AppLogger.warn('Cache put gagal', { key: key });
     }
@@ -135,8 +159,20 @@ const AppCache = {
    * Cache hasil bacaan yang bergantung pada sheet tertentu: dibatalkan serta-merta apabila mana-mana sheet itu ditulis
    * melalui repository (kunci mengandungi versi data). Suntingan terus dalam Google Sheets dikesan selepas `ttlSeconds`.
    */
+  /** Versi beberapa sheet dalam satu panggilan CacheService. */
+  versions: function (sheets) {
+    let got = {};
+    try { got = AppCache.store().getAll(sheets.map(function (s) { return AppCache.PREFIX + 'ver:' + s; })) || {}; } catch (e) { got = {}; }
+    return sheets.map(function (s) {
+      const raw = got[AppCache.PREFIX + 'ver:' + s];
+      let v = null;
+      try { v = raw ? JSON.parse(raw) : null; } catch (e) { v = null; }
+      return v || AppCache.version(s);
+    });
+  },
+
   rememberFor: function (sheets, key, ttlSeconds, compute) {
-    const vers = sheets.map(function (s) { return AppCache.version(s); }).join('.');
+    const vers = AppCache.versions(sheets).join('.');
     return AppCache.remember('rf:' + key + ':' + vers, ttlSeconds, compute);
   },
 

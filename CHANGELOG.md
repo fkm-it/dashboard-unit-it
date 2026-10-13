@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 1.8.0 — 2026-10-13 · Prestasi
+### Diperbaiki
+- **Cache laporan di pelayan** (`AsetCache`): Executive Overview, Perancangan, Laporan Eksekutif, laporan nilai/ganti/lokasi, pelan, indeks makmal, trend dan ringkasan tindakan KEWPA tidak lagi dikira semula daripada Sheets pada setiap paparan.
+  - Kunci cache mengandungi versi data setiap sheet, jadi sebarang tulisan melalui sistem membatalkan cache serta-merta.
+  - Kunci juga mengandungi jam semasa, jadi angka yang bergantung pada masa dikira semula sekurang-kurangnya sejam sekali.
+- **Pencetus setiap jam** memanaskan cache laporan utama, supaya paparan pertama juga pantas.
+- **Bacaan sheet**: pengepala dan data dibaca dalam satu panggilan (`getDataRange`), dan objek sheet dicache bagi setiap permintaan. Bilangan panggilan perkhidmatan bagi setiap sheet berkurang kira-kira separuh.
+- **AppCache**: nilai besar (> 95KB) dipecah kepada beberapa ketul, dan versi semua sheet dibaca dalam satu panggilan (`getAll`).
+- **Pelayar**:
+  - Laporan disimpan dalam memori selama 90 saat dan dikosongkan apabila ada tindakan menulis. Kembali ke halaman yang sama dipapar serta-merta.
+  - Semasa aplikasi dibuka, halaman dipapar tanpa menunggu profil pengguna disegarkan.
+
 ## 1.7.0 — 2026-10-13 · Data makmal: staf, perisian & spesifikasi komputer
 ### Ditambah
 - **Staf Makmal**: modul baharu untuk staf makmal FKM. Medan: no. pekerja, makmal/unit, jawatan, gred, email, telefon, blok dan *terima link borang banci*. Hanya admin boleh melihat modul ini.

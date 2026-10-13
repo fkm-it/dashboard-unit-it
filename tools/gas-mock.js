@@ -77,6 +77,8 @@ class MockSheet {
     for (let i = this.data.length - 1; i >= 0; i--) if ((this.data[i] || []).some((v) => v !== '' && v !== undefined)) return i + 1;
     return 0;
   }
+  /** Seperti Apps Script: julat A1 hingga baris & lajur terakhir berisi (minimum 1×1). */
+  getDataRange() { return this.getRange(1, 1, Math.max(1, this.getLastRow()), Math.max(1, this.getLastColumn())); }
   getLastColumn() {
     let max = 0;
     this.data.forEach((line) => { (line || []).forEach((v, i) => { if (v !== '' && v !== undefined) max = Math.max(max, i + 1); }); });
@@ -229,7 +231,9 @@ function createGasEnvironment(options = {}) {
         if (String(v).length > 100 * 1024) throw new Error('Argument too large');
         state.cache.set(k, { v: String(v), exp: now() + Math.min(ttl, 21600) * 1000 });
       },
-      remove(k) { state.cache.delete(k); }
+      remove(k) { state.cache.delete(k); },
+      getAll(keys) { const o = {}; keys.forEach((k) => { const v = this.get(k); if (v !== null) o[k] = v; }); return o; },
+      putAll(items, ttl = 600) { Object.keys(items).forEach((k) => this.put(k, items[k], ttl)); }
     })
   };
 

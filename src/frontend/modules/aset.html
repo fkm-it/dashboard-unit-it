@@ -799,6 +799,8 @@
   };
 
   // ================================================================ Pendaftaran laluan & menu
+  ['aset.overview', 'aset.eksekutif', 'aset.laporanNilai', 'aset.laporanGanti', 'aset.laporanLokasi', 'aset.pelan', 'aset.indeksMakmal', 'aset.trend', 'tindakan.ringkasan']
+    .forEach((a) => KD.api.cacheable && KD.api.cacheable.add(a));
   KD.views.adminSistem = KD.views.adminDashboard;
   KD.views.adminDashboard = overview;
   KD.extraRoutes.push({ path: '/admin/import-aset', view: 'importAset', access: 'admin', layout: 'admin', title: 'Import aset' });

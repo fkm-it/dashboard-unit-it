@@ -4,7 +4,7 @@
  * Dalam Apps Script: runTestsPart5. Dalam Node: npm test.
  */
 const AppTests = {
-  suites: function () { return [TestSuiteDashboardIT, TestSuiteUtmfin, TestSuiteMaintenance, TestSuiteNilai, TestSuitePengurusan, TestSuiteKewpa, TestSuiteTrend, TestSuiteBanci, TestSuiteDataMakmal]; }
+  suites: function () { return [TestSuiteDashboardIT, TestSuiteUtmfin, TestSuiteMaintenance, TestSuiteNilai, TestSuitePengurusan, TestSuiteKewpa, TestSuiteTrend, TestSuiteBanci, TestSuiteDataMakmal, TestSuitePrestasi]; }
 };
 
 const AppFx = {
@@ -815,6 +815,44 @@ const TestSuiteDataMakmal = {
       }
       const tst = TestAssert.apiOk(TestHelpers.call(a.token, 'keperluan.emelBanci', { ujian: true }));
       t.eq(tst.penerima, 1); t.ok(tst.ujian);
+    }]
+  ]
+};
+
+const TestSuitePrestasi = {
+  name: 'Prestasi: cache laporan & bacaan sheet',
+  tests: [
+    ['Cache laporan: hit kedua dari cache; tulisan melalui sistem membatalkan cache serta-merta', function (t) {
+      AppFx.real();
+      const a = TestHelpers.admin(ROLES.ADMIN);
+      const e1 = TestAssert.apiOk(TestHelpers.call(a.token, 'aset.eksekutif', {}));
+      const e2 = TestAssert.apiOk(TestHelpers.call(a.token, 'aset.eksekutif', {}));
+      t.eq(e2.generatedAt, e1.generatedAt, 'dari cache');
+      t.eq(AsetCache.key('x', { b: '', a: 1, c: null }), AsetCache.key('x', { a: '1' }), 'kunci stabil (kosong dibuang)');
+      TestAssert.apiOk(TestHelpers.call(a.token, 'aset.import', { rows: [{ noAset: 'CACHE-001', jenis: 'DESKTOP' }] }));
+      const e3 = TestAssert.apiOk(TestHelpers.call(a.token, 'aset.eksekutif', {}));
+      t.eq(e3.ringkasan.aset, e1.ringkasan.aset + 1, 'aset baharu dikira selepas import');
+      const o1 = TestAssert.apiOk(TestHelpers.call(a.token, 'aset.overview', { tahun: 2026 }));
+      SettingsRepository.setMany({ GANTI_HARGA_LALAI: '9999' }, 'TEST');
+      const p1 = TestAssert.apiOk(TestHelpers.call(a.token, 'aset.pelan', { tahun: 5 }));
+      t.eq(p1.harga, 9999, 'tetapan baharu membatalkan cache');
+      SettingsRepository.setMany({ GANTI_HARGA_LALAI: '4500' }, 'TEST');
+      t.ok(o1.assets, 'overview');
+      const w = AsetCache.warm();
+      t.eq(w.dipanaskan, 7);
+    }],
+
+    ['AppCache: nilai besar disimpan dalam ketul & dibaca semula; bacaan sheet satu panggilan', function (t) {
+      const big = []; for (let i = 0; i < 3000; i++) big.push({ i: i, s: 'x'.repeat(60) });
+      AppCache.put('ujian:besar', big, 60);
+      const back = AppCache.get('ujian:besar');
+      t.ok(back && back.length === 3000 && back[2999].i === 2999, 'ketul');
+      const vs = AppCache.versions(['ASET', 'TIKET']);
+      t.eq(vs.length, 2); t.ok(vs[0] && vs[1]);
+      Database.resetRequestCache();
+      const rows = Repo.of('ASET').all();
+      t.ok(rows.length > 0 && rows[0].id, 'rekod dibaca');
+      t.ok(Database.cacheGet('layout:ASET').idIndex >= 0, 'layout daripada bacaan sama');
     }]
   ]
 };

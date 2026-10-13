@@ -19,7 +19,7 @@ const TindakanHooks = {
 
   routes: {
     'tindakan.segerak': { role: 'ADMIN', fn: function (payload, ctx) { return TindakanHooks.sync(ctx); } },
-    'tindakan.ringkasan': { role: 'PENGURUSAN', fn: function () { return TindakanHooks.summary(); } }
+    'tindakan.ringkasan': { role: 'PENGURUSAN', fn: function () { return AsetCache.get('tindakan.ringkasan', {}, function () { return TindakanHooks.summary(); }); } }
   },
 
   repo_: function () { return CrudEngine.repo(CrudEngine.get('tindakan')); },
