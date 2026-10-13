@@ -50,6 +50,16 @@ const Migration = {
         return { updated: Object.keys(patch).length ? repo.updateMany(patch) : 0 };
       }
     },
+    {
+      id: 'MIGRATION_005',
+      description: 'Tutup pendaftaran sendiri — akaun dicipta oleh pentadbir (Pengguna → Tambah pengguna)',
+      up: function () {
+        const patch = { ALLOW_REGISTRATION: 'FALSE' };
+        if (String(SettingsService.get('LANDING_MESSAGE') || '').indexOf('Log masuk atau daftar') === 0) patch.LANDING_MESSAGE = 'Log masuk untuk mula menggunakan sistem.';
+        SettingsRepository.setMany(patch, 'Migrasi');
+        return { allowRegistration: false };
+      }
+    },
   ],
 
   applied: function () {

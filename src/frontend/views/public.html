@@ -26,7 +26,8 @@
   }
 
   function publicFoot() {
-    return html`<footer class="public-foot"><nav><button class="btn-link" data-scroll="ciri">${t('Ciri-ciri')}</button><button class="btn-link" data-scroll="maklum-balas">${t('Maklum Balas')}</button></nav>
+    const c = cfg();
+    return html`<footer class="public-foot">${c.LANDING_SHOW_FORMS || c.LANDING_SHOW_FEEDBACK ? html`<nav>${c.LANDING_SHOW_FORMS ? html`<button class="btn-link" data-scroll="ciri">${t('Ciri-ciri')}</button>` : ''}${c.LANDING_SHOW_FEEDBACK ? html`<button class="btn-link" data-scroll="maklum-balas">${t('Maklum Balas')}</button>` : ''}</nav>` : ''}
       <div>${t(cfg().SYSTEM_NAME || '')}: ${t(cfg().SYSTEM_TAGLINE || '')}${cfg().ORG_NAME ? html`<br>${t(cfg().ORG_NAME)}` : ''}</div></footer>`;
   }
 
@@ -52,7 +53,7 @@
       const mods = KD.modules || [];
       const publicMods = mods.filter((m) => m.publicForm);
       el.innerHTML = html`
-        <section class="hero">
+        <section class="hero ${!c.LANDING_SHOW_FORMS && !c.LANDING_SHOW_FEEDBACK ? 'hero--solo' : ''}">
           ${publicTop(true)}
           <div class="hero__inner">
             ${c.ORG_NAME ? html`<span class="hero__eyebrow">${t(c.ORG_NAME)}</span>` : ''}
@@ -64,14 +65,14 @@
             </div>
           </div>
         </section>
-        <div class="section" id="ciri" style="padding-top:0">
+        ${c.LANDING_SHOW_FORMS ? html`<div class="section" id="ciri" style="padding-top:0">
           <div class="feature-grid">${(KD.landingCards || []).concat((publicMods.length ? publicMods : mods).map((m) => ({
             href: m.publicForm && c.ALLOW_PUBLIC_SUBMISSION !== false ? ((KD.publicFormPath && KD.publicFormPath[m.key]) || '/borang/' + m.key) : '/log-masuk',
             icon: m.icon, title: m.publicForm ? (m.publicForm.title || m.label) : m.labelPlural, text: m.description || '' }))).slice(0, 3)
             .map((x) => html`<a class="feature" href="#${x.href}">${icon(x.icon)}<h3>${t(x.title)}</h3><p>${t(x.text)}</p></a>`)}</div>
-        </div>
+        </div>` : ''}
 
-        <section class="section" id="maklum-balas" style="padding-top:0">
+        ${c.LANDING_SHOW_FEEDBACK ? html`<section class="section" id="maklum-balas" style="padding-top:0">
           <div class="panel" style="max-width:640px;margin:0 auto">
             <h2>${t('Maklum balas')}</h2><p class="muted mt-2">${t('Ada cadangan atau masalah? Beritahu kami.')}</p>
             <form class="mt-6" data-form="feedback" novalidate>
@@ -82,7 +83,7 @@
               <button class="btn btn-primary mt-4" type="submit">${icon('send')}${t('Hantar maklum balas')}</button>
             </form>
           </div>
-        </section>
+        </section>` : ''}
         ${publicFoot()}`.s;
 
       on(el, 'click', '[data-scroll]', (e, b) => { const t = qs('#' + b.getAttribute('data-scroll'), el); if (t) t.scrollIntoView({ behavior: 'smooth' }); });
@@ -115,7 +116,7 @@
           <div class="field">${passwordField('password', 'Kata laluan', 'current-password')}</div>
           <label class="check mt-4"><input type="checkbox" name="remember" checked>Ingat saya pada peranti ini</label>
           <button class="btn btn-primary btn-lg btn-block mt-6" type="submit">${icon('lock')}Log Masuk</button>
-        </form>`, html`<a href="#/daftar">Daftar baru</a><a href="#/lupa-kata-laluan">Lupa kata laluan?</a>`).s;
+        </form>`, html`${cfg().ALLOW_REGISTRATION !== false || cfg().SETUP_PENDING ? html`<a href="#/daftar">Daftar baru</a>` : html`<span class="muted">Akaun dicipta oleh Unit IT FKM</span>`}<a href="#/lupa-kata-laluan">Lupa kata laluan?</a>`).s;
       bindPwToggle(el);
       on(el, 'submit', 'form', async (e, form) => {
         e.preventDefault();
@@ -136,7 +137,7 @@
   KD.views.register = {
     async render(el) {
       if (cfg().ALLOW_REGISTRATION === false && !cfg().SETUP_PENDING) {
-        el.innerHTML = authShell('Pendaftaran ditutup', 'Pendaftaran akaun baharu tidak dibuka buat masa ini.', html`<a class="btn btn-outline btn-block" href="#/log-masuk">Log masuk</a>`).s;
+        el.innerHTML = authShell('Pendaftaran ditutup', 'Akaun dicipta oleh Unit IT FKM. Hubungi Unit IT jika anda memerlukan akses.', html`<a class="btn btn-outline btn-block" href="#/log-masuk">Log masuk</a>`).s;
         return;
       }
       el.innerHTML = authShell('Daftar Baru', 'Cipta akaun untuk mula menggunakan sistem.', html`
@@ -158,6 +159,42 @@
             KD.auth.set(res, data.remember);
             toast('Akaun anda telah didaftarkan. Selamat datang!');
             KD.app.setUnread(1);
+            KD.app.afterLogin();
+          } catch (err) { if (!fieldErrors(form, err)) toastError(err); }
+        });
+      });
+    }
+  };
+
+  /* Pengaktifan akaun yang dicipta oleh pentadbir (link jemputan dalam email) */
+  KD.views.activate = {
+    async render(el, params, query) {
+      const tok = (query && query.t) || '';
+      el.innerHTML = authShell('Aktifkan akaun', 'Menyemak link…', html`<div class="skeleton" style="height:120px"></div>`).s;
+      let info;
+      try { info = await KD.api.call('auth.activateInfo', { t: tok }); } catch (err) {
+        el.innerHTML = authShell('Link tidak sah', err.message || 'Link pengaktifan tidak sah atau telah tamat tempoh.', html`<a class="btn btn-outline btn-block" href="#/log-masuk">Log masuk</a>`).s;
+        return;
+      }
+      el.innerHTML = authShell('Aktifkan akaun', 'Tetapkan kata laluan untuk ' + info.fullName + '.', html`
+        <form data-form="activate" novalidate>
+          <div class="field"><label class="label">Email</label><input class="input" value="${info.email}" readonly autocomplete="username"></div>
+          <div class="field">${passwordField('password', 'Kata laluan baharu *', 'new-password', 'Sekurang-kurangnya 8 aksara, dengan huruf dan nombor.')}</div>
+          <div class="field"><label class="label" for="f-confirm">Sahkan kata laluan *</label><input class="input" id="f-confirm" name="confirm" type="password" required autocomplete="new-password"></div>
+          <label class="check mt-4"><input type="checkbox" name="remember" checked>Ingat saya pada peranti ini</label>
+          <button class="btn btn-primary btn-lg btn-block mt-6" type="submit">${icon('check')}Aktifkan & log masuk</button>
+        </form>`).s;
+      bindPwToggle(el);
+      on(el, 'submit', 'form', async (e, form) => {
+        e.preventDefault();
+        const data = formData(form);
+        if (data.password !== data.confirm) { fieldErrors(form, { meta: { fields: { confirm: 'Kata laluan tidak sepadan.' } } }) || toastError(new Error('Kata laluan tidak sepadan.')); return; }
+        await busy(qs('button[type="submit"]', form), async () => {
+          try {
+            const res = await KD.api.call('auth.activate', { t: tok, password: data.password, remember: data.remember });
+            KD.auth.set(res, data.remember);
+            toast('Akaun diaktifkan. Selamat datang, ' + res.user.fullName + '.');
+            history.replaceState(null, '', '#/utama');
             KD.app.afterLogin();
           } catch (err) { if (!fieldErrors(form, err)) toastError(err); }
         });

@@ -4,7 +4,7 @@
  * Dalam Apps Script: runTestsPart5. Dalam Node: npm test.
  */
 const AppTests = {
-  suites: function () { return [TestSuiteDashboardIT, TestSuiteUtmfin, TestSuiteMaintenance, TestSuiteNilai, TestSuitePengurusan, TestSuiteKewpa, TestSuiteTrend, TestSuiteBanci, TestSuiteDataMakmal, TestSuitePrestasi]; }
+  suites: function () { return [TestSuiteDashboardIT, TestSuiteUtmfin, TestSuiteMaintenance, TestSuiteNilai, TestSuitePengurusan, TestSuiteKewpa, TestSuiteTrend, TestSuiteBanci, TestSuiteDataMakmal, TestSuitePrestasi, TestSuiteAkaun]; }
 };
 
 const AppFx = {
@@ -853,6 +853,46 @@ const TestSuitePrestasi = {
       const rows = Repo.of('ASET').all();
       t.ok(rows.length > 0 && rows[0].id, 'rekod dibaca');
       t.ok(Database.cacheGet('layout:ASET').idIndex >= 0, 'layout daripada bacaan sama');
+    }]
+  ]
+};
+
+const TestSuiteAkaun = {
+  name: 'Akaun dicipta pentadbir & jemputan',
+  tests: [
+    ['Admin cipta pengguna/Pengurusan (bukan Admin); jemputan sekali guna; log masuk selepas aktif; pendaftaran sendiri ditutup', function (t) {
+      AppFx.real();
+      const a = TestHelpers.admin(ROLES.ADMIN);
+      const sup = TestHelpers.admin(ROLES.SUPER_ADMIN);
+      const em = 'dekan.jemput' + (++AppFx.seq) + '@utm.my';
+      const box = KwFx.mails();
+      const before = box ? box.length : 0;
+      const r = TestAssert.apiOk(TestHelpers.call(a.token, 'admin.user.create', { fullName: 'Prof Dekan Ujian', email: em, role: 'PENGURUSAN' }));
+      t.eq(r.user.role, 'PENGURUSAN'); t.ok(r.inviteSent, 'jemputan dihantar');
+      if (box) t.ok(box.slice(before).some(function (m) { return m.to === em && /Pengaktifan akaun/.test(m.subject); }));
+      const tok1 = InviteService.lastToken_;
+      TestAssert.apiFail(TestHelpers.call(a.token, 'admin.user.create', { fullName: 'Pendua', email: em }), ERROR_CODES.CONFLICT);
+      TestAssert.apiFail(TestHelpers.call(a.token, 'admin.user.create', { fullName: 'Calon Admin', email: 'x' + em, role: 'ADMIN' }), ERROR_CODES.FORBIDDEN);
+      TestAssert.apiOk(TestHelpers.call(sup.token, 'admin.user.create', { fullName: 'Admin Baharu', email: 'adm' + em, role: 'ADMIN' }));
+      const list = TestAssert.apiOk(TestHelpers.call(a.token, 'admin.users', { q: em }));
+      t.ok(list.items.filter(function (x) { return x.email === em; })[0].pendingInvite, 'belum aktif');
+      TestAssert.apiFail(api({ action: 'auth.login', payload: { email: em, password: 'Rahsia123' } }), ERROR_CODES.UNAUTHENTICATED);
+      /* Hantar semula → link lama tidak sah */
+      TestAssert.apiOk(TestHelpers.call(a.token, 'admin.user.invite', { userId: r.user.id }));
+      const tok2 = InviteService.lastToken_;
+      TestAssert.apiFail(api({ action: 'auth.activateInfo', payload: { t: tok1 } }), ERROR_CODES.VALIDATION_ERROR);
+      t.eq(TestAssert.apiOk(api({ action: 'auth.activateInfo', payload: { t: tok2 } })).email, em);
+      TestAssert.apiFail(api({ action: 'auth.activate', payload: { t: tok2, password: '123' } }), ERROR_CODES.VALIDATION_ERROR);
+      const s1 = TestAssert.apiOk(api({ action: 'auth.activate', payload: { t: tok2, password: 'KataLaluan99' } }));
+      t.ok(s1.token && s1.user.role === 'PENGURUSAN', 'log masuk terus');
+      TestAssert.apiFail(api({ action: 'auth.activate', payload: { t: tok2, password: 'KataLaluan98' } }), ERROR_CODES.VALIDATION_ERROR);
+      TestAssert.apiOk(api({ action: 'auth.login', payload: { email: em, password: 'KataLaluan99' } }));
+      t.ok(!TestAssert.apiOk(TestHelpers.call(a.token, 'admin.users', { q: em })).items.filter(function (x) { return x.email === em; })[0].pendingInvite);
+      const u = TestHelpers.user('biasa-akaun');
+      TestAssert.apiFail(TestHelpers.call(u.token, 'admin.user.create', { fullName: 'X Y Z', email: 'z' + em }), ERROR_CODES.FORBIDDEN);
+      SettingsRepository.setMany({ ALLOW_REGISTRATION: 'FALSE' }, 'TEST');
+      TestAssert.apiFail(api({ action: 'auth.register', payload: { fullName: 'Daftar Sendiri', email: 'self' + em, password: 'Rahsia123' } }), ERROR_CODES.FORBIDDEN);
+      SettingsRepository.setMany({ ALLOW_REGISTRATION: 'TRUE' }, 'TEST');
     }]
   ]
 };

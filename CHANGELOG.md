@@ -1,5 +1,20 @@
 # CHANGELOG
 
+## 1.9.0 — 2026-10-13 · Akaun oleh pentadbir & halaman utama ringkas
+### Diubah
+- **Halaman utama**: kad borang awam (aduan dan penilaian makmal) serta borang maklum balas kini disembunyikan. Boleh dipaparkan semula melalui Tetapan `LANDING_SHOW_FORMS` dan `LANDING_SHOW_FEEDBACK`. Link borang yang dikongsi tetap berfungsi.
+- **Pendaftaran sendiri ditutup.** Butang Daftar dibuang daripada halaman utama dan log masuk (`MIGRATION_005`). Boleh dibuka semula melalui Tetapan → `ALLOW_REGISTRATION`.
+- **Borang banci** kini bertajuk *Penilaian Keperluan ICT Makmal*, dengan penerangan baharu. Subjek dan isi email turut diselaraskan.
+
+### Ditambah
+- **Pengguna → Tambah pengguna**: pentadbir mencipta akaun dan menentukan peranan.
+  - Admin boleh mencipta akaun Pengguna atau Pengurusan.
+  - Super Admin boleh mencipta akaun dengan semua peranan.
+- **Jemputan pengaktifan** melalui email (`#/aktifkan`):
+  - Pengguna menetapkan kata laluan sendiri, kemudian terus log masuk.
+  - Link sah 7 hari dan hanya boleh digunakan sekali. Hanya hash token disimpan.
+  - Status *Belum aktifkan akaun* dipaparkan dalam senarai pengguna, dengan pilihan *Hantar semula jemputan*.
+
 ## 1.8.0 — 2026-10-13 · Prestasi
 ### Diperbaiki
 - **Cache laporan di pelayan** (`AsetCache`): Executive Overview, Perancangan, Laporan Eksekutif, laporan nilai/ganti/lokasi, pelan, indeks makmal, trend dan ringkasan tindakan KEWPA tidak lagi dikira semula daripada Sheets pada setiap paparan.

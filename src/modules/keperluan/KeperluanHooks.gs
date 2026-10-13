@@ -120,14 +120,14 @@ const KeperluanHooks = {
     if (!PushService.baseUrl()) { try { app = ScriptApp.getService().getUrl() || ''; } catch (e) { app = ''; } }
     const lines = function (lab, nama) {
       const L = ['Salam ' + (nama || 'tuan/puan') + ',',
-        'Unit IT FKM sedang mengumpul banci komputer makmal dan permohonan penggantian/tambahan komputer bagi tahun ' + st.tahun + '.',
+        'Unit IT FKM sedang menjalankan Penilaian Keperluan ICT Makmal bagi tahun ' + st.tahun + ' untuk menilai status dan keperluan ICT setiap makmal (banci komputer sedia ada serta permohonan penggantian/tambahan).',
         'Mohon isi satu borang bagi ' + lab.label + ' melalui butang di bawah. Log masuk tidak diperlukan; gunakan email rasmi UTM. Selepas dihantar, link untuk mengemas kini borang akan diemel kepada anda.',
         'Jika makmal anda tiada komputer, isi jumlah sedia ada 0 dan nyatakan keperluan (jika ada). Terima kasih.'];
       if (app) L.push('Link borang: ' + app + path(lab.id));
       return L;
     };
     const path = function (id) { return KeperluanHooks.ROUTE + '?makmal=' + encodeURIComponent(id); };
-    const subject = 'Banci & keperluan komputer makmal ' + st.tahun;
+    const subject = 'Penilaian Keperluan ICT Makmal ' + st.tahun;
     if (payload.ujian) {
       const em = ctx && ctx.user && ctx.user.email;
       if (!em) throw Errors.validation('Akaun anda tiada email.');
@@ -240,7 +240,7 @@ const KeperluanHooks = {
     }
     if (row.owner_user_id || !row.email_pemohon || prev === row.status) return;
     const label = CrudEngine.statusLabel(KeperluanHooks.def_(), row.status);
-    const lines = ['Salam ' + (row.nama_pemohon || '') + ',', 'Status borang banci & keperluan komputer makmal ' + row.ref_no + ' (' + (row.nama_makmal || '') + ', ' + row.tahun + '): ' + label + '.'];
+    const lines = ['Salam ' + (row.nama_pemohon || '') + ',', 'Status borang Penilaian Keperluan ICT Makmal ' + row.ref_no + ' (' + (row.nama_makmal || '') + ', ' + row.tahun + '): ' + label + '.'];
     if (row.status_note) lines.push('Catatan Unit IT: ' + StringUtils.truncate(row.status_note, 400));
     if (row.status === 'DIKEMBALIKAN') KeperluanHooks.sendLink_(row, lines.join('\n'));
     else NotificationService.email(row.email_pemohon, 'Borang ' + row.ref_no + ': ' + label, lines, { force: true, path: '#/' });
@@ -298,7 +298,7 @@ const KeperluanHooks = {
       try { app = ScriptApp.getService().getUrl() || ''; } catch (e) { app = ''; }
       if (app) lines.push('Link kemas kini: ' + app + KeperluanHooks.ROUTE + '?t=' + token);
     }
-    NotificationService.email(row.email_pemohon, 'Borang keperluan komputer makmal ' + row.ref_no, lines, { force: true, path: KeperluanHooks.ROUTE + '?t=' + token });
+    NotificationService.email(row.email_pemohon, 'Borang Penilaian Keperluan ICT Makmal ' + row.ref_no, lines, { force: true, path: KeperluanHooks.ROUTE + '?t=' + token });
     KeperluanHooks.lastToken_ = token;
     return token;
   },

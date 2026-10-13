@@ -63,6 +63,7 @@ const UserService = {
     page.items = page.items.map(function (u) {
       const dto = UserModel.toAdmin(u);
       dto.recordCount = recordCounts[u.user_id] || 0;
+      dto.pendingInvite = !InviteService.hasPassword(u.user_id);
       return dto;
     });
     return page;

@@ -29,6 +29,8 @@ const Router = {
       'auth.changePassword': { role: U, fn: AuthController.changePassword },
       'auth.requestReset': { role: P, fn: AuthController.requestReset },
       'auth.resetPassword': { role: P, fn: AuthController.resetPassword },
+      'auth.activateInfo': { role: P, fn: function (p) { return InviteService.info(p); } },
+      'auth.activate': { role: P, fn: function (p, ctx) { return InviteService.activate(p, ctx); } },
 
       'user.updateProfile': { role: U, fn: UserController.updateProfile },
       'user.dashboard': { role: U, fn: UserController.dashboard },
@@ -64,6 +66,8 @@ const Router = {
       'admin.user.role': { role: S, fn: AdminController.userRole, allowInMaintenance: true },
       'admin.user.revokeSessions': { role: A, fn: AdminController.userRevokeSessions, allowInMaintenance: true },
       'admin.user.sendReset': { role: A, fn: AdminController.userSendReset, allowInMaintenance: true },
+      'admin.user.create': { role: A, fn: function (p, ctx) { return InviteService.create(ctx, p); }, allowInMaintenance: true },
+      'admin.user.invite': { role: A, fn: function (p, ctx) { return InviteService.resend(ctx, p); }, allowInMaintenance: true },
       'admin.categories': { role: A, fn: AdminController.categories, allowInMaintenance: true },
       'admin.category.create': { role: A, fn: AdminController.categoryCreate, allowInMaintenance: true },
       'admin.category.update': { role: A, fn: AdminController.categoryUpdate, allowInMaintenance: true },

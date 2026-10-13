@@ -352,8 +352,8 @@ const KeperluanModule = Object.freeze(Object.assign(
       }
     ],
     "publicForm": {
-      "title": "Banci & Keperluan Komputer Makmal",
-      "intro": "Untuk pemilik, ketua atau pengurus makmal FKM. Isi satu borang bagi setiap makmal bagi setiap tahun. Selepas dihantar, link peribadi untuk mengemas kini borang akan dihantar ke email anda.",
+      "title": "Penilaian Keperluan ICT Makmal",
+      "intro": "Untuk pemilik, ketua atau pengurus makmal FKM. Sila isi satu borang bagi setiap makmal untuk tahun semasa. Maklumat ini digunakan bagi menilai status dan keperluan ICT makmal. Pautan peribadi untuk mengemas kini borang akan dihantar ke e-mel anda selepas penghantaran.",
       "successMessage": "Borang diterima oleh Unit IT FKM. Link untuk mengemas kini borang telah dihantar ke email anda.",
       "nameField": "namaPemohon",
       "rateKeyField": "emailPemohon"

@@ -128,6 +128,8 @@
       setUserRole: (p) => call('admin.user.role', p),
       revokeSessions: (userId) => call('admin.user.revokeSessions', { userId }),
       sendReset: (userId) => call('admin.user.sendReset', { userId }),
+      createUser: (p) => call('admin.user.create', p),
+      sendInvite: (userId) => call('admin.user.invite', { userId }),
       getCategories: () => call('admin.categories'),
       createCategory: (p) => call('admin.category.create', p),
       updateCategory: (p) => call('admin.category.update', p),

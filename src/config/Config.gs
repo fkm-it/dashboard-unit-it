@@ -15,7 +15,7 @@ const CONFIG = Object.freeze({
   APP_SLUG: 'DashboardUnitITFKM', // @init:slug
   /** Warna jenama (email, dsb.). */
   BRAND_COLOR: '#1D5FD1', // @init:brandColor
-  VERSION: '1.8.0',
+  VERSION: '1.9.0',
   TIMEZONE_FALLBACK: 'Asia/Kuala_Lumpur',
 
   DEFAULT_PAGE_SIZE: 20,
@@ -74,6 +74,7 @@ const CONFIG = Object.freeze({
     'auth.register.global': [100, 3600],
     'auth.requestReset': [3, 3600],
     'auth.resetPassword': [10, 3600],
+    'auth.activate': [20, 3600],
     'crud.create': [60, 3600],
     'crud.publicCreate': [10, 3600],
     'crud.publicCreate.global': [300, 3600],

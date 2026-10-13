@@ -7,9 +7,11 @@
 const SETTINGS_DEFS = Object.freeze({
   SYSTEM_NAME: { type: 'string', max: 60, minRole: 'ADMIN', public: true, description: 'Nama sistem', default: 'Dashboard Unit IT FKM' }, // @init:appName
   SYSTEM_TAGLINE: { type: 'string', max: 120, minRole: 'ADMIN', public: true, description: 'Slogan', default: 'Aset, makmal dan aduan IT FKM dalam satu paparan' }, // @init:tagline
-  LANDING_MESSAGE: { type: 'text', default: 'Log masuk atau daftar untuk mula menggunakan sistem.', max: 400, minRole: 'ADMIN', public: true, description: 'Mesej halaman utama' },
+  LANDING_MESSAGE: { type: 'text', default: 'Log masuk untuk mula menggunakan sistem.', max: 400, minRole: 'ADMIN', public: true, description: 'Mesej halaman utama' },
   ORG_NAME: { type: 'string', default: '', max: 120, minRole: 'ADMIN', public: true, description: 'Nama organisasi (footer)' },
-  ALLOW_REGISTRATION: { type: 'bool', default: true, minRole: 'SUPER_ADMIN', public: true, description: 'Benarkan pendaftaran baharu' },
+  ALLOW_REGISTRATION: { type: 'bool', default: false, minRole: 'SUPER_ADMIN', public: true, description: 'Benarkan pendaftaran sendiri (butang Daftar). Jika ditutup, akaun dicipta oleh pentadbir di Pengguna → Tambah pengguna' },
+  LANDING_SHOW_FORMS: { type: 'bool', default: false, minRole: 'ADMIN', public: true, description: 'Papar kad borang awam (aduan, penilaian ICT makmal) di halaman utama. Link borang tetap berfungsi walaupun disembunyikan' },
+  LANDING_SHOW_FEEDBACK: { type: 'bool', default: false, minRole: 'ADMIN', public: true, description: 'Papar borang maklum balas di halaman utama' },
   ALLOW_PUBLIC_SUBMISSION: { type: 'bool', default: true, minRole: 'SUPER_ADMIN', public: true, description: 'Benarkan orang awam menghantar borang awam (modul yang membenarkannya)' },
   MAINTENANCE_MODE: { type: 'bool', default: false, minRole: 'SUPER_ADMIN', public: true, description: 'Mod penyelenggaraan (hanya admin boleh akses)' },
   MAX_ATTACHMENT_MB: { type: 'int', default: 5, min: 1, max: 20, minRole: 'SUPER_ADMIN', public: true, description: 'Saiz maksimum setiap lampiran (MB)' },
