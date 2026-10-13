@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 1.13.1 — 2026-10-14 · Projek Supabase disediakan (data belum dipindah)
+- Projek Supabase `dashboard-unit-it-fkm` (Singapura) dicipta; jadual storan tersulit (`private.*`) dipasang.
+- `backend.json` ditambah dengan `webUsesEdge: false`: laman web masih memanggil Apps Script dan data kekal di Google Sheets.
+- CI: jika secret `SUPABASE_ACCESS_TOKEN` / `SUPABASE_DATA_KEY` belum ditetapkan, deploy fungsi Supabase dilangkau dengan amaran (Apps Script & Pages tetap dideploy).
+
 ## 1.13.0 — 2026-10-14 · Backend Supabase tersulit (sedia, belum aktif)
 Pilihan A, "kurangkan + sulitkan". Tiada perubahan kepada sistem yang sedang berjalan: Supabase hanya aktif selepas `backend.json` dicipta dan `pindahKeSupabase` dijalankan, iaitu selepas kelulusan UTMD.
 

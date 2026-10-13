@@ -97,12 +97,16 @@ jobs:
         with:
           node-version: 20
       - name: Deploy fungsi api (jika backend.json & SUPABASE_ACCESS_TOKEN wujud)
+        id: deploy
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DATA_KEY: ${{ secrets.SUPABASE_DATA_KEY }}
         run: |
           if [ ! -f backend.json ]; then echo "Tiada backend.json — dilangkau."; exit 0; fi
-          if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then echo "::error::Secret SUPABASE_ACCESS_TOKEN belum ditetapkan (Supabase → Account → Access Tokens)"; exit 1; fi
+          # Secret belum ditetapkan → langkau (Apps Script & Pages tetap dideploy; data kekal di Google Sheets)
+          if [ -z "$SUPABASE_ACCESS_TOKEN" ] || [ -z "$SUPABASE_DATA_KEY" ]; then
+            echo "::warning::Fungsi Supabase TIDAK dideploy: secret SUPABASE_ACCESS_TOKEN / SUPABASE_DATA_KEY belum ditetapkan (DEPLOYMENT.md §5A)."; exit 0
+          fi
           # Kunci penyulitan data: dijana oleh janaKunciData() di Apps Script. Tanpa kunci, fungsi menolak semua permintaan.
           SUPABASE_DATA_KEY=$(printf '%s' "$SUPABASE_DATA_KEY" | tr -d '[:space:]')
           if ! printf '%s' "$SUPABASE_DATA_KEY" | grep -Eq '^([A-Za-z0-9+/_-]{43}=?|[0-9a-fA-F]{64})$'; then echo "::error::Secret SUPABASE_DATA_KEY tiada / tidak sah (jalankan janaKunciData() di editor Apps Script)"; exit 1; fi
@@ -125,7 +129,9 @@ jobs:
             tail -n 15 deploy.log | sed 's/%/%25/g' | while IFS= read -r line; do echo "::error::$line"; done
             exit $CODE
           fi
+          echo "deployed=1" >> "$GITHUB_OUTPUT"
       - name: Semak fungsi hidup
+        if: steps.deploy.outputs.deployed == '1'
         run: |
           if [ ! -f backend.json ]; then exit 0; fi
           URL=$(node -p "require('./backend.json').apiUrl")
