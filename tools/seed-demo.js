@@ -43,7 +43,7 @@ module.exports = function seedDemo(ctx) {
   /* Data contoh khusus sistem: tools/seed-custom.js (jika wujud) MENGGANTIKAN seed generik modul. */
   const custom = require('path').join(__dirname, 'seed-custom.js');
   if (require('fs').existsSync(custom)) {
-    require(custom)({ api, ok, sup, user, others, SecurityUtils });
+    require(custom)({ api, ok, sup, user, others, SecurityUtils, ctx });
     console.log('Data demo: super@demo.local / Demo1234 (SUPER_ADMIN), user@demo.local / Demo1234 (USER)');
     return { sup, user };
   }

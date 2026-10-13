@@ -45,8 +45,13 @@ const AsetHooks = {
     'aset.laporanLokasi': { role: 'PENGURUSAN', fn: function (payload) { return AsetHooks.reportLocation(payload || {}); } },
     'aset.pelan': { role: 'PENGURUSAN', fn: function (payload) { return AsetHooks.reportPlan(payload || {}); } },
     'aset.indeksMakmal': { role: 'PENGURUSAN', fn: function () { return AsetHooks.reportLabHealth(); } },
-    'aset.eksekutif': { role: 'PENGURUSAN', fn: function (payload) { return AsetHooks.reportExecutive(payload || {}); } }
+    'aset.eksekutif': { role: 'PENGURUSAN', fn: function (payload) { return AsetHooks.reportExecutive(payload || {}); } },
+    'aset.trend': { role: 'PENGURUSAN', fn: function (payload) { return AsetTrend.trend(payload || {}); } },
+    'aset.hantarRingkasan': { role: 'ADMIN', fn: function (payload, ctx) { return AsetTrend.sendNow(payload || {}, ctx); } }
   },
+
+  /** Harian: segerak tindakan KEWPA, simpan ringkasan bulanan, email ringkasan bulan lepas (sekali). */
+  maintenance: function () { return AsetTrend.daily(); },
 
   // ================================================================== Susut nilai & cadangan penggantian
 
@@ -368,7 +373,12 @@ const AsetHooks = {
     if (o.assets.lokasiBerbeza) isu.push({ tone: 'warn', teks: o.assets.lokasiBerbeza + ' aset berada di lokasi berbeza daripada rekod UTMFin — rekod pergerakan KEWPA perlu dikemas kini.' });
     if (o.assets.byPengesahan && o.assets.byPengesahan.LUPUS_REKOD_AKTIF) isu.push({ tone: 'warn', teks: o.assets.byPengesahan.LUPUS_REKOD_AKTIF + ' aset telah lupus tetapi rekod masih aktif di UTMFin.' });
     if (o.tickets.overdue) isu.push({ tone: 'warn', teks: o.tickets.overdue + ' aduan IT melepasi tempoh SLA.' });
-    return {
+    let tindakan = null;
+    if (typeof TindakanHooks !== 'undefined') {
+      try { tindakan = TindakanHooks.summary(); } catch (e) { tindakan = null; }
+    }
+    if (tindakan && tindakan.jumlah.lewat) isu.push({ tone: 'warn', teks: tindakan.jumlah.lewat + ' tindakan KEWPA melepasi tarikh sasaran (' + tindakan.jumlah.terbuka + ' masih terbuka).' });
+    const out = {
       generatedAt: DateUtils.nowIso(),
       ringkasan: {
         aset: o.assets.total, beroperasiPct: o.assets.operationalPct, nilaiPerolehan: v.total.kos, nilaiBuku: v.total.buku, susutHabis: v.total.habis,
@@ -378,9 +388,15 @@ const AsetHooks = {
       },
       nilaiIkutMakmal: v.byMakmal.slice(0, 12), nilaiIkutTahun: v.byTahun,
       pelan: { tahun: p.tahun, keperluan: p.keperluan, harga: p.harga, umurGanti: p.umurGanti, bajetSetahunDiperlukan: p.bajetSetahunDiperlukan, kosDalamTempoh: p.kosDalamTempoh, jumlahDalamTempoh: p.jumlahDalamTempoh },
-      makmal: h.items, pengesahan: o.assets.byPengesahan, isu: isu,
+      makmal: h.items, pengesahan: o.assets.byPengesahan, isu: isu, tindakan: tindakan,
       kaedah: { susut: v.config, ganti: g.config }
     };
+    if (!payload || !payload.skipTrend) {
+      /* Trend 6 bulan: baris tersimpan + bulan semasa daripada angka laporan ini */
+      const month = DateUtils.monthKey(new Date());
+      out.trend = AsetTrend.history(5, month).concat([AsetTrend.out_(AsetTrend.fromExec(out, month))]);
+    }
+    return out;
   },
 
   /** Laporan percanggahan lokasi fizikal vs UTMFin (untuk kemas kini pergerakan aset KEWPA). */
@@ -873,9 +889,15 @@ const AsetHooks = {
       AuditService.log(ctx, AUDIT_ACTIONS.RECORD_CREATED, def.sheet, '', 'Import aset: ' + inserts.length + ' baharu, ' + Object.keys(patches).length + ' dikemas kini');
     }
     let linked = 0;
-    if (!dryRun && !errors.length) linked = AsetHooks.linkToLabs();
+    let tindakan = null;
+    if (!dryRun && !errors.length) {
+      linked = AsetHooks.linkToLabs();
+      if (typeof TindakanHooks !== 'undefined') {
+        try { tindakan = TindakanHooks.sync(ctx); } catch (e) { ErrorHandler.record(e, { action: 'tindakan.sync' }); }
+      }
+    }
     return {
-      dryRun: dryRun || errors.length > 0, created: inserts.length, updated: Object.keys(patches).length, linked: linked,
+      dryRun: dryRun || errors.length > 0, created: inserts.length, updated: Object.keys(patches).length, linked: linked, tindakan: tindakan,
       errors: errors.slice(0, 100), errorCount: errors.length, skipped: skipped.slice(0, 200), skippedCount: skipped.length
     };
   },

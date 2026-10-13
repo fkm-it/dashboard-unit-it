@@ -72,6 +72,14 @@ const SCHEMA = Object.freeze({
     columns: ['migration_id', 'description', 'applied_at', 'applied_by'],
     types: {}
   },
+  /** Ringkasan aset IT setiap bulan (satu baris sebulan, dikemas kini setiap hari; baris bulan lepas = nilai akhir bulan). */
+  RINGKASAN_BULANAN: {
+    sheet: 'RINGKASAN_BULANAN', id: 'bulan',
+    columns: ['bulan', 'aset', 'beroperasi_pct', 'nilai_kos', 'nilai_buku', 'susut_habis', 'ganti_segera', 'ganti_tahun_depan', 'kos_ganti',
+      'tiket_baru', 'tiket_selesai', 'tiket_terbuka', 'tiket_lewat', 'sla_pct', 'disahkan_pct', 'lokasi_berbeza', 'makmal', 'makmal_kritikal',
+      'indeks_purata', 'tindakan_terbuka', 'tindakan_lewat', 'tindakan_selesai', 'emel_dihantar_pada', 'created_at', 'updated_at'],
+    types: {}
+  },
 
   // ===================================================================== MODUL
   // Blok di bawah DIJANA oleh `npm run gen` daripada modules/*.json — jangan sunting dengan tangan.
@@ -85,6 +93,11 @@ const SCHEMA = Object.freeze({
     sheet: 'ASET', id: 'id', prefix: 'AS', module: 'aset',
     columns: ['id', 'ref_no', 'owner_user_id', 'owner_name', 'no_aset', 'no_siri', 'jenis', 'jenama', 'model', 'nama_alat', 'monitor', 'makmal', 'lokasi', 'kod_lokasi', 'lokasi_fizikal', 'lokasi_berbeza', 'pic_makmal', 'pegawai_bertanggungjawab', 'no_pekerja_penjaga', 'email_penjaga', 'penjaga_terkini', 'status_pengesahan', 'disemak_oleh', 'tahun_perolehan', 'tarikh_aset', 'nilai_perolehan', 'tamat_waranti', 'cpu', 'ram_gb', 'storan', 'gpu', 'sistem_operasi', 'lesen_os', 'perisian', 'keadaan_fizikal', 'cadangan', 'kategori_aset', 'borang_kewpa', 'kegunaan', 'sop_ada', 'selenggara_cuti_sem', 'selenggara_suku_tahun', 'selenggara_ikut_keadaan', 'disahkan_fizikal', 'tarikh_semakan', 'catatan', 'deskripsi_perolehan', 'kod_sodo', 'ptj_perolehan', 'chargeline', 'no_rujukan_perolehan', 'no_pt', 'no_requisition', 'cost_center', 'status', 'status_note', 'status_changed_at', 'status_changed_by', 'state', 'created_at', 'updated_at', 'deleted_at'],
     types: {'lokasi_berbeza': 'bool', 'tahun_perolehan': 'intOrNull', 'ram_gb': 'intOrNull', 'sop_ada': 'bool', 'selenggara_cuti_sem': 'bool', 'selenggara_suku_tahun': 'bool', 'selenggara_ikut_keadaan': 'bool', 'disahkan_fizikal': 'bool'}
+  },
+  TINDAKAN: {
+    sheet: 'TINDAKAN', id: 'id', prefix: 'TD', module: 'tindakan',
+    columns: ['id', 'ref_no', 'owner_user_id', 'owner_name', 'jenis', 'aset', 'no_aset', 'butiran', 'makmal', 'pegawai', 'tarikh_sasaran', 'borang', 'catatan', 'automatik', 'selesai_pada', 'status', 'status_note', 'status_changed_at', 'status_changed_by', 'state', 'created_at', 'updated_at', 'deleted_at'],
+    types: {'automatik': 'bool'}
   },
   KEPERLUAN: {
     sheet: 'KEPERLUAN', id: 'id', prefix: 'KP', module: 'keperluan',

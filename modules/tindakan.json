@@ -1,0 +1,43 @@
+{
+  "key": "tindakan",
+  "label": "Tindakan KEWPA",
+  "labelPlural": "Tindakan KEWPA",
+  "icon": "shield",
+  "prefix": "TD",
+  "refFormat": "TND-{SEQ5}",
+  "description": "Penjejak tindakan rekod aset (KEWPA/UTMFin): lokasi berbeza, penjaga bertukar, aset belum disahkan, pelupusan. Dijana automatik daripada daftar aset setiap hari dan selepas import.",
+  "access": { "create": "ADMIN", "list": "OWN", "edit": "ADMIN", "delete": "ADMIN" },
+  "statuses": [
+    { "value": "BARU", "label": "Baharu", "tone": "brand" },
+    { "value": "DALAM_TINDAKAN", "label": "Dalam tindakan", "tone": "warn" },
+    { "value": "SELESAI", "label": "Selesai", "tone": "success" },
+    { "value": "DIBATALKAN", "label": "Dibatalkan", "tone": "muted" }
+  ],
+  "notify": { "adminsOnCreate": false, "ownerOnStatus": false },
+  "titleField": "noAset",
+  "subtitleField": "butiran",
+  "nav": { "user": false, "admin": true, "order": 22 },
+  "fields": [
+    {
+      "key": "jenis", "label": "Jenis", "type": "enum", "required": true, "list": true, "filter": true, "default": "LAIN",
+      "options": [
+        { "value": "LOKASI", "label": "Kemas kini lokasi / pergerakan aset" },
+        { "value": "PENJAGA", "label": "Kemas kini penjaga aset" },
+        { "value": "PENGESAHAN", "label": "Sahkan status aset dengan penjaga" },
+        { "value": "PELUPUSAN", "label": "Susulan tindakan pelupusan" },
+        { "value": "REKOD_LUPUS", "label": "Kemas kini rekod lupus di UTMFin" },
+        { "value": "LAIN", "label": "Lain-lain" }
+      ]
+    },
+    { "key": "aset", "label": "Aset", "type": "ref", "ref": "aset", "hint": "Pilih aset berkaitan (jika ada)." },
+    { "key": "noAset", "label": "No. aset / bar code", "type": "string", "max": 40, "list": true, "search": true },
+    { "key": "butiran", "label": "Butiran", "type": "text", "max": 500, "search": true },
+    { "key": "makmal", "label": "Makmal", "type": "ref", "ref": "makmal", "filter": true },
+    { "key": "pegawai", "label": "Pegawai", "type": "ref", "ref": "pegawai", "filter": true, "list": true },
+    { "key": "tarikhSasaran", "label": "Tarikh sasaran", "type": "date", "list": true },
+    { "key": "borang", "label": "Borang / rujukan", "type": "string", "max": 60, "placeholder": "cth. no. borang KEW.PA atau no. rujukan UTMFin" },
+    { "key": "catatan", "label": "Catatan tindakan", "type": "text", "max": 2000 },
+    { "key": "automatik", "label": "Dijana automatik", "type": "bool", "readonly": true, "filter": true },
+    { "key": "selesaiPada", "label": "Tarikh selesai", "type": "date", "readonly": true }
+  ]
+}

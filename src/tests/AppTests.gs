@@ -4,7 +4,7 @@
  * Dalam Apps Script: runTestsPart5. Dalam Node: npm test.
  */
 const AppTests = {
-  suites: function () { return [TestSuiteDashboardIT, TestSuiteUtmfin, TestSuiteMaintenance, TestSuiteNilai, TestSuitePengurusan]; }
+  suites: function () { return [TestSuiteDashboardIT, TestSuiteUtmfin, TestSuiteMaintenance, TestSuiteNilai, TestSuitePengurusan, TestSuiteKewpa, TestSuiteTrend]; }
 };
 
 const AppFx = {
@@ -446,6 +446,171 @@ const TestSuitePengurusan = {
       const e = TestAssert.apiOk(TestHelpers.call(a.token, 'aset.eksekutif', {}));
       t.ok(e.ringkasan.aset >= 10 && e.pelan.keperluan.length === 5 && e.makmal.length >= 2);
       t.ok(e.isu.some(function (i) { return /makmal berstatus kritikal/.test(i.teks); }), JSON.stringify(e.isu));
+    }]
+  ]
+};
+
+const KwFx = {
+  byAset: function (no) {
+    return Repo.of('TINDAKAN').all().filter(function (t) { return t.state === 'ACTIVE' && t.no_aset === no; });
+  },
+  open: function (no, jenis) {
+    return KwFx.byAset(no).filter(function (t) { return t.jenis === jenis && TindakanHooks.OPEN.indexOf(t.status) >= 0; });
+  },
+  mails: function () { return typeof __mails !== 'undefined' ? __mails : (globalThis.__mails || null); }
+};
+
+const TestSuiteKewpa = {
+  name: 'Penjejak tindakan KEWPA',
+  tests: [
+    ['Jana automatik daripada import: lokasi berbeza, penjaga bertukar, rekod lupus; tiada pendua; aset bersih tiada tindakan', function (t) {
+      AppFx.real();
+      const a = TestHelpers.admin(ROLES.ADMIN);
+      const res = TestAssert.apiOk(TestHelpers.call(a.token, 'aset.import', { rows: [
+        { noAset: 'KW-L1', jenis: 'DESKTOP', kodLokasi: 'J.C24.01.108-01', lokasiFizikal: 'C24.411' },
+        { noAset: 'KW-P1', jenis: 'DESKTOP', statusPengesahan: 'BERTUKAR_PENJAGA', pegawaiBertanggungjawab: 'Penjaga Lama', penjagaTerkini: 'Penjaga Baru' },
+        { noAset: 'KW-R1', jenis: 'LAPTOP', statusPengesahan: 'Telah lupus tetapi rekod aktif di UTMFin' },
+        { noAset: 'KW-OK', jenis: 'DESKTOP', kodLokasi: 'J.C24.01.108-02', lokasiFizikal: 'C24.108' }
+      ] }));
+      t.ok(res.tindakan && res.tindakan.dicipta >= 3, JSON.stringify(res.tindakan));
+      t.eq(KwFx.open('KW-L1', 'LOKASI').length, 1, 'lokasi berbeza');
+      t.ok(/C24\.411/.test(KwFx.open('KW-L1', 'LOKASI')[0].butiran));
+      t.eq(KwFx.open('KW-P1', 'PENJAGA').length, 1, 'penjaga bertukar');
+      t.eq(KwFx.open('KW-R1', 'REKOD_LUPUS').length, 1, 'lupus tetapi rekod aktif');
+      t.eq(KwFx.byAset('KW-OK').length, 0, 'aset bersih tiada tindakan');
+      const r = KwFx.open('KW-L1', 'LOKASI')[0];
+      t.ok(/^TND-\d{5}$/.test(r.ref_no), r.ref_no); t.ok(r.tarikh_sasaran > DateUtils.dayKey(new Date()), 'tarikh sasaran ditetapkan');
+      t.eq(String(r.automatik).toUpperCase(), 'TRUE');
+      TestAssert.apiOk(TestHelpers.call(a.token, 'tindakan.segerak', {}));
+      t.eq(KwFx.byAset('KW-L1').length, 1, 'segerak semula tiada pendua');
+    }],
+
+    ['Tutup automatik apabila aset dibetulkan; jana semula jika isu kembali; keputusan pegawai dihormati', function (t) {
+      AppFx.real();
+      const a = TestHelpers.admin(ROLES.ADMIN);
+      TestAssert.apiOk(TestHelpers.call(a.token, 'aset.import', { rows: [
+        { noAset: 'KW-L2', jenis: 'DESKTOP', kodLokasi: 'J.C24.01.108-01', lokasiFizikal: 'C24.411' },
+        { noAset: 'KW-P2', jenis: 'DESKTOP', statusPengesahan: 'BERTUKAR_PENJAGA' }
+      ] }));
+      const asetL = Repo.of('ASET').all().filter(function (x) { return x.no_aset === 'KW-L2'; })[0];
+      /* Pegawai betulkan lokasi fizikal → tindakan ditutup automatik */
+      TestAssert.apiOk(TestHelpers.call(a.token, 'crud.update', { module: 'aset', id: asetL.id, lokasiFizikal: 'C24.108' }));
+      const s1 = TestAssert.apiOk(TestHelpers.call(a.token, 'tindakan.segerak', {}));
+      t.ok(s1.ditutup >= 1, JSON.stringify(s1));
+      const closed = KwFx.byAset('KW-L2')[0];
+      t.eq(closed.status, 'SELESAI'); t.eq(closed.status_changed_by, 'Sistem'); t.ok(closed.selesai_pada, 'tarikh selesai');
+      /* Isu kembali → tindakan baharu */
+      TestAssert.apiOk(TestHelpers.call(a.token, 'crud.update', { module: 'aset', id: asetL.id, lokasiFizikal: 'C24.412' }));
+      TestAssert.apiOk(TestHelpers.call(a.token, 'tindakan.segerak', {}));
+      t.eq(KwFx.open('KW-L2', 'LOKASI').length, 1, 'dijana semula');
+      t.eq(KwFx.byAset('KW-L2').length, 2);
+      /* Pegawai tutup PENJAGA walaupun aset belum dikemas kini → tidak dijana semula */
+      const p = KwFx.open('KW-P2', 'PENJAGA')[0];
+      const d = TestAssert.apiOk(TestHelpers.call(a.token, 'crud.setStatus', { module: 'tindakan', id: p.id, status: 'SELESAI', note: 'KEW.PA dihantar' }));
+      t.ok(d.values.selesaiPada, 'tarikh selesai dalam respons');
+      TestAssert.apiOk(TestHelpers.call(a.token, 'tindakan.segerak', {}));
+      t.eq(KwFx.byAset('KW-P2').length, 1, 'tidak dijana semula selepas ditutup pegawai');
+      TestAssert.apiOk(TestHelpers.call(a.token, 'crud.setStatus', { module: 'tindakan', id: p.id, status: 'DALAM_TINDAKAN' }));
+      t.eq(Repo.of('TINDAKAN').findById(p.id).selesai_pada, '', 'dibuka semula → tarikh selesai dikosongkan');
+    }],
+
+    ['Tindakan manual: no. aset & makmal dilengkapkan; ringkasan Pengurusan tanpa butiran peribadi; Pengurusan tidak nampak senarai', function (t) {
+      AppFx.real();
+      const sup = TestHelpers.admin(ROLES.SUPER_ADMIN);
+      const lab = AppFx.lab(sup, 'KW-LAB');
+      TestAssert.apiOk(TestHelpers.call(sup.token, 'aset.import', { rows: [{ noAset: 'KW-M1', jenis: 'DESKTOP', makmal: 'KW-LAB', pegawaiBertanggungjawab: 'Nama Rahsia Penjaga' }] }));
+      const aset = Repo.of('ASET').all().filter(function (x) { return x.no_aset === 'KW-M1'; })[0];
+      const d = TestAssert.apiOk(TestHelpers.call(sup.token, 'crud.create', { module: 'tindakan', jenis: 'PENGESAHAN', aset: aset.id, butiran: 'Semak semula label' }));
+      t.eq(d.values.noAset, 'KW-M1'); t.eq(d.values.makmal, lab.id); t.ok(d.values.tarikhSasaran, 'sasaran lalai');
+      t.eq(d.values.automatik, false);
+      const m = TestHelpers.user('tpk');
+      TestAssert.apiOk(TestHelpers.call(sup.token, 'admin.user.role', { userId: m.user.id, role: 'PENGURUSAN' }));
+      const tok = TestAssert.apiOk(api({ action: 'auth.login', payload: { email: m.user.email, password: 'Rahsia123' } })).token;
+      const s = TestAssert.apiOk(TestHelpers.call(tok, 'tindakan.ringkasan', {}));
+      t.ok(s.jumlah.terbuka >= 1 && s.ikutJenis.length >= 1, JSON.stringify(s.jumlah));
+      t.ok(JSON.stringify(s).indexOf('Rahsia') < 0, 'tiada nama penjaga');
+      t.eq(TestAssert.apiOk(TestHelpers.call(tok, 'crud.list', { module: 'tindakan' })).items.length, 0, 'senarai tindakan untuk admin sahaja');
+      TestAssert.apiFail(TestHelpers.call(tok, 'tindakan.segerak', {}), ERROR_CODES.FORBIDDEN);
+      /* Lewat sasaran dikira */
+      Repo.of('TINDAKAN').update(d.id, { tarikh_sasaran: '2020-01-01' });
+      const s2 = TestAssert.apiOk(TestHelpers.call(tok, 'tindakan.ringkasan', {}));
+      t.ok(s2.jumlah.lewat >= 1);
+      const e = TestAssert.apiOk(TestHelpers.call(tok, 'aset.eksekutif', {}));
+      t.ok(e.tindakan && e.isu.some(function (i) { return /tindakan KEWPA/.test(i.teks); }), JSON.stringify(e.isu));
+    }]
+  ]
+};
+
+const TestSuiteTrend = {
+  name: 'Trend & email ringkasan bulanan',
+  tests: [
+    ['Simpan ringkasan bulan semasa; email bulan lepas sekali sahaja kepada Pengurusan, Admin & penerima tambahan', function (t) {
+      AppFx.real();
+      const sup = TestHelpers.admin(ROLES.SUPER_ADMIN);
+      const m = TestHelpers.user('dekan2');
+      TestAssert.apiOk(TestHelpers.call(sup.token, 'admin.user.role', { userId: m.user.id, role: 'PENGURUSAN' }));
+      const biasa = TestHelpers.user('biasa');
+      SettingsRepository.setMany({ EMAIL_RINGKASAN_BULANAN: 'TRUE', EMAIL_RINGKASAN_TAMBAHAN: 'pejabat.dekan@test.local, bukan-email' }, 'TEST');
+      const month = DateUtils.monthKey(new Date());
+      const prev = AsetTrend.prevMonth(month);
+      Repo.of('RINGKASAN_BULANAN').deleteWhere(function () { return true; });
+      Repo.of('RINGKASAN_BULANAN').insert({ bulan: prev, aset: '1', nilai_kos: '1000', ganti_segera: '0', emel_dihantar_pada: '', created_at: DateUtils.nowIso(), updated_at: DateUtils.nowIso() });
+      const box = KwFx.mails();
+      const before = box ? box.length : 0;
+      const out = AsetHooks.maintenance();
+      t.eq(out.bulan, month);
+      const row = Repo.of('RINGKASAN_BULANAN').findById(month);
+      t.ok(row && Number(row.aset) >= 0 && row.nilai_kos !== undefined, 'baris bulan semasa disimpan');
+      t.ok(out.emel && out.emel.penerima >= 3, JSON.stringify(out.emel));
+      t.ok(Repo.of('RINGKASAN_BULANAN').findById(prev).emel_dihantar_pada, 'ditanda dihantar');
+      if (box) {
+        const sent = box.slice(before).filter(function (x) { return /Ringkasan aset IT/.test(x.subject); });
+        const to = sent.map(function (x) { return x.to; });
+        t.ok(to.indexOf(m.user.email) >= 0, 'Pengurusan'); t.ok(to.indexOf(sup.user.email) >= 0 || to.indexOf(String(sup.user.email).toLowerCase()) >= 0, 'Admin');
+        t.ok(to.indexOf('pejabat.dekan@test.local') >= 0, 'penerima tambahan'); t.ok(to.indexOf(biasa.user.email) < 0, 'pengguna biasa tidak');
+        t.ok(to.indexOf('bukan-email') < 0);
+        t.ok(/ringkasan bulanan/i.test(sent[0].htmlBody) || /Ringkasan aset IT FKM/.test(sent[0].htmlBody));
+      }
+      t.ok(Repo.of('NOTIFICATIONS').all().some(function (n) { return n.user_id === m.user.id && /Ringkasan aset IT/.test(n.title); }), 'notifikasi dalam app');
+      const after = box ? box.length : 0;
+      const out2 = AsetHooks.maintenance();
+      t.ok(!out2.emel, 'tidak dihantar dua kali');
+      if (box) t.eq(box.length, after);
+      /* Dimatikan dalam Tetapan */
+      Repo.of('RINGKASAN_BULANAN').update(prev, { emel_dihantar_pada: '' });
+      SettingsRepository.setMany({ EMAIL_RINGKASAN_BULANAN: 'FALSE' }, 'TEST');
+      t.ok(!AsetHooks.maintenance().emel, 'tetapan dimatikan → tiada email');
+      SettingsRepository.setMany({ EMAIL_RINGKASAN_BULANAN: 'TRUE', EMAIL_RINGKASAN_TAMBAHAN: '' }, 'TEST');
+    }],
+
+    ['Laluan trend (Pengurusan) & hantar ujian (Admin sahaja); baris email dengan perubahan', function (t) {
+      AppFx.real();
+      const sup = TestHelpers.admin(ROLES.SUPER_ADMIN);
+      const m = TestHelpers.user('td');
+      TestAssert.apiOk(TestHelpers.call(sup.token, 'admin.user.role', { userId: m.user.id, role: 'PENGURUSAN' }));
+      const tok = TestAssert.apiOk(api({ action: 'auth.login', payload: { email: m.user.email, password: 'Rahsia123' } })).token;
+      const tr = TestAssert.apiOk(TestHelpers.call(tok, 'aset.trend', {}));
+      const last = tr.items[tr.items.length - 1];
+      t.eq(last.bulan, DateUtils.monthKey(new Date()), 'bulan semasa langsung');
+      t.ok(typeof last.aset === 'number' && typeof last.nilaiKos === 'number');
+      t.eq(tr.items.filter(function (i) { return i.bulan === last.bulan; }).length, 1, 'tiada pendua bulan semasa');
+      TestAssert.apiFail(TestHelpers.call(tok, 'aset.hantarRingkasan', { ujian: true }), ERROR_CODES.FORBIDDEN);
+      const box = KwFx.mails();
+      const before = box ? box.length : 0;
+      const r = TestAssert.apiOk(TestHelpers.call(sup.token, 'aset.hantarRingkasan', { ujian: true }));
+      t.eq(r.penerima, 1); t.ok(r.ujian);
+      if (box) t.eq(box.slice(before).filter(function (x) { return /\(ujian\)/.test(x.subject); }).length, 1);
+      t.eq(Repo.of('RINGKASAN_BULANAN').findById(last.bulan).emel_dihantar_pada, '', 'ujian tidak menanda dihantar');
+      const e = TestAssert.apiOk(TestHelpers.call(tok, 'aset.eksekutif', {}));
+      t.ok(Array.isArray(e.trend) && e.trend[e.trend.length - 1].bulan === last.bulan);
+      const L = AsetTrend.lines({ bulan: '2026-10', aset: 290, beroperasiPct: 92, nilaiKos: 1100000, nilaiBuku: 30000, gantiSegera: 3, gantiTahunDepan: 170, kosGanti: 500000, makmal: 8, makmalKritikal: 2, indeksPurata: 55, tiketBaru: 4, tiketSelesai: 3, slaPct: 100, tiketTerbuka: 1, tiketLewat: 0, disahkanPct: 60, lokasiBerbeza: 100, tindakanTerbuka: 10, tindakanLewat: 0, tindakanSelesai: 5 },
+        { bulan: '2026-09', aset: 287, beroperasiPct: 92, nilaiKos: 1100732, nilaiBuku: 31563, gantiSegera: 3, gantiTahunDepan: 177, kosGanti: 0, makmal: 8, makmalKritikal: 3, indeksPurata: 50, disahkanPct: 55, lokasiBerbeza: 106, tindakanTerbuka: 15 });
+      const txt = L.join('\n');
+      t.ok(/Oktober 2026/.test(txt) && /September 2026/.test(txt), txt);
+      t.ok(/290 \(\+3\)/.test(txt), 'perubahan aset');
+      t.ok(/177|170 tahun depan \(−7\)/.test(txt), txt);
+      t.ok(/92% beroperasi \(tiada perubahan\)/.test(txt), txt);
+      t.eq(AsetTrend.prevMonth('2026-01'), '2025-12');
     }]
   ]
 };

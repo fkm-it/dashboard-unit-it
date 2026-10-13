@@ -29,7 +29,10 @@ const SETTINGS_DEFS = Object.freeze({
   GANTI_UMUR_TAHUN: { type: 'int', default: 7, min: 1, max: 30, minRole: 'ADMIN', public: false, description: 'Cadangan penggantian: umur aset dianggap tua (tahun)' },
   GANTI_RAM_MIN_GB: { type: 'int', default: 8, min: 1, max: 1024, minRole: 'ADMIN', public: false, description: 'Cadangan penggantian: RAM minimum komputer (GB)' },
   GANTI_ADUAN_MIN: { type: 'int', default: 3, min: 1, max: 100, minRole: 'ADMIN', public: false, description: 'Cadangan penggantian: bilangan aduan dalam 12 bulan dianggap kerap' },
-  GANTI_HARGA_LALAI: { type: 'int', default: 4500, min: 0, max: 1000000, minRole: 'ADMIN', public: false, description: 'Anggaran harga pengganti (RM) jika nilai perolehan asal tiada' }
+  GANTI_HARGA_LALAI: { type: 'int', default: 4500, min: 0, max: 1000000, minRole: 'ADMIN', public: false, description: 'Anggaran harga pengganti (RM) jika nilai perolehan asal tiada' },
+  TINDAKAN_SASARAN_HARI: { type: 'int', default: 30, min: 1, max: 365, minRole: 'ADMIN', public: false, description: 'Tindakan KEWPA: tempoh sasaran penyelesaian (hari) bagi tindakan baharu' },
+  EMAIL_RINGKASAN_BULANAN: { type: 'bool', default: true, minRole: 'ADMIN', public: false, description: 'Hantar email ringkasan aset IT setiap awal bulan kepada pengguna Pengurusan & Admin' },
+  EMAIL_RINGKASAN_TAMBAHAN: { type: 'string', default: '', max: 400, minRole: 'ADMIN', public: false, description: 'Penerima tambahan email ringkasan bulanan (dipisah koma), cth. pejabat Dekan' }
 });
 
 const SettingModel = {

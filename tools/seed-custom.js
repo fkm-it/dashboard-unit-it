@@ -4,7 +4,7 @@
  */
 'use strict';
 
-module.exports = function ({ api, ok, sup, user }) {
+module.exports = function ({ api, ok, sup, user, ctx }) {
   const A = (action, payload) => ok(api({ action, token: sup.token, payload }));
   const U = (action, payload) => ok(api({ action, token: user.token, payload }));
 
@@ -70,5 +70,29 @@ module.exports = function ({ api, ok, sup, user }) {
     if (status !== 'BARU') A('crud.update', { module: 'tiket', id: d.id, pegawai: staff[i % staff.length].id });
     if (status !== 'BARU' && status !== 'DITUGASKAN') A('crud.setStatus', { module: 'tiket', id: d.id, status, note: '' });
   });
+  /* Isu KEWPA contoh (dijana automatik oleh import) + trend 5 bulan lepas (rekaan, untuk paparan graf) */
+  A('aset.import', { rows: [
+    { noAset: 'DEMO/FKM/1003', kodLokasi: 'J.C23.01.101-01', lokasiFizikal: 'C23.205' },
+    { noAset: 'DEMO/FKM/1009', kodLokasi: 'J.C23.01.101-01', lokasiFizikal: 'C23.205' },
+    { noAset: 'DEMO/FKM/1015', statusPengesahan: 'BERTUKAR_PENJAGA', penjagaTerkini: 'Staf Contoh Baharu' },
+    { noAset: 'DEMO/FKM/1021', statusPengesahan: 'TIDAK_DISAHKAN' },
+    { noAset: 'DEMO/FKM/1050', statusPengesahan: 'LUPUS_REKOD_AKTIF' }
+  ] });
+  if (ctx) {
+    require('vm').runInContext(`(function () {
+      AsetHooks.maintenance();
+      const cur = Repo.of('RINGKASAN_BULANAN').all()[0];
+      let k = cur.bulan;
+      for (let i = 1; i <= 5; i++) {
+        k = AsetTrend.prevMonth(k);
+        const f = (c, d) => String(Math.max(0, Math.round((Number(cur[c]) || 0) + d * i)));
+        Repo.of('RINGKASAN_BULANAN').insert({ bulan: k, aset: f('aset', -1), beroperasi_pct: f('beroperasi_pct', -1.5), nilai_kos: f('nilai_kos', -4000), nilai_buku: f('nilai_buku', 6000),
+          susut_habis: f('susut_habis', -1), ganti_segera: f('ganti_segera', 1), ganti_tahun_depan: f('ganti_tahun_depan', 2), kos_ganti: f('kos_ganti', 9000),
+          tiket_baru: String(6 + (i % 3) * 2), tiket_selesai: String(5 + (i % 2) * 3), tiket_terbuka: f('tiket_terbuka', 1), tiket_lewat: f('tiket_lewat', 0.5), sla_pct: String(80 + (i % 3) * 5),
+          disahkan_pct: f('disahkan_pct', -4), lokasi_berbeza: f('lokasi_berbeza', 2), makmal: cur.makmal, makmal_kritikal: f('makmal_kritikal', 0.4), indeks_purata: f('indeks_purata', -2.5),
+          tindakan_terbuka: f('tindakan_terbuka', 3), tindakan_lewat: f('tindakan_lewat', 1), tindakan_selesai: String(2 + i), emel_dihantar_pada: '2026-01-01T00:00:00Z', created_at: '', updated_at: '' });
+      }
+    })()`, ctx);
+  }
   console.log('Data contoh Dashboard Unit IT dimasukkan (6 makmal, 4 pegawai, 72 aset, 5 keperluan, 10 tiket).');
 };

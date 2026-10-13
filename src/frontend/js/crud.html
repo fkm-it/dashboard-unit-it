@@ -108,7 +108,7 @@
       };
 
       el.innerHTML = html`<div class="page-head"><div><h1>${m.labelPlural}</h1>${m.description ? html`<p>${m.description}</p>` : ''}</div>
-        <div class="row row-wrap"><button class="btn btn-outline" data-act="export">${icon('download')}Eksport CSV</button>
+        <div class="row row-wrap">${admin && KD.listActions && KD.listActions[m.key] ? KD.listActions[m.key].render(m) : ''}<button class="btn btn-outline" data-act="export">${icon('download')}Eksport CSV</button>
         ${canCreate(m) ? html`<a class="btn btn-primary" href="#${basePath(m, r)}/baru">${icon('plus')}${m.label} baharu</a>` : ''}</div></div>
         <div class="toolbar">
           <input class="input search" type="search" placeholder="Cari…" value="${state.q}" data-q aria-label="Cari">
@@ -152,6 +152,10 @@
       on(el, 'click', '[data-status]', (e, b) => { state.status = b.getAttribute('data-status'); state.page = 1; sync(); load(); });
       on(el, 'click', '[data-page]', (e, b) => { state.page = Number(b.getAttribute('data-page')); sync(); load(); window.scrollTo(0, 0); });
       on(el, 'click', '[data-act="reload"]', load);
+      on(el, 'click', '[data-list-act]', (e, b) => {
+        const la = KD.listActions && KD.listActions[m.key];
+        if (la && la.run) la.run(b.getAttribute('data-list-act'), b, load);
+      });
       on(el, 'click', '[data-act="export"]', (e, b) => busy(b, async () => {
         try {
           const res = await api.exportRows(m.key, payload());

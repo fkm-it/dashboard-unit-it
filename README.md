@@ -10,8 +10,8 @@ Sistem pengurusan Unit IT, Fakulti Kejuruteraan Mekanikal (FKM), UTM: aset IT, k
 |---|---|
 | Staf / pelajar FKM (tanpa akaun) | Hantar aduan IT melalui borang awam, dapat No. rujukan & makluman email |
 | Pengguna (penyelaras makmal, staf) | Hantar & jejak tiket sendiri · isi banci & keperluan komputer makmal sendiri (boleh sunting semasa *Dihantar* / *Dikembalikan*) |
-| Pengurusan (Dekan, TD, TDP/TPK, KJ) | Baca sahaja: Perancangan (ringkasan, pelan penggantian 5 tahun + simulasi bajet, indeks kesihatan makmal), Laporan aset, Laporan Eksekutif (PDF) |
-| Admin (Unit IT) | Executive Overview · urus aset, import CSV · sahkan/kembalikan keperluan makmal · tugaskan & selesaikan tiket · makmal, pegawai, kategori, tetapan SLA |
+| Pengurusan (Dekan, TD, TDP/TPK, KJ) | Baca sahaja: Perancangan (ringkasan, pelan penggantian 5 tahun + simulasi bajet, indeks kesihatan makmal, trend bulanan & ringkasan tindakan KEWPA), Laporan aset, Laporan Eksekutif (PDF) · email ringkasan awal bulan |
+| Admin (Unit IT) | Executive Overview · urus aset, import CSV · penjejak tindakan KEWPA · sahkan/kembalikan keperluan makmal · tugaskan & selesaikan tiket · makmal, pegawai, kategori, tetapan SLA |
 | Super Admin | Semua di atas + peranan pengguna, tetapan sistem |
 
 ## Peraturan domain
@@ -19,6 +19,8 @@ Sistem pengurusan Unit IT, Fakulti Kejuruteraan Mekanikal (FKM), UTM: aset IT, k
   `kekal = berfungsi − tidak sesuai + rosak boleh dibaiki` · `ganti = tidak sesuai + rosak tidak ekonomi` · `tambahan = max(0, sasaran − kekal − ganti)` · `kos = (ganti + tambahan) × harga seunit`.
 - **Tiket**: SLA dari masa diterima mengikut keutamaan (lalai Kritikal 4j, Tinggi 24j, Sederhana 72j, Rendah 168j — jam kalendar; Tetapan → `SLA_JAM_*`). Menugaskan pegawai menukar *Baharu → Ditugaskan* dan mengemel pegawai. *Selesai/Ditutup* merekod masa selesai; dibuka semula mengosongkannya.
 - **Aset**: No. aset unik (tidak peka huruf besar/kecil). *Beroperasi* = Berfungsi + Berfungsi tetapi tidak memadai.
+- **Tindakan KEWPA**: dijana automatik (harian, selepas import, butang *Segerak*) bagi aset dengan lokasi fizikal ≠ UTMFin, penjaga bertukar, tidak disahkan, dalam pelupusan, lupus tetapi rekod aktif. Satu tindakan terbuka setiap aset + jenis; ditutup automatik apabila aset dibetulkan; tindakan yang ditutup pegawai tidak dijana semula.
+- **Ringkasan bulanan**: dikemas kini setiap hari (`RINGKASAN_BULANAN`); awal bulan, ringkasan bulan lepas diemel sekali kepada Pengurusan + Admin + `EMAIL_RINGKASAN_TAMBAHAN` (matikan: `EMAIL_RINGKASAN_BULANAN`). Memerlukan pencetus harian (`installTriggers`).
 - Anggaran kos = perancangan; kelulusan sebenar kekal ikut prosedur kewangan UTM.
 
 Logik: `src/modules/<modul>/<Nama>Hooks.gs`. Overview & import: `src/modules/aset/AsetHooks.gs`, paparan `src/frontend/modules/aset.html`. Ujian domain: `src/tests/AppTests.gs`.

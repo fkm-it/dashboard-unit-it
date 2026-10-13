@@ -1,5 +1,26 @@
 # CHANGELOG
 
+## 1.5.0 — 2026-10-13 · Fasa 2d: trend bulanan, email ringkasan & penjejak tindakan KEWPA
+### Ditambah
+- **Penjejak tindakan KEWPA** (modul `tindakan`, menu admin *Tindakan KEWPA*). Tindakan dijana automatik daripada daftar aset:
+  - jenis tindakan: lokasi fizikal ≠ UTMFin, penjaga bertukar, status tidak dapat disahkan, dalam pelupusan, telah lupus tetapi rekod masih aktif
+  - dijana setiap hari, selepas setiap import, atau melalui butang *Segerak dengan daftar aset*
+  - satu tindakan terbuka bagi setiap aset dan jenis, tanpa pendua
+  - ditutup automatik apabila rekod aset dibetulkan; tindakan yang ditutup oleh pegawai tidak dijana semula
+  - setiap tindakan ada pegawai IT, tarikh sasaran (lalai 30 hari, boleh diubah dalam Tetapan), rujukan borang dan catatan
+- **Trend bulanan** (tab *Trend & tindakan KEWPA* di Perancangan):
+  - ringkasan disimpan setiap hari dalam sheet `RINGKASAN_BULANAN`; nilai bulan lepas kekal sebagai nilai akhir bulan
+  - graf 12 bulan: komputer perlu diganti, indeks kesihatan makmal, % aset disahkan, tindakan KEWPA terbuka, aduan baharu dan nilai buku
+  - jadual ringkasan ikut bulan, dan ringkasan tindakan KEWPA ikut jenis (tanpa butiran peribadi untuk Pengurusan)
+- **Email ringkasan bulanan**:
+  - pada awal setiap bulan, ringkasan bulan lepas beserta perubahan berbanding bulan sebelumnya dihantar sekali kepada semua pengguna Pengurusan dan Admin, serta penerima tambahan, dengan notifikasi dalam app
+  - tetapan baharu: `EMAIL_RINGKASAN_BULANAN` dan `EMAIL_RINGKASAN_TAMBAHAN`
+  - admin boleh *Hantar ujian kepada saya* atau *Hantar kepada semua sekarang*
+- **Laporan Eksekutif**: baris tindakan KEWPA, seksyen *Trend bulanan* (6 bulan), dan isu automatik bagi tindakan yang melepasi tarikh sasaran.
+
+### Teras
+- Hook frontend generik `KD.listActions[<modul>]` untuk butang tambahan admin di halaman senarai.
+
 ## 1.4.0 — 2026-10-13 · Fasa 2c: Pengurusan & perancangan
 ### Ditambah
 - **Peranan Pengurusan (baca sahaja)** untuk Dekan, Timbalan Dekan, TDP/TPK dan Ketua Jabatan. Super Admin menetapkannya di *Pengguna → Urus → Peranan*. Boleh melihat dashboard, perancangan dan laporan; tidak boleh menyunting, mengimport atau melihat daftar aset (butiran peribadi penjaga); tidak menerima notifikasi admin. Log masuk terus ke `/pengurusan`; navigasi telefon khas.
