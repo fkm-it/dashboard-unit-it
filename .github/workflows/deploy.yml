@@ -119,8 +119,15 @@ jobs:
           REF=$(node -p "require('./backend.json').projectRef")
           # Nilai melalui stdin (fail .env sementara), tidak dicetak ke log
           umask 077; printf 'DATA_KEY=%s\n' "$SUPABASE_DATA_KEY" > .edge-secrets.env
-          npx --yes supabase@2 secrets set --project-ref "$REF" --env-file .edge-secrets.env > /dev/null; rm -f .edge-secrets.env
           set +e
+          npx --yes supabase@2 secrets set --project-ref "$REF" --env-file .edge-secrets.env > secrets.log 2>&1
+          CODE=$?
+          rm -f .edge-secrets.env
+          if [ $CODE -ne 0 ]; then
+            echo "::error::Gagal menetapkan DATA_KEY (supabase secrets set). Semak kebenaran token: Secrets → Write."
+            tail -n 10 secrets.log | grep -v DATA_KEY | sed 's/%/%25/g' | while IFS= read -r line; do echo "::error::$line"; done
+            exit $CODE
+          fi
           npx --yes supabase@2 functions deploy api --project-ref "$REF" --no-verify-jwt --use-api > deploy.log 2>&1
           CODE=$?
           cat deploy.log
