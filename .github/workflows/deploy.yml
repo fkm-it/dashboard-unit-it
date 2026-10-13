@@ -111,9 +111,9 @@ jobs:
           SUPABASE_DATA_KEY=$(printf '%s' "$SUPABASE_DATA_KEY" | tr -d '[:space:]')
           if ! printf '%s' "$SUPABASE_DATA_KEY" | grep -Eq '^([A-Za-z0-9+/_-]{43}=?|[0-9a-fA-F]{64})$'; then echo "::error::Secret SUPABASE_DATA_KEY tiada / tidak sah (jalankan janaKunciData() di editor Apps Script)"; exit 1; fi
           export SUPABASE_ACCESS_TOKEN=$(printf '%s' "$SUPABASE_ACCESS_TOKEN" | tr -d '[:space:]')
+          # Token akses akaun (sbp_… atau token berskop projek). Kunci API projek (anon/service_role/sb_…) BUKAN token akses.
           case "$SUPABASE_ACCESS_TOKEN" in
-            sbp_*) ;;
-            *) echo "::error::SUPABASE_ACCESS_TOKEN bukan Personal Access Token (mesti bermula 'sbp_', panjang ${#SUPABASE_ACCESS_TOKEN}, bermula '${SUPABASE_ACCESS_TOKEN:0:3}'). Jana di supabase.com/dashboard/account/tokens"; exit 1 ;;
+            eyJ*|sb_publishable_*|sb_secret_*) echo "::error::SUPABASE_ACCESS_TOKEN ialah kunci API projek, bukan token akses. Jana di supabase.com/dashboard/account/tokens"; exit 1 ;;
           esac
           node tools/build-edge.js
           REF=$(node -p "require('./backend.json').projectRef")
