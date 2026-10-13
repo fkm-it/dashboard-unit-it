@@ -79,7 +79,7 @@
     async render(el) {
       el.innerHTML = html`${head('Pengguna', 'Urus akaun, status dan peranan. Kata laluan tidak pernah boleh dilihat.')}
         <div class="toolbar"><div class="search">${icon('search')}<input class="input" type="search" data-f="q" placeholder="Cari nama, email atau ID…" aria-label="Cari pengguna"></div>
-          <select class="select" data-f="role" aria-label="Peranan"><option value="">Semua peranan</option><option value="USER">Pengguna</option><option value="ADMIN">Admin</option><option value="SUPER_ADMIN">Super Admin</option></select>
+          <select class="select" data-f="role" aria-label="Peranan"><option value="">Semua peranan</option><option value="USER">Pengguna</option><option value="PENGURUSAN">Pengurusan</option><option value="ADMIN">Admin</option><option value="SUPER_ADMIN">Super Admin</option></select>
           <select class="select" data-f="status" aria-label="Status"><option value="">Semua status</option><option value="ACTIVE">Aktif</option><option value="INACTIVE">Tidak aktif</option><option value="BLOCKED">Disekat</option></select>
           <select class="select" data-f="sort" aria-label="Susunan"><option value="NEWEST">Terbaharu</option><option value="OLDEST">Terlama</option><option value="NAME">Nama</option><option value="LAST_LOGIN">Log masuk terakhir</option></select></div>
         <section class="panel panel-flush" data-box></section>`.s;
@@ -100,7 +100,7 @@
               ${u.status !== 'ACTIVE' ? html`<button class="btn btn-outline btn-sm" data-status="ACTIVE">${icon('check', 'i-sm')}Aktifkan</button>` : ''}
               ${u.status !== 'INACTIVE' ? html`<button class="btn btn-outline btn-sm" data-status="INACTIVE">Nyahaktifkan</button>` : ''}
               ${u.status !== 'BLOCKED' ? html`<button class="btn btn-danger btn-sm" data-status="BLOCKED">${icon('lock', 'i-sm')}Sekat</button>` : ''}</div></div>
-            ${isSuper ? html`<div class="mt-6"><label class="label" for="m-role">Peranan</label><div class="row mt-2"><select class="select" id="m-role">${['USER', 'ADMIN', 'SUPER_ADMIN'].map((r) => html`<option value="${r}" ${u.role === r ? raw('selected') : ''}>${r === 'USER' ? 'Pengguna' : r === 'ADMIN' ? 'Admin' : 'Super Admin'}</option>`)}</select><button class="btn btn-primary btn-sm" data-act="role">Tukar</button></div><span class="hint">Pengguna akan dilog keluar supaya peranan baharu berkuat kuasa.</span></div>` : ''}
+            ${isSuper ? html`<div class="mt-6"><label class="label" for="m-role">Peranan</label><div class="row mt-2"><select class="select" id="m-role">${['USER', 'PENGURUSAN', 'ADMIN', 'SUPER_ADMIN'].map((r) => html`<option value="${r}" ${u.role === r ? raw('selected') : ''}>${r === 'USER' ? 'Pengguna' : r === 'PENGURUSAN' ? 'Pengurusan (baca sahaja)' : r === 'ADMIN' ? 'Admin' : 'Super Admin'}</option>`)}</select><button class="btn btn-primary btn-sm" data-act="role">Tukar</button></div><span class="hint">Pengguna akan dilog keluar supaya peranan baharu berkuat kuasa.</span></div>` : ''}
             <div class="mt-6"><div class="label">Keselamatan</div><div class="row row-wrap mt-2"><button class="btn btn-outline btn-sm" data-act="revoke">${icon('logout', 'i-sm')}Tamatkan semua sesi</button><button class="btn btn-outline btn-sm" data-act="reset">${icon('mail', 'i-sm')}Hantar email set semula</button></div></div>`
         });
         const done = (msg) => { toast(msg); m.close(); t.load(); };

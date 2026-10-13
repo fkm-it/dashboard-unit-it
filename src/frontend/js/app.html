@@ -22,6 +22,7 @@
     role: () => (auth.user() && auth.user().role) || 'PUBLIC',
     isAdmin: () => ['ADMIN', 'SUPER_ADMIN'].indexOf(auth.role()) >= 0,
     isSuper: () => auth.role() === 'SUPER_ADMIN',
+    isManagement: () => ['PENGURUSAN', 'ADMIN', 'SUPER_ADMIN'].indexOf(auth.role()) >= 0,
     set(data, remember) {
       auth.state = { token: data.token, user: data.user, expiresAt: data.expiresAt, remember: !!remember };
       storage.set(SESSION_KEY, JSON.stringify(auth.state), !!remember);
@@ -141,6 +142,7 @@
         return router.go('/log-masuk', true);
       }
       if (r.access === 'admin' && !auth.isAdmin()) return router.go('/utama', true);
+      if (r.access === 'management' && !auth.isManagement()) return router.go('/utama', true);
       if (r.access === 'super' && !auth.isSuper()) return router.go('/admin', true);
 
       router.current = { route: r, params: found.params, query: parseQuery(path), path };
@@ -172,7 +174,8 @@
   const mods = () => KD.modules || [];
   const canCreate = (m) => m.access.create !== 'ADMIN' || auth.isAdmin();
   /** Menu tambahan: KD.extraNav.user / KD.extraNav.admin = [[path, icon, label], …] */
-  const extraNav = (k) => ((KD.extraNav && KD.extraNav[k]) || []);
+  /* Item ke-4 'management' = hanya Pengurusan/Admin (cth. ['/pengurusan', 'chart', 'Perancangan', 'management']) */
+  const extraNav = (k) => ((KD.extraNav && KD.extraNav[k]) || []).filter((n) => n[3] !== 'management' || auth.isManagement());
   const USER_NAV = () => [['/utama', 'home', 'Utama']]
     .concat(mods().filter((m) => m.nav.user !== false).map((m) => [m.path, m.icon, m.labelPlural]), extraNav('user'))
     .concat([['/notifikasi', 'bell', 'Notifikasi'], ['/profil', 'user', 'Profil']]);
@@ -193,7 +196,8 @@
     if (creatable) items.push([creatable.path + '/baru', 'plus', 'Baharu', true]);
     else if (list[1]) items.push([list[1].path, list[1].icon, list[1].labelPlural]);
     items.push(['/notifikasi', 'bell', 'Notifikasi'], ['/profil', 'user', 'Profil']);
-    return items.slice(0, 5);
+    /* Hook projek: ubah navigasi bawah ikut peranan (cth. Pengurusan) */
+    return ((KD.bottomNavFor && KD.bottomNavFor(items, auth.role())) || items).slice(0, 5);
   }
 
   const app = {
@@ -381,7 +385,7 @@
       const next = storage.get('kd.afterLogin');
       storage.remove('kd.afterLogin');
       app.shellMode = null;
-      router.go(next && next.indexOf('/log-masuk') < 0 ? next : (auth.isAdmin() ? '/admin' : '/utama'));
+      router.go(next && next.indexOf('/log-masuk') < 0 ? next : (auth.isAdmin() ? '/admin' : ((KD.homePath && KD.homePath(auth.role())) || '/utama')));
       if (KD.pwa) KD.pwa.syncPush(); /* hidupkan semula notifikasi telefon jika pernah dipilih pada peranti ini */
     }
   };

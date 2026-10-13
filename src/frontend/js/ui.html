@@ -142,7 +142,7 @@
   /** Lencana status modul ikut tone dalam modules/<key>.json. */
   const TONE_BADGE = { info: 'badge-brand', success: 'badge-success', warn: 'badge-warn', danger: 'badge-danger', muted: 'badge-muted', brand: 'badge' };
   const toneBadge = (label, tone) => html`<span class="badge ${TONE_BADGE[tone] || 'badge-muted'}">${label}</span>`;
-  const roleBadge = (r) => html`<span class="badge ${r === 'SUPER_ADMIN' ? 'badge-brand' : r === 'ADMIN' ? 'badge' : 'badge-muted'}">${r === 'SUPER_ADMIN' ? 'Super Admin' : r === 'ADMIN' ? 'Admin' : 'Pengguna'}</span>`;
+  const roleBadge = (r) => html`<span class="badge ${r === 'SUPER_ADMIN' ? 'badge-brand' : r === 'ADMIN' ? 'badge' : r === 'PENGURUSAN' ? 'badge-accent' : 'badge-muted'}">${r === 'SUPER_ADMIN' ? 'Super Admin' : r === 'ADMIN' ? 'Admin' : r === 'PENGURUSAN' ? 'Pengurusan' : 'Pengguna'}</span>`;
 
   KD.ui = { icon, star, catIcon, toneBadge, toast, toastError, modal, confirm, skeletonList, skeletonStats, empty, errorState, pager, busy, fieldErrors, statusBadge, roleBadge };
 })(window.KD);

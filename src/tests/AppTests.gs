@@ -4,7 +4,7 @@
  * Dalam Apps Script: runTestsPart5. Dalam Node: npm test.
  */
 const AppTests = {
-  suites: function () { return [TestSuiteDashboardIT, TestSuiteUtmfin, TestSuiteMaintenance, TestSuiteNilai]; }
+  suites: function () { return [TestSuiteDashboardIT, TestSuiteUtmfin, TestSuiteMaintenance, TestSuiteNilai, TestSuitePengurusan]; }
 };
 
 const AppFx = {
@@ -376,6 +376,76 @@ const TestSuiteNilai = {
       t.eq(det.susutNilai.nilaiBuku, 0, 'butiran aset ada nilai buku');
       const l = TestAssert.apiOk(TestHelpers.call(a.token, 'aset.laporanLokasi', {}));
       t.ok(Array.isArray(l.items) && typeof l.total === 'number');
+    }]
+  ]
+};
+
+/** Fasa 2c: peranan Pengurusan (baca sahaja), pelan penggantian, indeks kesihatan makmal, laporan eksekutif. */
+const TestSuitePengurusan = {
+  name: 'Pengurusan & perancangan',
+  tests: [
+    ['Peranan PENGURUSAN: boleh baca laporan, tidak boleh ubah aset/import/tetapan, tiada notifikasi admin', function (t) {
+      AppFx.real();
+      const sup = TestHelpers.admin(ROLES.SUPER_ADMIN);
+      const m = TestHelpers.user('dekan');
+      TestAssert.apiOk(TestHelpers.call(sup.token, 'admin.user.role', { userId: m.user.id, role: 'PENGURUSAN' }));
+      const tok = TestAssert.apiOk(api({ action: 'auth.login', payload: { email: m.user.email, password: 'Rahsia123' } })).token;
+      ['aset.overview', 'aset.laporanNilai', 'aset.laporanGanti', 'aset.laporanLokasi', 'aset.pelan', 'aset.indeksMakmal', 'aset.eksekutif'].forEach(function (a) {
+        TestAssert.apiOk(TestHelpers.call(tok, a, {}), a);
+      });
+      TestAssert.apiFail(TestHelpers.call(tok, 'aset.import', { rows: [{ noAset: 'X1' }] }), ERROR_CODES.FORBIDDEN);
+      TestAssert.apiFail(TestHelpers.call(tok, 'aset.janaMakmal', {}), ERROR_CODES.FORBIDDEN);
+      TestAssert.apiFail(TestHelpers.call(tok, 'crud.create', { module: 'aset', noAset: 'X2', jenis: 'DESKTOP' }), ERROR_CODES.FORBIDDEN);
+      TestAssert.apiFail(TestHelpers.call(tok, 'admin.settings.update', { changes: { GANTI_UMUR_TAHUN: 3 } }), ERROR_CODES.FORBIDDEN);
+      const list = TestAssert.apiOk(TestHelpers.call(tok, 'crud.list', { module: 'aset' }));
+      t.eq(list.items.length, 0, 'tidak nampak daftar aset (butiran peribadi penjaga)');
+      const u = TestHelpers.user('pengadu2');
+      const before = Repo.of('NOTIFICATIONS').all().filter(function (n) { return n.user_id === m.user.id; }).length;
+      TestAssert.apiOk(TestHelpers.call(u.token, 'crud.create', { module: 'tiket', tajuk: 'Uji notifikasi', kategori: AppFx.catId(), lokasi: 'C24', keterangan: 'Ujian notifikasi kepada admin sahaja.' }));
+      t.eq(Repo.of('NOTIFICATIONS').all().filter(function (n) { return n.user_id === m.user.id; }).length, before, 'Pengurusan tidak menerima notifikasi tiket baharu');
+    }],
+
+    ['Pelan penggantian: tertunggak, unjuran tahunan, simulasi bajet ikut keutamaan', function (t) {
+      AppFx.real();
+      const a = TestHelpers.admin(ROLES.ADMIN);
+      const lab = AppFx.lab(a, 'PL-01');
+      const y = new Date().getFullYear();
+      const rows = [];
+      for (let i = 0; i < 4; i++) rows.push({ noAset: 'PL-OLD-' + i, jenis: 'DESKTOP', makmal: 'PL-01', tahunPerolehan: String(y - 9) });
+      for (let i = 0; i < 3; i++) rows.push({ noAset: 'PL-MID-' + i, jenis: 'DESKTOP', makmal: 'PL-01', tahunPerolehan: String(y - 6) });
+      for (let i = 0; i < 2; i++) rows.push({ noAset: 'PL-NEW-' + i, jenis: 'DESKTOP', makmal: 'PL-01', tahunPerolehan: String(y - 1) });
+      TestAssert.apiOk(TestHelpers.call(a.token, 'aset.import', { rows: rows }));
+      const p = TestAssert.apiOk(TestHelpers.call(a.token, 'aset.pelan', { makmal: lab.id, harga: 4000 }));
+      t.eq(p.jumlahKomputer, 9); t.eq(p.tertunggak, 4, 'umur ≥ 7 → tahun ini');
+      t.eq(p.keperluan[1].bil, 3, 'umur 6 → matang tahun depan'); t.eq(p.keperluan[1].tahun, y + 1);
+      t.eq(p.keperluan[0].kos, 16000);
+      t.eq(p.jumlahDalamTempoh, 7, 'umur 1 → matang tahun ke-6, di luar tempoh 5 tahun');
+      const s = TestAssert.apiOk(TestHelpers.call(a.token, 'aset.pelan', { makmal: lab.id, harga: 4000, bajet: 8000 }));
+      t.eq(s.simulasi.unitSetahun, 2);
+      t.eq(s.simulasi.rows[0].diganti, 2); t.eq(s.simulasi.rows[0].tertunggakAkhirTahun, 2);
+      t.eq(s.simulasi.rows[1].diganti, 2); t.eq(s.simulasi.rows[1].tertunggakAkhirTahun, 3, '2 lama + 3 matang − 2');
+      t.ok(s.simulasi.tahunSelesai === null || s.simulasi.tahunSelesai > y + 1);
+      const big = TestAssert.apiOk(TestHelpers.call(a.token, 'aset.pelan', { makmal: lab.id, harga: 4000, bajet: 100000 }));
+      t.eq(big.simulasi.tahunSelesai, y, 'bajet besar → selesai tahun ini');
+    }],
+
+    ['Indeks kesihatan makmal & laporan eksekutif', function (t) {
+      AppFx.real();
+      const a = TestHelpers.admin(ROLES.ADMIN);
+      const y = new Date().getFullYear();
+      const bad = AppFx.lab(a, 'IK-BAD'); const good = AppFx.lab(a, 'IK-GOOD');
+      const rows = [];
+      for (let i = 0; i < 5; i++) rows.push({ noAset: 'IKB-' + i, jenis: 'DESKTOP', makmal: 'IK-BAD', tahunPerolehan: String(y - 11), status: i < 2 ? 'Tidak boleh digunakan' : 'Berfungsi', nilaiPerolehan: '3000' });
+      for (let i = 0; i < 5; i++) rows.push({ noAset: 'IKG-' + i, jenis: 'DESKTOP', makmal: 'IK-GOOD', tahunPerolehan: String(y - 1), disahkanFizikal: 'Ya', nilaiPerolehan: '4500' });
+      TestAssert.apiOk(TestHelpers.call(a.token, 'aset.import', { rows: rows }));
+      const h = TestAssert.apiOk(TestHelpers.call(a.token, 'aset.indeksMakmal', {}));
+      const B = h.items.filter(function (i) { return i.id === bad.id; })[0], G = h.items.filter(function (i) { return i.id === good.id; })[0];
+      t.eq(B.tahap, 'KRITIKAL', JSON.stringify(B)); t.eq(G.tahap, 'BAIK', JSON.stringify(G));
+      t.ok(B.skor < G.skor); t.eq(B.pc, 5); t.eq(B.rosak, 2); t.eq(G.pctDisahkan, 100);
+      t.ok(h.items.indexOf(B) < h.items.indexOf(G), 'paling kritikal di atas');
+      const e = TestAssert.apiOk(TestHelpers.call(a.token, 'aset.eksekutif', {}));
+      t.ok(e.ringkasan.aset >= 10 && e.pelan.keperluan.length === 5 && e.makmal.length >= 2);
+      t.ok(e.isu.some(function (i) { return /makmal berstatus kritikal/.test(i.teks); }), JSON.stringify(e.isu));
     }]
   ]
 };

@@ -9,12 +9,13 @@
 const ROLES = Object.freeze({
   PUBLIC: 'PUBLIC',
   USER: 'USER',
+  PENGURUSAN: 'PENGURUSAN', /* Dekan, TDP/TPK, Timbalan Dekan, Ketua Jabatan — baca dashboard & laporan sahaja */
   ADMIN: 'ADMIN',
   SUPER_ADMIN: 'SUPER_ADMIN'
 });
 
 /** Hierarki peranan — nombor lebih tinggi = akses lebih luas. */
-const ROLE_LEVEL = Object.freeze({ PUBLIC: 0, USER: 1, ADMIN: 2, SUPER_ADMIN: 3 });
+const ROLE_LEVEL = Object.freeze({ PUBLIC: 0, USER: 1, PENGURUSAN: 1.5, ADMIN: 2, SUPER_ADMIN: 3 });
 
 const USER_STATUS = Object.freeze({ ACTIVE: 'ACTIVE', INACTIVE: 'INACTIVE', BLOCKED: 'BLOCKED' });
 

@@ -40,7 +40,7 @@ const UserService = {
   list: function (filters) {
     const f = Validator.validate(filters, {
       q: { type: 'string', max: 80 },
-      role: { type: 'enum', values: [ROLES.USER, ROLES.ADMIN, ROLES.SUPER_ADMIN] },
+      role: { type: 'enum', values: [ROLES.USER, ROLES.PENGURUSAN, ROLES.ADMIN, ROLES.SUPER_ADMIN] },
       status: { type: 'enum', values: [USER_STATUS.ACTIVE, USER_STATUS.INACTIVE, USER_STATUS.BLOCKED] },
       sort: { type: 'enum', values: ['NEWEST', 'OLDEST', 'NAME', 'LAST_LOGIN'], default: 'NEWEST' }
     });
@@ -102,7 +102,7 @@ const UserService = {
   setRole: function (ctx, payload) {
     const data = Validator.validate(payload, {
       userId: { type: 'id', prefix: 'U', required: true, label: 'Pengguna' },
-      role: { type: 'enum', values: [ROLES.USER, ROLES.ADMIN, ROLES.SUPER_ADMIN], required: true, label: 'Peranan' }
+      role: { type: 'enum', values: [ROLES.USER, ROLES.PENGURUSAN, ROLES.ADMIN, ROLES.SUPER_ADMIN], required: true, label: 'Peranan' }
     });
     const target = UserRepository.findById(data.userId);
     if (!target) throw Errors.notFound('Pengguna');

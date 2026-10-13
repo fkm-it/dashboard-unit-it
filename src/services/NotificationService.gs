@@ -73,8 +73,8 @@ const NotificationService = {
     });
     const users = UserRepository.all().filter(function (u) {
       if (u.status !== USER_STATUS.ACTIVE) return false;
-      if (data.audience === 'USERS') return u.role === ROLES.USER;
-      if (data.audience === 'ADMINS') return u.role !== ROLES.USER;
+      if (data.audience === 'USERS') return !SecurityService.hasRole(u.role, ROLES.ADMIN);
+      if (data.audience === 'ADMINS') return SecurityService.hasRole(u.role, ROLES.ADMIN);
       return true;
     });
     const rows = users.map(function (u) { return NotificationService.build(u.user_id, NOTIF_TYPE.BROADCAST, data.title, data.message, ''); });
@@ -94,7 +94,7 @@ const NotificationService = {
   /** Notifikasi kepada semua ADMIN/SUPER_ADMIN aktif (cth. rekod baharu). */
   notifyAdmins: function (type, title, message, referenceId, path) {
     UserRepository.all().forEach(function (u) {
-      if (u.status === USER_STATUS.ACTIVE && u.role !== ROLES.USER) NotificationService.notify(u.user_id, type, title, message, referenceId, path);
+      if (u.status === USER_STATUS.ACTIVE && SecurityService.hasRole(u.role, ROLES.ADMIN)) NotificationService.notify(u.user_id, type, title, message, referenceId, path);
     });
   },
 

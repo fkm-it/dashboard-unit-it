@@ -37,12 +37,15 @@ const AsetHooks = {
   },
 
   routes: {
-    'aset.overview': { role: 'ADMIN', fn: function (payload) { return AsetHooks.overview(payload || {}); } },
+    'aset.overview': { role: 'PENGURUSAN', fn: function (payload) { return AsetHooks.overview(payload || {}); } },
     'aset.import': { role: 'ADMIN', fn: function (payload, ctx) { return AsetHooks.importRows(payload || {}, ctx); } },
     'aset.janaMakmal': { role: 'ADMIN', fn: function (payload, ctx) { return AsetHooks.generateLabs(payload || {}, ctx); } },
-    'aset.laporanNilai': { role: 'ADMIN', fn: function (payload) { return AsetHooks.reportValue(payload || {}); } },
-    'aset.laporanGanti': { role: 'ADMIN', fn: function (payload) { return AsetHooks.reportReplacement(payload || {}); } },
-    'aset.laporanLokasi': { role: 'ADMIN', fn: function (payload) { return AsetHooks.reportLocation(payload || {}); } }
+    'aset.laporanNilai': { role: 'PENGURUSAN', fn: function (payload) { return AsetHooks.reportValue(payload || {}); } },
+    'aset.laporanGanti': { role: 'PENGURUSAN', fn: function (payload) { return AsetHooks.reportReplacement(payload || {}); } },
+    'aset.laporanLokasi': { role: 'PENGURUSAN', fn: function (payload) { return AsetHooks.reportLocation(payload || {}); } },
+    'aset.pelan': { role: 'PENGURUSAN', fn: function (payload) { return AsetHooks.reportPlan(payload || {}); } },
+    'aset.indeksMakmal': { role: 'PENGURUSAN', fn: function () { return AsetHooks.reportLabHealth(); } },
+    'aset.eksekutif': { role: 'PENGURUSAN', fn: function (payload) { return AsetHooks.reportExecutive(payload || {}); } }
   },
 
   // ================================================================== Susut nilai & cadangan penggantian
@@ -221,6 +224,162 @@ const AsetHooks = {
       generatedAt: DateUtils.nowIso(), config: cfg, ringkasan: sum, jumlahDinilai: sc.rows.length,
       byMakmal: Object.keys(byLab).map(function (k) { const v = byLab[k]; v.kos = Math.round(v.kos * 100) / 100; return v; }).sort(function (a, b) { return (b.segera + b.tahunDepan) - (a.segera + a.tahunDepan); }),
       items: items
+    };
+  },
+
+  // ================================================================== Perancangan (Pengurusan)
+
+  /**
+   * Pelan penggantian N tahun. Setiap komputer "matang" pada tahun mula + GANTI_UMUR_TAHUN;
+   * yang sudah matang atau berskor "ganti segera" = tertunggak (tahun pertama).
+   * Tanpa bajet → unjuran keperluan. Dengan bajet (RM/tahun) → simulasi ikut keutamaan (skor, umur).
+   */
+  reportPlan: function (payload) {
+    const nowYear = Number(DateUtils.format(new Date(), 'yyyy'));
+    const years = Math.max(1, Math.min(10, Number(payload.tahun) || 5));
+    const cfg = AsetHooks.replacementConfig();
+    const harga = Number(payload.harga) > 0 ? Number(payload.harga) : cfg.harga;
+    const bajet = Number(payload.bajet) > 0 ? Number(payload.bajet) : 0;
+    const sc = AsetHooks.scoped_({ jenis: 'KOMPUTER', makmal: payload.makmal || '' });
+    const dcfg = AsetHooks.depConfig();
+    const comp = AsetHooks.complaintCounts_();
+    const now = new Date();
+    const Y = []; for (let i = 0; i < years; i++) Y.push(nowYear + i);
+    const queue = [];
+    let tanpaTahun = 0;
+    sc.rows.forEach(function (r) {
+      const start = AsetHooks.startDate_(r);
+      if (!start) { tanpaTahun++; return; }
+      const d = AsetHooks.depreciation(r, now, dcfg);
+      const s = AsetHooks.replacementScore(r, d, comp[String(r.no_aset || '').trim().toLowerCase()] || 0, cfg);
+      let due = start.getUTCFullYear() + cfg.umur;
+      if (s.tahap === 'GANTI_SEGERA' || due < nowYear) due = nowYear;
+      queue.push({ lab: sc.labs[r.makmal] || 'Bukan makmal / tiada', due: due, skor: s.skor, umur: d ? d.umurTahun || 0 : 0 });
+    });
+    queue.sort(function (a, b) { return (a.due - b.due) || (b.skor - a.skor) || (b.umur - a.umur); });
+    const inHorizon = queue.filter(function (q) { return q.due <= Y[Y.length - 1]; });
+    /* Unjuran keperluan (tanpa had bajet) */
+    const need = Y.map(function (y) {
+      const n = queue.filter(function (q) { return q.due === y; }).length;
+      return { tahun: y, bil: n, kos: n * harga };
+    });
+    const labNeed = {};
+    inHorizon.forEach(function (q) {
+      labNeed[q.lab] = labNeed[q.lab] || { label: q.lab, tahun: {} };
+      labNeed[q.lab].tahun[q.due] = (labNeed[q.lab].tahun[q.due] || 0) + 1;
+    });
+    /* Simulasi dengan bajet */
+    let sim = null;
+    if (bajet) {
+      const cap = Math.floor(bajet / harga);
+      const pending = queue.slice();
+      const done = [];
+      const rows = Y.map(function (y) {
+        const eligible = pending.filter(function (q) { return q.due <= y; })
+          .sort(function (a, b) { return (b.skor - a.skor) || (b.umur - a.umur) || (a.due - b.due); });
+        const take = eligible.slice(0, cap);
+        take.forEach(function (q) { pending.splice(pending.indexOf(q), 1); q.diganti = y; done.push(q); });
+        const tertunggak = pending.filter(function (q) { return q.due <= y; }).length;
+        return { tahun: y, diganti: take.length, kos: take.length * harga, tertunggakAkhirTahun: tertunggak };
+      });
+      const clear = rows.filter(function (r) { return r.tertunggakAkhirTahun === 0; })[0];
+      const labSim = {};
+      done.forEach(function (q) {
+        labSim[q.lab] = labSim[q.lab] || { label: q.lab, tahun: {} };
+        labSim[q.lab].tahun[q.diganti] = (labSim[q.lab].tahun[q.diganti] || 0) + 1;
+      });
+      sim = {
+        bajet: bajet, unitSetahun: cap, rows: rows, tahunSelesai: clear ? clear.tahun : null,
+        byMakmal: Object.keys(labSim).map(function (k) { return labSim[k]; }).sort(function (a, b) { return a.label < b.label ? -1 : 1; })
+      };
+    }
+    const totalNeed = inHorizon.length * harga;
+    return {
+      generatedAt: DateUtils.nowIso(), tahun: Y, harga: harga, umurGanti: cfg.umur, jumlahKomputer: sc.rows.length, tanpaTahun: tanpaTahun,
+      tertunggak: need[0].bil, keperluan: need, jumlahDalamTempoh: inHorizon.length, kosDalamTempoh: totalNeed,
+      bajetSetahunDiperlukan: Math.ceil(totalNeed / years),
+      byMakmal: Object.keys(labNeed).map(function (k) { return labNeed[k]; }).sort(function (a, b) { return a.label < b.label ? -1 : 1; }),
+      simulasi: sim
+    };
+  },
+
+  /**
+   * Indeks Kesihatan Makmal (0–100, tinggi = sihat). Penalti:
+   * umur purata (30), % rosak (25, penuh pada 20%), % perlu ganti (25), aduan setiap PC 12 bln (10, penuh pada 0.5), % belum disahkan (10).
+   * ≥ 70 Baik · 40–69 Sederhana · < 40 Kritikal.
+   */
+  reportLabHealth: function () {
+    const cfg = AsetHooks.replacementConfig();
+    const dcfg = AsetHooks.depConfig();
+    const comp = AsetHooks.complaintCounts_();
+    const now = new Date();
+    const labs = AsetHooks.active_('makmal').filter(function (l) { return l.status !== 'TIDAK_AKTIF'; });
+    const byLab = {};
+    labs.forEach(function (l) { byLab[l.id] = { id: l.id, label: l.kod ? l.kod + ' · ' + l.nama : l.nama, pc: 0, umurSum: 0, umurN: 0, rosak: 0, ganti: 0, aduan: 0, disahkan: 0, buku: 0, kos: 0 }; });
+    const BROKEN = ['PERLU_BAIKI', 'MENUNGGU_ALAT_GANTI', 'TIDAK_BOLEH_GUNA'];
+    AsetHooks.active_('aset').forEach(function (r) {
+      const L = byLab[r.makmal];
+      if (!L || r.status === 'DILUPUS' || AsetHooks.COMPUTERS.indexOf(r.jenis) < 0) return;
+      const d = AsetHooks.depreciation(r, now, dcfg);
+      const n = comp[String(r.no_aset || '').trim().toLowerCase()] || 0;
+      const s = AsetHooks.replacementScore(r, d, n, cfg);
+      L.pc++;
+      if (d && d.umurTahun !== null) { L.umurSum += d.umurTahun; L.umurN++; }
+      if (BROKEN.indexOf(r.status) >= 0) L.rosak++;
+      if (s.tahap === 'GANTI_SEGERA' || s.tahap === 'GANTI_TAHUN_DEPAN') L.ganti++;
+      L.aduan += n;
+      if (String(r.disahkan_fizikal).toUpperCase() === 'TRUE') L.disahkan++;
+      if (d) { L.kos += d.kos || 0; L.buku += d.nilaiBuku || 0; }
+    });
+    const items = Object.keys(byLab).map(function (k) { return byLab[k]; }).filter(function (L) { return L.pc > 0; }).map(function (L) {
+      const umur = L.umurN ? L.umurSum / L.umurN : 0;
+      const pRosak = L.rosak / L.pc, pGanti = L.ganti / L.pc, aduanPc = L.aduan / L.pc, pSah = L.disahkan / L.pc;
+      const pen = {
+        umur: 30 * Math.min(1, umur / (cfg.umur * 1.5)),
+        rosak: 25 * Math.min(1, pRosak / 0.2),
+        ganti: 25 * pGanti,
+        aduan: 10 * Math.min(1, aduanPc / 0.5),
+        pengesahan: 10 * (1 - pSah)
+      };
+      const skor = Math.max(0, Math.round(100 - pen.umur - pen.rosak - pen.ganti - pen.aduan - pen.pengesahan));
+      const r1 = function (x) { return Math.round(x * 10) / 10; };
+      return {
+        id: L.id, label: L.label, pc: L.pc, umurPurata: r1(umur), rosak: L.rosak, pctRosak: r1(pRosak * 100), perluGanti: L.ganti, pctGanti: r1(pGanti * 100),
+        aduan: L.aduan, pctDisahkan: r1(pSah * 100), nilaiBuku: Math.round(L.buku), skor: skor,
+        tahap: skor >= 70 ? 'BAIK' : skor >= 40 ? 'SEDERHANA' : 'KRITIKAL'
+      };
+    }).sort(function (a, b) { return a.skor - b.skor; });
+    return { generatedAt: DateUtils.nowIso(), umurGanti: cfg.umur, items: items };
+  },
+
+  /** Laporan Eksekutif: himpunan untuk Dekan / TDP (satu panggilan). */
+  reportExecutive: function (payload) {
+    const o = AsetHooks.overview(payload || {});
+    const v = AsetHooks.reportValue({});
+    const g = AsetHooks.reportReplacement({});
+    const p = AsetHooks.reportPlan({ tahun: 5 });
+    const h = AsetHooks.reportLabHealth();
+    const isu = [];
+    const rm = function (n) { return 'RM ' + Math.round(n).toLocaleString('en-US'); };
+    if (g.ringkasan.GANTI_SEGERA.bil) isu.push({ tone: 'danger', teks: g.ringkasan.GANTI_SEGERA.bil + ' komputer perlu diganti segera (anggaran ' + rm(g.ringkasan.GANTI_SEGERA.kos) + ').' });
+    if (p.tertunggak) isu.push({ tone: 'warn', teks: p.tertunggak + ' komputer telah melepasi umur ' + p.umurGanti + ' tahun atau perlu diganti tahun ini (anggaran ' + rm(p.tertunggak * p.harga) + ' pada harga semasa).' });
+    const kritikal = h.items.filter(function (i) { return i.tahap === 'KRITIKAL'; });
+    if (kritikal.length) isu.push({ tone: 'danger', teks: kritikal.length + ' makmal berstatus kritikal: ' + kritikal.slice(0, 4).map(function (i) { return i.label.split(' · ')[0]; }).join(', ') + (kritikal.length > 4 ? ', …' : '') + '.' });
+    if (o.assets.lokasiBerbeza) isu.push({ tone: 'warn', teks: o.assets.lokasiBerbeza + ' aset berada di lokasi berbeza daripada rekod UTMFin — rekod pergerakan KEWPA perlu dikemas kini.' });
+    if (o.assets.byPengesahan && o.assets.byPengesahan.LUPUS_REKOD_AKTIF) isu.push({ tone: 'warn', teks: o.assets.byPengesahan.LUPUS_REKOD_AKTIF + ' aset telah lupus tetapi rekod masih aktif di UTMFin.' });
+    if (o.tickets.overdue) isu.push({ tone: 'warn', teks: o.tickets.overdue + ' aduan IT melepasi tempoh SLA.' });
+    return {
+      generatedAt: DateUtils.nowIso(),
+      ringkasan: {
+        aset: o.assets.total, beroperasiPct: o.assets.operationalPct, nilaiPerolehan: v.total.kos, nilaiBuku: v.total.buku, susutHabis: v.total.habis,
+        gantiSegera: g.ringkasan.GANTI_SEGERA.bil, gantiTahunDepan: g.ringkasan.GANTI_TAHUN_DEPAN.bil, kosGanti: g.ringkasan.GANTI_SEGERA.kos + g.ringkasan.GANTI_TAHUN_DEPAN.kos,
+        tiketTerbuka: o.tickets.open, tiketLewat: o.tickets.overdue, sla: (o.tickets.slaTrend.filter(function (m) { return m.total; }).slice(-1)[0] || {}).value,
+        disahkanPct: o.assets.verifiedPct, lokasiBerbeza: o.assets.lokasiBerbeza, makmal: h.items.length
+      },
+      nilaiIkutMakmal: v.byMakmal.slice(0, 12), nilaiIkutTahun: v.byTahun,
+      pelan: { tahun: p.tahun, keperluan: p.keperluan, harga: p.harga, umurGanti: p.umurGanti, bajetSetahunDiperlukan: p.bajetSetahunDiperlukan, kosDalamTempoh: p.kosDalamTempoh, jumlahDalamTempoh: p.jumlahDalamTempoh },
+      makmal: h.items, pengesahan: o.assets.byPengesahan, isu: isu,
+      kaedah: { susut: v.config, ganti: g.config }
     };
   },
 

@@ -1,5 +1,18 @@
 # CHANGELOG
 
+## 1.4.0 — 2026-10-13 · Fasa 2c: Pengurusan & perancangan
+### Ditambah
+- **Peranan Pengurusan (baca sahaja)** untuk Dekan, Timbalan Dekan, TDP/TPK dan Ketua Jabatan. Super Admin menetapkannya di *Pengguna → Urus → Peranan*. Boleh melihat dashboard, perancangan dan laporan; tidak boleh menyunting, mengimport atau melihat daftar aset (butiran peribadi penjaga); tidak menerima notifikasi admin. Log masuk terus ke `/pengurusan`; navigasi telefon khas.
+- **Perancangan aset IT** (`/pengurusan`, admin: `/admin/perancangan`):
+  - *Ringkasan*: KPI, perkara untuk perhatian/keputusan (dijana automatik), unjuran 5 tahun, kesihatan makmal.
+  - *Pelan penggantian 5 tahun*: keperluan ikut tahun & makmal (tertunggak + matang), purata bajet diperlukan; **simulasi bajet** (RM/tahun) — PC diganti setahun, baki tertunggak, tahun tunggakan selesai, jadual ikut makmal mengikut keutamaan.
+  - *Indeks kesihatan makmal* (0–100): umur purata, % rosak, % perlu ganti, aduan, % disahkan → Baik / Sederhana / Kritikal.
+- **Laporan Eksekutif** (`/pengurusan/laporan`) — dokumen 2–3 muka surat sedia cetak / PDF untuk mesyuarat pengurusan.
+
+### Teras
+- Peranan `PENGURUSAN` (tahap antara USER dan ADMIN); notifikasi "admin" kini ikut `hasRole(ADMIN)`, bukan "bukan USER".
+- Hook frontend generik: akses laluan `management`, item menu ke-4 `'management'`, `KD.homePath(role)`, `KD.bottomNavFor(items, role)`.
+
 ## 1.3.0 — 2026-10-13 · Fasa 2a: nilai aset, susut nilai & cadangan penggantian
 ### Ditambah
 - **Laporan aset** (`/admin/laporan-aset`) dengan 3 tab, tapisan makmal/kategori/jenis, eksport CSV dan Cetak/PDF:
