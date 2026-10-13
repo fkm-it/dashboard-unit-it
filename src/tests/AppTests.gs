@@ -958,6 +958,22 @@ const TestSuiteKomputerMakmal = {
       t.eq(it.pc, 3); t.eq(it.desktop, 2); t.eq(it.laptop, 1); t.eq(it.beroperasi, 2); t.eq(it.rosak, 1); t.eq(it.tahunTertua, 2018);
       t.ok(it.indeks !== null && it.tahap, 'indeks makmal');
       t.ok(o.komputerMakmal.jumlah.pc >= 3);
+      /* Kesediaan Windows 11 */
+      t.eq(AsetHooks.osOf('Windows 10 Pro (22H2)'), 'W10'); t.eq(AsetHooks.osOf('Win 11 Pro'), 'W11'); t.eq(AsetHooks.osOf(''), '');
+      t.eq(AsetHooks.cpuOf('Intel(R) Core(TM) i7-7700 CPU @ 3.60GHz').gen, 7); t.eq(AsetHooks.cpuOf('Intel(R) Core(TM) i7-7700 CPU').win11, false);
+      t.eq(AsetHooks.cpuOf('Intel Core i7-9700').win11, true); t.eq(AsetHooks.cpuOf('i5-12500').gen, 12); t.eq(AsetHooks.cpuOf('AMD Ryzen 5 3600').win11, true);
+      TestAssert.apiOk(TestHelpers.call(a.token, 'aset.import', { rows: [
+        { noAset: 'KM-1', sistemOperasi: 'Windows 10 Pro', cpu: 'Intel(R) Core(TM) i7-7700' },
+        { noAset: 'KM-2', sistemOperasi: 'Windows 10 Pro', cpu: 'Intel Core i7-9700' },
+        { noAset: 'KM-3', sistemOperasi: 'Windows 11 Pro', cpu: 'Intel Core i5-1235U', ramGb: '16' }
+      ] }));
+      const o2 = TestAssert.apiOk(TestHelpers.call(a.token, 'aset.overview', { tahun: 2026 }));
+      const sp = o2.spesifikasi;
+      t.ok(sp.os.W10 >= 2 && sp.win11.perluGanti >= 1 && sp.win11.layak >= 1 && sp.win11.sudah >= 1, JSON.stringify(sp.win11));
+      t.ok(sp.w10Makmal.some(function (m) { return m.id === lab.id && m.w10 === 2 && m.perluGanti === 1; }));
+      t.ok(o2.penilaian && o2.penilaian.jumlah >= 1);
+      const e = TestAssert.apiOk(TestHelpers.call(a.token, 'aset.eksekutif', {}));
+      t.ok(e.isu.some(function (i) { return /Windows 10/.test(i.teks); }), 'isu Windows 10 dalam laporan eksekutif');
       /* Nama item diutamakan berbanding deskripsi tender */
       t.eq(AsetHooks.jenisFor('DESKTOP (PAKEJ 2 - FKM)', 'TENDER: PC DESKTOP, LAPTOP, RUGGED NOTEBOOK DAN LCD PROJECTOR'), 'DESKTOP');
       t.eq(AsetHooks.jenisFor('PAKEJ 3', 'BEKALAN KOMPUTER RIBA / LAPTOP'), 'LAPTOP');

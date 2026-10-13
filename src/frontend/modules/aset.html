@@ -181,6 +181,60 @@
       <p class="xs muted mt-2">Komputer = komputer meja, riba dan workstation yang dipautkan ke makmal (tidak termasuk dilupus).${k.tanpaMakmal ? ' ' + fmtNum(k.tanpaMakmal) + ' komputer lain tidak dipautkan ke mana-mana makmal (pejabat / staf).' : ''}${k.makmalTanpaPc ? ' ' + fmtNum(k.makmalTanpaPc) + ' makmal belum ada komputer dalam daftar aset.' : ''} Klik nama makmal untuk senarai aset.</p></section>`;
   }
 
+  /* Kesediaan Windows 11 & profil spesifikasi */
+  function win11Panel(sp) {
+    const w = sp.win11, tot = sp.jumlah;
+    const seg = [
+      ['Windows 11', w.sudah, '#15803D'], ['Win 10 · boleh naik taraf', w.layak, '#D97706'], ['Win 10 · perlu ganti (CPU tidak disokong)', w.perluGanti, '#DC2626'],
+      ['Win 10 · CPU tidak diketahui', w.cpuTidakDiketahui, '#F59E0B'], ['Windows lama (7/8)', w.osLama, '#7F1D1D'], ['Tiada data OS', w.tiadaData, '#CBD5E1']
+    ].filter((x) => x[1] > 0);
+    const w10 = sp.os.W10 + sp.os.W_LAMA;
+    return html`<section class="panel"><div class="panel-head"><h3>Kesediaan Windows 11</h3><span class="xs muted">${fmtNum(tot)} komputer</span></div>
+      ${w10 ? html`<div class="xo-issue xo-issue--danger">${icon('alert', 'i-sm')}<span class="small"><b>${fmtNum(w10)} komputer</b> masih Windows 10 atau lebih lama. Sokongan keselamatan Windows 10 tamat <b>14 Okt 2025</b>.</span></div>` : ''}
+      <div style="display:flex;height:14px;border-radius:7px;overflow:hidden;margin:12px 0 10px;background:var(--canvas-200)" role="img" aria-label="Taburan sistem operasi">${seg.map((x) => html`<span title="${x[0]}: ${x[1]}" style="width:${(x[1] / tot) * 100}%;background:${x[2]}"></span>`)}</div>
+      <div class="xo-legend">${seg.map((x) => html`<span><i style="background:${x[2]}"></i>${x[0]}<b>${fmtNum(x[1])}</b></span>`)}</div>
+      ${sp.w10Makmal.length ? html`<div class="im-scroll mt-4"><table class="xo-table" style="min-width:0"><thead><tr><th>Makmal (Windows 10)</th><th class="num">PC</th><th class="num">Naik taraf</th><th class="num">Ganti</th></tr></thead>
+        <tbody>${sp.w10Makmal.slice(0, 6).map((m) => html`<tr><td>${m.label}</td><td class="num">${fmtNum(m.w10)}</td><td class="num">${fmtNum(m.layak)}</td><td class="num">${m.perluGanti ? html`<b style="color:var(--danger)">${fmtNum(m.perluGanti)}</b>` : '0'}</td></tr>`)}</tbody></table></div>` : ''}
+      <div class="xo-grid3" style="margin-top:var(--sp-4)"><div><div class="label">RAM</div>${C.hbars(sp.ram.filter((r) => r.value), { title: 'RAM' })}</div>
+        <div><div class="label">Pemproses</div>${C.hbars(sp.cpu.slice(0, 6), { title: 'Pemproses' })}</div></div>
+      <p class="xs muted mt-2">Layak Windows 11 = Intel Core generasi 8 ke atas atau AMD Ryzen 2000 ke atas (keperluan CPU Microsoft). Data OS ada untuk ${fmtNum(sp.adaDataOs)} daripada ${fmtNum(tot)} komputer${sp.adaDataOs < tot ? ' — lengkapkan medan CPU/OS (import spesifikasi) untuk liputan penuh' : ''}.</p></section>`;
+  }
+
+  /* Kapasiti: komputer beroperasi berbanding keperluan (pengguna setiap sesi, jika tiada → tempat komputer) */
+  function capacityPanel(k) {
+    const rows = ((k && k.items) || []).map((i) => {
+      const need = i.pengguna || i.tempat;
+      return need ? Object.assign({}, i, { need, basis: i.pengguna ? 'pengguna/sesi' : 'tempat', diff: i.beroperasi - need }) : null;
+    }).filter(Boolean).sort((a, b) => a.diff - b.diff);
+    const kurang = rows.filter((r) => r.diff < 0);
+    return html`<section class="panel"><div class="panel-head"><h3>Kapasiti makmal</h3><span class="xs muted">PC beroperasi berbanding keperluan</span></div>
+      ${rows.length ? html`${kurang.length ? html`<p class="small" style="color:var(--danger)">${icon('alert', 'i-sm')} <b>${fmtNum(kurang.length)} makmal</b> kekurangan ${fmtNum(kurang.reduce((s2, r) => s2 - r.diff, 0))} komputer beroperasi.</p>` : html`<p class="small" style="color:var(--success)">${icon('check', 'i-sm')} Semua makmal cukup komputer beroperasi.</p>`}
+        <div class="im-scroll mt-2"><table class="xo-table" style="min-width:0"><thead><tr><th>Makmal</th><th class="num">Beroperasi / perlu</th><th>Status</th></tr></thead><tbody>
+        ${rows.map((r) => { const p = Math.min(100, Math.round((r.beroperasi / r.need) * 100)); return html`<tr><td>${r.label}<div class="xo-meter__track mt-1"><div class="xo-meter__fill ${r.diff >= 0 ? 'is-ok' : p >= 80 ? 'is-warn' : ''}" style="width:${p}%;${p < 80 ? 'background:var(--danger)' : ''}"></div></div></td>
+          <td class="num">${fmtNum(r.beroperasi)} / ${fmtNum(r.need)}<div class="xs muted">${r.basis}</div></td>
+          <td>${r.diff < 0 ? toneBadge('Kurang ' + fmtNum(-r.diff), 'danger') : r.diff > 0 ? toneBadge('Lebih ' + fmtNum(r.diff), 'muted') : toneBadge('Cukup', 'success')}</td></tr>`; })}</tbody></table></div>
+        <p class="xs muted mt-2">Keperluan = "Anggaran pengguna setiap sesi" dalam rekod makmal; jika kosong, "Tempat komputer". Kemas kini di menu Makmal untuk ketepatan.</p>`
+        : html`<p class="muted small">Isi "Tempat komputer" atau "Anggaran pengguna setiap sesi" dalam rekod <a href="#/admin/makmal">Makmal</a> untuk melihat kapasiti.</p>`}</section>`;
+  }
+
+  /* Status Penilaian Keperluan ICT Makmal tahun semasa */
+  function penilaianPanel(p) {
+    if (!p || !p.jumlah) return '';
+    const r = p.rumusan.semua;
+    const pct = p.jumlah ? Math.round((p.dihantar / p.jumlah) * 1000) / 10 : 0;
+    return html`<section class="panel mt-4"><div class="panel-head"><h3>Penilaian Keperluan ICT Makmal · ${p.tahun}</h3><a class="small" href="#/admin/keperluan">Lihat permohonan</a></div>
+      <div class="xo-grid3" style="margin-top:0">
+        <div>${meter('Makmal telah menghantar', pct, fmtNum(p.dihantar) + ' daripada ' + fmtNum(p.jumlah) + ' makmal' + (p.unitIt ? ' · ' + fmtNum(p.unitIt) + ' makmal komputer diisi Unit IT' : ''))}
+          <div class="lp-cards" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-top:var(--sp-3)">
+            ${card('Penggantian', fmtNum(r.ganti) + ' PC', rm(r.kosGanti))}
+            ${card('Penambahan', fmtNum(r.tambahan) + ' PC', rm(r.kosTambahan))}</div>
+          <p class="xs muted mt-2">Dijumlah berasingan daripada ${fmtNum(r.makmal)} permohonan (Ditolak tidak dikira). Disahkan Unit IT: ${fmtNum(p.rumusan.disahkan.ganti)} ganti · ${fmtNum(p.rumusan.disahkan.tambahan)} tambah.</p></div>
+        <div><div class="label">Belum menghantar${p.belum - p.unitIt > p.belumSenarai.length ? ' (' + fmtNum(p.belum - p.unitIt) + ')' : ''}</div>
+          ${p.belumSenarai.length ? html`<ul class="small" style="margin:6px 0 0;padding-left:18px">${p.belumSenarai.map((b) => html`<li>${b.label}${b.penerima ? '' : html` <span class="xs" style="color:var(--warn)">· tiada staf/email</span>`}</li>`)}</ul>
+            ${p.bolehEmel ? html`<p class="xs muted mt-2">Hantar peringatan: Keperluan Makmal → <b>Status banci & hantar link</b>.</p>` : ''}`
+            : html`<p class="small" style="color:var(--success)">${icon('check', 'i-sm')} Semua makmal telah menghantar.</p>`}</div></div></section>`;
+  }
+
   function view(o) {
     const a = o.assets, t = o.tickets, l = o.labs;
     const faulty = (a.byStatus.PERLU_BAIKI || 0) + (a.byStatus.MENUNGGU_ALAT_GANTI || 0) + (a.byStatus.TIDAK_BOLEH_GUNA || 0);
@@ -207,6 +261,8 @@
         <a class="lp-card" href="#/admin/laporan-aset?t=ganti" style="text-decoration:none;color:inherit"><span class="xs muted">Anggaran kos penggantian</span><b>RM ${rmx(o.ganti.kos)}</b><span class="xs muted">Segera + tahun depan</span></a>
       </div>` : ''}
       ${pcLabPanel(o.komputerMakmal)}
+      ${o.spesifikasi && o.spesifikasi.jumlah ? html`<div class="xo-grid3">${win11Panel(o.spesifikasi)}${capacityPanel(o.komputerMakmal)}</div>` : ''}
+      ${penilaianPanel(o.penilaian)}
       <div class="xo-grid4">
         <section class="panel"><div class="panel-head"><h3>Pematuhan SLA</h3><span class="xs muted">6 bulan</span></div>
           ${lastSla ? html`<div class="xo-big">${pctTxt(lastSla.value)}</div><div class="xs muted mt-1 mb-4">${monthName(lastSla.label)}: ${fmtNum(lastSla.within)} daripada ${fmtNum(lastSla.total)} tiket selesai dalam sasaran</div>

@@ -376,6 +376,10 @@ const AsetHooks = {
     if (o.assets.lokasiBerbeza) isu.push({ tone: 'warn', teks: o.assets.lokasiBerbeza + ' aset berada di lokasi berbeza daripada rekod UTMFin — rekod pergerakan KEWPA perlu dikemas kini.' });
     if (o.assets.byPengesahan && o.assets.byPengesahan.LUPUS_REKOD_AKTIF) isu.push({ tone: 'warn', teks: o.assets.byPengesahan.LUPUS_REKOD_AKTIF + ' aset telah lupus tetapi rekod masih aktif di UTMFin.' });
     if (o.tickets.overdue) isu.push({ tone: 'warn', teks: o.tickets.overdue + ' aduan IT melepasi tempoh SLA.' });
+    if (o.spesifikasi && o.spesifikasi.os.W10) {
+      const w = o.spesifikasi.win11;
+      isu.push({ tone: 'danger', teks: o.spesifikasi.os.W10 + ' komputer masih Windows 10 (sokongan keselamatan Microsoft tamat 14 Okt 2025): ' + w.layak + ' boleh dinaik taraf ke Windows 11, ' + w.perluGanti + ' perlu diganti kerana CPU tidak disokong' + (w.cpuTidakDiketahui ? ', ' + w.cpuTidakDiketahui + ' belum ada data CPU' : '') + '.' });
+    }
     let tindakan = null;
     if (typeof TindakanHooks !== 'undefined') {
       try { tindakan = TindakanHooks.summary(); } catch (e) { tindakan = null; }
@@ -531,6 +535,17 @@ const AsetHooks = {
     const nv = AsetHooks.reportValue({}).total;
     const rp = AsetHooks.reportReplacement({}).ringkasan;
     const pcLabs = AsetHooks.computersByLab_(assets, labs);
+    const spec = AsetHooks.specProfile_(assets, labById);
+    let penilaian = null;
+    try {
+      const cs = KeperluanHooks.censusStatus({ tahun: year });
+      const sm = KeperluanHooks.summary({ tahun: year });
+      penilaian = {
+        tahun: year, jumlah: cs.jumlah, dihantar: cs.dihantar, belum: cs.belum, unitIt: cs.unitIt, bolehEmel: cs.bolehEmel,
+        belumSenarai: cs.items.filter(function (i) { return !i.dihantar && !i.unitIt; }).slice(0, 8).map(function (i) { return { id: i.id, label: i.label, penerima: i.penerima }; }),
+        rumusan: sm.jumlah, ikutJenis: sm.ikutJenis
+      };
+    } catch (e) { penilaian = null; }
     return {
       generatedAt: nowIso,
       tahun: year,
@@ -562,7 +577,77 @@ const AsetHooks = {
         top: topLabs
       },
       komputerMakmal: pcLabs,
+      spesifikasi: spec,
+      penilaian: penilaian,
       issues: issues
+    };
+  },
+
+  /** 'Windows 10 Pro (22H2)' → 'W10'. */
+  osOf: function (v) {
+    const t = String(v || '').toUpperCase();
+    if (!t.trim()) return '';
+    if (/(WIN(DOWS)?)\s*11/.test(t)) return 'W11';
+    if (/(WIN(DOWS)?)\s*10/.test(t)) return 'W10';
+    if (/(WIN(DOWS)?)\s*(7|8|XP|VISTA)/.test(t)) return 'W_LAMA';
+    if (/UBUNTU|LINUX|MAC/.test(t)) return 'LAIN';
+    return 'LAIN';
+  },
+
+  /** CPU → { keluarga, gen, win11 (layak ikut keperluan CPU Windows 11: Intel gen 8+, Ryzen 2000+) }. */
+  cpuOf: function (v) {
+    const t = String(v || '').toUpperCase().replace(/\(R\)|\(TM\)/g, '');
+    if (!t.trim()) return null;
+    let m = /\bI([3579])[\s-]*(\d{4,5})/.exec(t);
+    if (m) {
+      const n = m[2];
+      const gen = n.length === 5 ? Number(n.slice(0, 2)) : Number(n.charAt(0));
+      return { keluarga: 'Core i' + m[1], gen: gen, win11: gen >= 8 };
+    }
+    m = /RYZEN\s*([3579])\s*(PRO\s*)?(\d)\d{3}/.exec(t);
+    if (m) return { keluarga: 'Ryzen ' + m[1], gen: Number(m[3]), win11: Number(m[3]) >= 2 };
+    if (/CORE\s*ULTRA/.test(t)) return { keluarga: 'Core Ultra', gen: 14, win11: true };
+    if (/XEON/.test(t)) return { keluarga: 'Xeon', gen: null, win11: null };
+    if (/PENTIUM|CELERON|ATOM/.test(t)) return { keluarga: 'Pentium/Celeron', gen: null, win11: null };
+    return { keluarga: 'Lain', gen: null, win11: null };
+  },
+
+  /**
+   * Profil spesifikasi komputer + kesediaan Windows 11 (Windows 10 tamat sokongan 14 Okt 2025).
+   * Kategori: W11 · W10 layak naik taraf (CPU disokong) · W10 perlu ganti (CPU tidak disokong) · W10 CPU tidak diketahui · OS lama · tiada data.
+   */
+  specProfile_: function (assets, labById) {
+    const pcs = assets.filter(function (r) { return AsetHooks.COMPUTERS.indexOf(r.jenis) >= 0; });
+    const os = { W11: 0, W10: 0, W_LAMA: 0, LAIN: 0, TIADA: 0 };
+    const w11 = { sudah: 0, layak: 0, perluGanti: 0, cpuTidakDiketahui: 0, osLama: 0, tiadaData: 0 };
+    const ram = { '< 8 GB': 0, '8–15 GB': 0, '16–31 GB': 0, '≥ 32 GB': 0, 'Tiada data': 0 };
+    const cpu = {};
+    const byLab = {};
+    pcs.forEach(function (r) {
+      const o = AsetHooks.osOf(r.sistem_operasi);
+      const c = AsetHooks.cpuOf(r.cpu);
+      os[o || 'TIADA']++;
+      if (o === 'W11') w11.sudah++;
+      else if (o === 'W10') { if (c && c.win11 === true) w11.layak++; else if (c && c.win11 === false) w11.perluGanti++; else w11.cpuTidakDiketahui++; }
+      else if (o === 'W_LAMA') w11.osLama++;
+      else w11.tiadaData++;
+      const g = Number(r.ram_gb);
+      ram[!g ? 'Tiada data' : g < 8 ? '< 8 GB' : g < 16 ? '8–15 GB' : g < 32 ? '16–31 GB' : '≥ 32 GB']++;
+      const ck = c ? c.keluarga + (c.gen ? ' gen ' + c.gen : '') : 'Tiada data';
+      cpu[ck] = (cpu[ck] || 0) + 1;
+      if (o === 'W10' && r.makmal && labById[r.makmal]) {
+        const l = labById[r.makmal];
+        const b = byLab[r.makmal] = byLab[r.makmal] || { id: r.makmal, label: l.kod ? l.kod + ' · ' + l.nama : l.nama, w10: 0, layak: 0, perluGanti: 0 };
+        b.w10++;
+        if (c && c.win11 === true) b.layak++; else if (c && c.win11 === false) b.perluGanti++;
+      }
+    });
+    const dikenalpasti = pcs.length - os.TIADA;
+    return {
+      jumlah: pcs.length, adaDataOs: dikenalpasti, os: os, win11: w11,
+      ram: Object.keys(ram).map(function (k) { return { label: k, value: ram[k] }; }),
+      cpu: Object.keys(cpu).map(function (k) { return { label: k, value: cpu[k] }; }).sort(function (a, b) { return b.value - a.value; }),
+      w10Makmal: Object.keys(byLab).map(function (k) { return byLab[k]; }).sort(function (a, b) { return b.w10 - a.w10; })
     };
   },
 
@@ -577,7 +662,7 @@ const AsetHooks = {
     try { AsetHooks.reportLabHealth().items.forEach(function (h) { health[h.id] = h; }); } catch (e) { /* tiada */ }
     const by = {};
     labs.forEach(function (l) {
-      by[l.id] = { id: l.id, label: l.kod ? l.kod + ' · ' + l.nama : l.nama, jenis: l.jenis_makmal || '', tempat: Number(l.tempat_komputer) || 0,
+      by[l.id] = { id: l.id, label: l.kod ? l.kod + ' · ' + l.nama : l.nama, jenis: l.jenis_makmal || '', tempat: Number(l.tempat_komputer) || 0, pengguna: Number(l.pengguna_sesi) || 0,
         pc: 0, desktop: 0, laptop: 0, workstation: 0, beroperasi: 0, rosak: 0, umurSum: 0, umurN: 0, tertua: null };
     });
     let tanpa = 0;
@@ -599,7 +684,7 @@ const AsetHooks = {
     const items = all.filter(function (L) { return L.pc > 0; }).map(function (L) {
       const h = health[L.id] || {};
       return {
-        id: L.id, label: L.label, jenis: L.jenis, pc: L.pc, desktop: L.desktop, laptop: L.laptop, workstation: L.workstation, tempat: L.tempat,
+        id: L.id, label: L.label, jenis: L.jenis, pc: L.pc, desktop: L.desktop, laptop: L.laptop, workstation: L.workstation, tempat: L.tempat, pengguna: L.pengguna,
         beroperasi: L.beroperasi, rosak: L.rosak, umurPurata: L.umurN ? Math.round((L.umurSum / L.umurN) * 10) / 10 : null, tahunTertua: L.tertua,
         perluGanti: h.perluGanti || 0, indeks: h.skor === undefined ? null : h.skor, tahap: h.tahap || ''
       };

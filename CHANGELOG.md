@@ -1,5 +1,20 @@
 # CHANGELOG
 
+## 1.12.0 — 2026-10-13 · Kesediaan Windows 11, kapasiti & status penilaian
+### Ditambah
+- Tiga panel baharu di **Executive Overview**:
+  - **Kesediaan Windows 11**:
+    - Taburan komputer kepada Windows 11, Windows 10 yang boleh dinaik taraf (Intel gen 8+ / Ryzen 2000+), Windows 10 yang perlu diganti kerana CPU tidak disokong, dan Windows 10 yang data CPU-nya tiada.
+    - Senarai makmal yang masih menggunakan Windows 10.
+    - Taburan RAM dan pemproses.
+    - Liputan data spesifikasi.
+  - **Kapasiti makmal**: bilangan PC beroperasi berbanding anggaran pengguna setiap sesi (atau tempat komputer jika kosong), dengan status Kurang, Cukup atau Lebih.
+  - **Penilaian Keperluan ICT Makmal**:
+    - Peratus makmal yang telah menghantar.
+    - Jumlah penggantian dan penambahan, dikira berasingan beserta kos.
+    - Senarai makmal yang belum menghantar.
+- **Laporan Eksekutif**: isu automatik bilangan komputer yang masih Windows 10 (sokongan tamat 14 Okt 2025), dipecahkan kepada yang boleh dinaik taraf dan yang perlu diganti.
+
 ## 1.11.0 — 2026-10-13 · Komputer ikut makmal
 ### Ditambah
 - Panel baharu **Komputer ikut makmal** di Executive Overview. Bagi setiap makmal, panel ini memaparkan:
