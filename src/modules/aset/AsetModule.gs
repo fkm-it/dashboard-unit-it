@@ -147,6 +147,23 @@ const AsetModule = Object.freeze(Object.assign(
         "column": "model"
       },
       {
+        "key": "namaAlat",
+        "label": "Nama alat (inventori makmal)",
+        "type": "string",
+        "max": 120,
+        "search": true,
+        "column": "nama_alat"
+      },
+      {
+        "key": "monitor",
+        "label": "Monitor",
+        "type": "string",
+        "max": 160,
+        "search": true,
+        "hint": "Model & no. siri monitor yang dipasangkan dengan CPU ini.",
+        "column": "monitor"
+      },
+      {
         "key": "makmal",
         "label": "Makmal",
         "type": "ref",
@@ -172,6 +189,32 @@ const AsetModule = Object.freeze(Object.assign(
         "search": true,
         "placeholder": "cth. J.C24.01.108-01",
         "column": "kod_lokasi"
+      },
+      {
+        "key": "lokasiFizikal",
+        "label": "Lokasi fizikal (semakan makmal)",
+        "type": "string",
+        "max": 40,
+        "search": true,
+        "placeholder": "cth. C24.411",
+        "column": "lokasi_fizikal"
+      },
+      {
+        "key": "lokasiBerbeza",
+        "label": "Lokasi fizikal ≠ UTMFin",
+        "type": "bool",
+        "filter": true,
+        "readonly": true,
+        "hint": "Ditanda automatik semasa import; rekod pergerakan aset (KEWPA) mungkin perlu dikemas kini.",
+        "column": "lokasi_berbeza"
+      },
+      {
+        "key": "picMakmal",
+        "label": "PIC makmal",
+        "type": "string",
+        "max": 120,
+        "search": true,
+        "column": "pic_makmal"
       },
       {
         "key": "pegawaiBertanggungjawab",
@@ -403,6 +446,63 @@ const AsetModule = Object.freeze(Object.assign(
           }
         ],
         "column": "cadangan"
+      },
+      {
+        "key": "kategoriAset",
+        "label": "Kategori aset",
+        "type": "enum",
+        "filter": true,
+        "options": [
+          {
+            "value": "ASET_TETAP",
+            "label": "Aset Tetap"
+          },
+          {
+            "value": "INVENTORI",
+            "label": "Inventori"
+          }
+        ],
+        "column": "kategori_aset"
+      },
+      {
+        "key": "borangKewpa",
+        "label": "Borang KEWPA",
+        "type": "string",
+        "max": 20,
+        "placeholder": "cth. KEW.PA-2",
+        "column": "borang_kewpa"
+      },
+      {
+        "key": "kegunaan",
+        "label": "Status penggunaan",
+        "type": "string",
+        "max": 60,
+        "placeholder": "cth. Pengajaran",
+        "column": "kegunaan"
+      },
+      {
+        "key": "sopAda",
+        "label": "SOP ada",
+        "type": "bool",
+        "column": "sop_ada"
+      },
+      {
+        "key": "selenggaraCutiSem",
+        "label": "Penyelenggaraan berkala (cuti semester)",
+        "type": "bool",
+        "column": "selenggara_cuti_sem"
+      },
+      {
+        "key": "selenggaraSukuTahun",
+        "label": "Penyelenggaraan 3 bulan sekali",
+        "type": "bool",
+        "column": "selenggara_suku_tahun"
+      },
+      {
+        "key": "selenggaraIkutKeadaan",
+        "label": "Penyelenggaraan ikut keadaan / aduan",
+        "type": "bool",
+        "column": "selenggara_ikut_keadaan"
       },
       {
         "key": "disahkanFizikal",

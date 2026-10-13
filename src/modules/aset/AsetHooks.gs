@@ -19,6 +19,14 @@ const AsetHooks = {
     if (dup) throw Errors.conflict('No. aset ' + data.noAset + ' telah wujud.');
   },
 
+  beforeSave: function (row, info) {
+    const cur = info.current || {};
+    if (row.kod_lokasi === undefined && row.lokasi_fizikal === undefined) return;
+    const kod = row.kod_lokasi !== undefined ? row.kod_lokasi : cur.kod_lokasi;
+    const fiz = row.lokasi_fizikal !== undefined ? row.lokasi_fizikal : cur.lokasi_fizikal;
+    row.lokasi_berbeza = AsetHooks.lokasiBerbeza(kod, fiz);
+  },
+
   toDTO: function (dto, row) {
     const y = Number(row.tahun_perolehan);
     dto.umurTahun = y ? Math.max(0, Number(DateUtils.format(new Date(), 'yyyy')) - y) : null;
@@ -50,10 +58,12 @@ const AsetHooks = {
     let verified = 0;
     let complete = 0;
     let nilai = 0;
+    let lokasiBerbeza = 0;
     const byPengesahan = {};
     const byVerifier = {};
     assets.forEach(function (r) {
       nilai += Number(r.nilai_perolehan) || 0;
+      if (String(r.lokasi_berbeza).toUpperCase() === 'TRUE') lokasiBerbeza++;
 
       aStatus[r.status] = (aStatus[r.status] || 0) + 1;
       aJenis[r.jenis] = (aJenis[r.jenis] || 0) + 1;
@@ -141,7 +151,7 @@ const AsetHooks = {
         total: assets.length, operational: operational, operationalPct: pct(operational, assets.length),
         byStatus: aStatus, byJenis: aJenis, verified: verified, verifiedPct: pct(verified, assets.length),
         completePct: pct(complete, assets.length),
-        nilai: Math.round(nilai * 100) / 100,
+        nilai: Math.round(nilai * 100) / 100, lokasiBerbeza: lokasiBerbeza,
         byPengesahan: byPengesahan, recordTotal: allAssets.length,
         byVerifier: Object.keys(byVerifier).map(function (k) { return { label: k, value: byVerifier[k] }; }).sort(function (a, b) { return b.value - a.value; })
       },
@@ -173,6 +183,33 @@ const AsetHooks = {
     return String(kodLokasi || '').trim().toUpperCase().split(/[-\/ ]/)[0];
   },
 
+  /**
+   * Kod bilik daripada lokasi fizikal senarai makmal: 'C24.411' → 'J.C24.04.411' (aras = digit pertama no. bilik).
+   * Format UTMFin penuh ('J.C24.04.411-01') diterima terus.
+   */
+  physicalRoom: function (v) {
+    const s = String(v || '').trim().toUpperCase().replace(/\s+/g, '');
+    if (!s) return '';
+    if (/^J\./.test(s)) return AsetHooks.roomOf(s);
+    const m = s.match(/^([A-Z]+\d+[A-Z]?)[.\-\/](\d)(\d{2,})$/);
+    if (m) return 'J.' + m[1] + '.0' + m[2] + '.' + m[2] + m[3];
+    const m2 = s.match(/^([A-Z]+\d+[A-Z]?)[.\-\/](\d{2})[.\-\/](\d+)$/);
+    if (m2) return 'J.' + m2[1] + '.' + m2[2] + '.' + m2[3];
+    return '';
+  },
+
+  /** Lokasi fizikal & UTMFin kedua-duanya diketahui dan biliknya berbeza. */
+  lokasiBerbeza: function (kodLokasi, lokasiFizikal) {
+    const a = AsetHooks.roomOf(kodLokasi);
+    const b = AsetHooks.physicalRoom(lokasiFizikal);
+    return !!(a && b && a !== b);
+  },
+
+  /** Bilik berkesan untuk pautan makmal: lokasi fizikal (semakan terkini) mengatasi UTMFin. */
+  effectiveRoom_: function (r) {
+    return AsetHooks.physicalRoom(r.lokasi_fizikal) || AsetHooks.roomOf(r.kod_lokasi);
+  },
+
   /** Lokasi mesra manusia: 'J.C24.01.108-01' → 'C24 · Aras 01 · Bilik 108-01'. */
   lokasiLabel: function (kodLokasi) {
     const p = String(kodLokasi || '').trim().replace(/^J\./i, '').split('.');
@@ -181,7 +218,7 @@ const AsetHooks = {
   },
 
   /** Jenis aset daripada nama item UTMFin (semua data J24 ialah komputer). */
-  jenisOf: function (text) {
+  jenisOf: function (text, fallback) {
     const t = String(text || '').toUpperCase();
     if (/LAPTOP|NOTEBOOK|NOOTBOOK|PROBOOK|ELITEBOOK|THINKPAD|VOSTRO 1[345]|RUGGED|ULTRABOOK/.test(t)) return 'LAPTOP';
     if (/WORKSTATION/.test(t)) return 'WORKSTATION';
@@ -190,7 +227,8 @@ const AsetHooks = {
     if (/SERVER|PELAYAN/.test(t)) return 'PELAYAN';
     if (/SWITCH|ROUTER/.test(t)) return 'SWITCH';
     if (/ACCESS POINT/.test(t)) return 'AP';
-    return 'DESKTOP';
+    if (/DESKTOP|KOMPUTER|COMPUTER|\bCPU\b|\bPC\b|PRODESK|ELITE ?DESK|OPTIPLEX|COMPAQ|PAVIL+ION|SLIMLINE|ALL.IN.ONE/.test(t)) return 'DESKTOP';
+    return fallback || 'LAIN';
   },
 
   jenamaOf: function (text) {
@@ -217,21 +255,42 @@ const AsetHooks = {
    * Isi medan terbitan bagi baris import (hanya jika tidak diberi dalam fail).
    * @param {Object} src nilai camelCase (diubah di tempat) @return {string} status operasi terbitan ('' = lalai)
    */
-  derive: function (src, labRooms) {
+  /** Status keadaan daripada senarai makmal (lajur STATUS ALAT: Baik / Penyelenggaraan / Rosak). */
+  CONDITION: { 'baik': 'BERFUNGSI', 'berfungsi': 'BERFUNGSI', 'penyelenggaraan': 'PERLU_BAIKI', 'dalam penyelenggaraan': 'PERLU_BAIKI', 'rosak': 'TIDAK_BOLEH_GUNA' },
+
+  derive: function (src, labRooms, cur) {
+    cur = cur || {};
+    let condition = '';
+    if (src.statusPengesahan && AsetHooks.CONDITION[String(src.statusPengesahan).trim().toLowerCase()]) {
+      condition = AsetHooks.CONDITION[String(src.statusPengesahan).trim().toLowerCase()];
+      delete src.statusPengesahan;
+    }
+    if (!src.jenis && (src.model || src.namaAlat) && !cur.id) src.jenis = AsetHooks.jenisOf((src.model || src.namaAlat) + ' ' + (src.deskripsiPerolehan || ''), /^B3[56]2/.test(String(src.kodSodo || '')) ? 'DESKTOP' : 'LAIN');
+    if (!src.jenama && (src.model || src.namaAlat) && !cur.jenama) { const j = AsetHooks.jenamaOf(src.namaAlat || src.model); if (j) src.jenama = j; }
+    if (!src.model && src.namaAlat && !cur.model) src.model = src.namaAlat;
+    if (src.lokasiFizikal) {
+      src.lokasiFizikal = String(src.lokasiFizikal).trim().toUpperCase();
+      const room = AsetHooks.physicalRoom(src.lokasiFizikal);
+      if (room) {
+        if (!src.lokasi) src.lokasi = AsetHooks.lokasiLabel(room);
+        if (!src.makmal) { const l = AsetHooks.labForLokasi_(room, labRooms || []); if (l) src.makmal = l; }
+      }
+      if (src.disahkanFizikal === undefined) src.disahkanFizikal = true; /* ditemui semasa semakan makmal */
+    }
     if (!src.jenis && src.model) src.jenis = AsetHooks.jenisOf(src.model + ' ' + (src.deskripsiPerolehan || ''));
     if (!src.jenama && src.model) { const j = AsetHooks.jenamaOf(src.model); if (j) src.jenama = j; }
     if (src.kodLokasi) {
       src.kodLokasi = String(src.kodLokasi).trim().toUpperCase();
-      if (!src.lokasi) src.lokasi = AsetHooks.lokasiLabel(src.kodLokasi);
-      if (!src.makmal) { const l = AsetHooks.labForLokasi_(src.kodLokasi, labRooms || []); if (l) src.makmal = l; }
+      if (!src.lokasi && !src.lokasiFizikal && !cur.lokasi_fizikal) src.lokasi = AsetHooks.lokasiLabel(src.kodLokasi);
+      if (!src.makmal && !src.lokasiFizikal && !cur.lokasi_fizikal && !cur.makmal) { const l = AsetHooks.labForLokasi_(src.kodLokasi, labRooms || []); if (l) src.makmal = l; }
     }
     const sp = src.statusPengesahan;
-    if (!sp) return '';
+    if (!sp) return condition;
     if (src.disahkanFizikal === undefined) src.disahkanFizikal = sp !== 'TIDAK_DISAHKAN';
     if (!src.cadangan && (sp === 'PELUPUSAN' || sp === 'LUPUS_REKOD_AKTIF')) src.cadangan = 'LUPUS';
     if (sp === 'LUPUS_REKOD_AKTIF') return 'DILUPUS';
     if (sp === 'PELUPUSAN') return 'TIDAK_BOLEH_GUNA';
-    return '';
+    return condition;
   },
 
   /**
@@ -245,10 +304,12 @@ const AsetHooks = {
     const assets = AsetHooks.active_('aset').filter(function (r) { return r.status !== 'DILUPUS'; });
     const groups = {};
     assets.forEach(function (r) {
-      if (r.status_pengesahan !== 'MAKMAL' || !r.kod_lokasi) return;
-      const room = AsetHooks.roomOf(r.kod_lokasi);
-      groups[room] = groups[room] || { room: room, count: 0, penjaga: {} };
-      groups[room].count++;
+      const fiz = AsetHooks.physicalRoom(r.lokasi_fizikal);
+      if (!fiz && (r.status_pengesahan !== 'MAKMAL' || !r.kod_lokasi)) return;
+      const room = fiz || AsetHooks.roomOf(r.kod_lokasi);
+      groups[room] = groups[room] || { room: room, count: 0, penjaga: {}, pic: {} };
+      if (['DESKTOP', 'LAPTOP', 'WORKSTATION'].indexOf(r.jenis) >= 0) groups[room].count++;
+      if (r.pic_makmal) groups[room].pic[r.pic_makmal] = (groups[room].pic[r.pic_makmal] || 0) + 1;
       if (r.pegawai_bertanggungjawab) groups[room].penjaga[r.pegawai_bertanggungjawab] = (groups[room].penjaga[r.pegawai_bertanggungjawab] || 0) + 1;
     });
     const known = {};
@@ -259,7 +320,8 @@ const AsetHooks = {
       .sort(function (a, b) { return a.room < b.room ? -1 : 1; })
       .map(function (g) {
         const p = g.room.replace(/^J\./, '').split('.');
-        const top = Object.keys(g.penjaga).sort(function (a, b) { return g.penjaga[b] - g.penjaga[a]; })[0] || '';
+        const top = Object.keys(g.pic).sort(function (a, b) { return g.pic[b] - g.pic[a]; })[0] ||
+          Object.keys(g.penjaga).sort(function (a, b) { return g.penjaga[b] - g.penjaga[a]; })[0] || '';
         const row = {
           id: IdUtils.generate(mdef.prefix), ref_no: '', owner_user_id: ctx.userId, owner_name: (ctx.user && ctx.user.full_name) || '',
           status: 'AKTIF', status_note: '', status_changed_at: '', status_changed_by: '',
@@ -269,11 +331,12 @@ const AsetHooks = {
         Object.assign(row, {
           kod: p.join('-'), nama: 'Makmal ' + p[0] + ' Aras ' + (p[1] || '') + ' Bilik ' + p.slice(2).join('.'),
           bangunan: p[0] || '', bilik: p.slice(2).join('.'), kod_lokasi: g.room, penyelaras: top,
-          tempat_komputer: g.count, catatan: 'Dijana daripada data aset UTMFin (' + g.count + ' PC penggunaan makmal). Sila kemas kini nama makmal.'
+          tempat_komputer: g.count, catatan: 'Dijana daripada data aset (' + g.count + ' komputer). Sila kemas kini nama makmal.'
         });
         return row;
       });
     let linked = 0;
+    let deactivated = [];
     if (!dryRun) {
       const mrepo = CrudEngine.repo(mdef);
       Database.withLock(function () {
@@ -282,12 +345,33 @@ const AsetHooks = {
       });
       mrepo.invalidate();
       linked = AsetHooks.linkToLabs();
+      deactivated = AsetHooks.deactivateEmptyAutoLabs_();
       AuditService.log(ctx, AUDIT_ACTIONS.RECORD_CREATED, mdef.sheet, '', 'Jana makmal daripada aset: ' + toCreate.length + ' baharu, ' + linked + ' aset dipautkan');
     }
     return {
-      dryRun: dryRun, created: toCreate.length, linked: linked,
+      dryRun: dryRun, created: toCreate.length, linked: linked, deactivated: deactivated,
       labs: toCreate.map(function (r) { return { kod: r.kod, nama: r.nama, pc: r.tempat_komputer, penyelaras: r.penyelaras }; })
     };
+  },
+
+  /**
+   * Makmal yang DIJANA automatik (catatan asal belum diubah) tetapi kini tiada aset dipautkan
+   * (cth. lokasi UTMFin lama selepas lokasi fizikal diimport) → Tidak aktif. Boleh diaktifkan semula.
+   * @return {string[]} kod makmal yang dinyahaktifkan
+   */
+  deactivateEmptyAutoLabs_: function () {
+    const used = {};
+    AsetHooks.active_('aset').forEach(function (r) { if (r.makmal) used[r.makmal] = true; });
+    const now = DateUtils.nowIso();
+    const patch = {};
+    const codes = [];
+    AsetHooks.active_('makmal').forEach(function (l) {
+      if (l.status !== 'AKTIF' || used[l.id] || String(l.catatan || '').indexOf('Dijana daripada data aset') !== 0) return;
+      patch[l.id] = { status: 'TIDAK_AKTIF', status_note: 'Tiada aset selepas pautan ikut lokasi fizikal', status_changed_at: now, status_changed_by: 'Sistem', updated_at: now };
+      codes.push(l.kod);
+    });
+    if (codes.length) CrudEngine.repo(CrudEngine.get('makmal')).updateMany(patch);
+    return codes;
   },
 
   /** Pautkan aset tanpa makmal kepada makmal yang kod lokasinya sepadan. @return {number} bilangan dipautkan */
@@ -297,6 +381,13 @@ const AsetHooks = {
     const patch = {};
     const now = DateUtils.nowIso();
     AsetHooks.active_('aset').forEach(function (r) {
+      const fiz = AsetHooks.physicalRoom(r.lokasi_fizikal);
+      if (fiz) {
+        /* Lokasi fizikal mengatasi pautan lama berasaskan UTMFin */
+        const l = AsetHooks.labForLokasi_(fiz, rooms);
+        if (l && l !== r.makmal) patch[r.id] = { makmal: l, updated_at: now };
+        return;
+      }
       if (r.makmal || !r.kod_lokasi) return;
       const l = AsetHooks.labForLokasi_(r.kod_lokasi, rooms);
       if (l) patch[r.id] = { makmal: l, updated_at: now };
@@ -333,7 +424,7 @@ const AsetHooks = {
       const s = String(v).trim();
       if (s === '-') return '';
       if (f.type === 'int' && /^-?\d+(\.0+)?$/.test(s)) return String(parseInt(s, 10));
-      if (f.type === 'bool') return /^(ya|yes|true|1|y)$/i.test(s);
+      if (f.type === 'bool') return /^(ya|yes|true|1|y|ada|\/|✓|✔|x)$/i.test(s);
       if (f.type === 'enum' && f.options) {
         const hit = f.options.filter(function (o) { return o.value.toLowerCase() === s.toLowerCase() || String(o.label).toLowerCase() === s.toLowerCase(); })[0];
         return hit ? hit.value : s;
@@ -357,6 +448,7 @@ const AsetHooks = {
     };
     const fields = def.fields.filter(function (f) { return f.type !== 'files' && !f.readonly; });
     const errors = [];
+    const skipped = [];
     const inserts = [];
     const patches = {};
     const seen = {};
@@ -371,16 +463,20 @@ const AsetHooks = {
             if (nv !== '') src[f.key] = nv;
           }
         });
-        const derivedStatus = AsetHooks.derive(src, labRooms);
+        const key0 = String(src.noAset || '').trim().toLowerCase();
+        if (!key0 || key0 === '-') { skipped.push({ line: line, reason: 'Tiada no. aset / barcode' + (src.namaAlat || src.model ? ' (' + (src.namaAlat || src.model) + ')' : '') }); return; }
+        if (seen[key0]) { skipped.push({ line: line, noAset: src.noAset, reason: 'Pendua dalam fail (sama dengan baris ' + seen[key0] + ') — baris pertama digunakan' }); return; }
+        const derivedStatus = AsetHooks.derive(src, labRooms, existing[key0]);
         if (src.makmal && String(src.makmal).charAt(0) === '?') throw Errors.validation('Makmal "' + String(src.makmal).slice(1) + '" tidak ditemui dalam senarai makmal.');
         const st = statusOf(raw.status) || (raw.status ? null : derivedStatus);
         if (st === null) throw Errors.validation('Status "' + raw.status + '" tidak dikenali.');
         const key = String(src.noAset || '').trim().toLowerCase();
-        if (!key) throw Errors.validation('No. aset diperlukan.');
-        if (seen[key]) throw Errors.validation('No. aset berulang dalam fail (baris ' + seen[key] + ').');
         seen[key] = line;
         const cur = existing[key];
         const v = CrudEngine.validate(def, src, ctx, cur ? 'update' : 'create');
+        const kodL = v.row.kod_lokasi !== undefined ? v.row.kod_lokasi : (cur ? cur.kod_lokasi : '');
+        const fizL = v.row.lokasi_fizikal !== undefined ? v.row.lokasi_fizikal : (cur ? cur.lokasi_fizikal : '');
+        v.row.lokasi_berbeza = AsetHooks.lokasiBerbeza(kodL, fizL);
         if (cur) {
           const p = Object.assign({}, v.row, { updated_at: now });
           if (st && st !== cur.status) { p.status = st; p.status_changed_at = now; p.status_changed_by = 'Import'; }
@@ -408,7 +504,12 @@ const AsetHooks = {
       AppCache.remove('stats:admin');
       AuditService.log(ctx, AUDIT_ACTIONS.RECORD_CREATED, def.sheet, '', 'Import aset: ' + inserts.length + ' baharu, ' + Object.keys(patches).length + ' dikemas kini');
     }
-    return { dryRun: dryRun || errors.length > 0, created: inserts.length, updated: Object.keys(patches).length, errors: errors.slice(0, 100), errorCount: errors.length };
+    let linked = 0;
+    if (!dryRun && !errors.length) linked = AsetHooks.linkToLabs();
+    return {
+      dryRun: dryRun || errors.length > 0, created: inserts.length, updated: Object.keys(patches).length, linked: linked,
+      errors: errors.slice(0, 100), errorCount: errors.length, skipped: skipped.slice(0, 200), skippedCount: skipped.length
+    };
   },
 
   /** No. rujukan berjujukan untuk sekumpulan baris (dipanggil dalam kunci). */

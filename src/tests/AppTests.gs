@@ -4,7 +4,7 @@
  * Dalam Apps Script: runTestsPart5. Dalam Node: npm test.
  */
 const AppTests = {
-  suites: function () { return [TestSuiteDashboardIT, TestSuiteUtmfin]; }
+  suites: function () { return [TestSuiteDashboardIT, TestSuiteUtmfin, TestSuiteMaintenance]; }
 };
 
 const AppFx = {
@@ -137,7 +137,8 @@ const TestSuiteDashboardIT = {
       t.ok(dry.dryRun && dry.created === 2 && !dry.errorCount);
       t.eq(Repo.of('ASET').all().filter(function (r) { return String(r.no_aset).indexOf('IMP/') === 0; }).length, 0, 'semakan tidak menulis');
       const bad = TestAssert.apiOk(TestHelpers.call(a.token, 'aset.import', { rows: rows.concat([{ noAset: 'IMP/003', jenis: 'DESKTOP', makmal: 'TIADA-99' }, { noAset: 'IMP/001' }]) }));
-      t.ok(bad.dryRun && bad.errorCount === 2, 'ralat menghalang semua tulisan');
+      t.ok(bad.dryRun && bad.errorCount === 1, 'ralat menghalang semua tulisan');
+      t.ok(bad.skippedCount === 1 && /Pendua/.test(bad.skipped[0].reason), 'pendua dalam fail = amaran, bukan ralat');
       t.eq(bad.errors[0].line, 4);
       const ok = TestAssert.apiOk(TestHelpers.call(a.token, 'aset.import', { rows: rows }));
       t.ok(!ok.dryRun && ok.created === 2);
@@ -220,6 +221,83 @@ const TestSuiteUtmfin = {
       TestAssert.apiOk(TestHelpers.call(a.token, 'aset.import', { rows: [mk('LB5', 'J.C99.01.101-03', 'PENJAGA X')] }));
       t.eq(Repo.of('ASET').all().filter(function (x) { return x.no_aset === 'LB5'; })[0].makmal, lab[0].id, 'import baharu dipautkan automatik');
       TestAssert.apiFail(TestHelpers.call(TestHelpers.user('z').token, 'aset.janaMakmal', {}), ERROR_CODES.FORBIDDEN);
+    }]
+  ]
+};
+
+/** Senarai penyelenggaraan PC makmal: lokasi fizikal vs UTMFin, status keadaan, baris tanpa barcode. */
+const TestSuiteMaintenance = {
+  name: 'Senarai penyelenggaraan makmal',
+  tests: [
+    ['physicalRoom & lokasiBerbeza', function (t) {
+      t.eq(AsetHooks.physicalRoom('C24.411'), 'J.C24.04.411');
+      t.eq(AsetHooks.physicalRoom('c24.108'), 'J.C24.01.108');
+      t.eq(AsetHooks.physicalRoom('J.C24.04.411-01'), 'J.C24.04.411');
+      t.eq(AsetHooks.physicalRoom('411'), '');
+      t.ok(AsetHooks.lokasiBerbeza('J.C24.01.108-01', 'C24.411'));
+      t.ok(!AsetHooks.lokasiBerbeza('J.C24.04.411-01', 'C24.411'));
+      t.ok(!AsetHooks.lokasiBerbeza('', 'C24.411'), 'tiada rekod UTMFin → tidak dibandingkan');
+      t.eq(AsetHooks.jenisOf('Laminate Machine AURORA A3'), 'LAIN');
+      t.eq(AsetHooks.jenisOf('LCD Projector Epson EB-X04'), 'PROJEKTOR');
+      t.eq(AsetHooks.jenisOf('Komputer HP Compaq 8000 Elite SFF'), 'DESKTOP');
+      t.eq(AsetHooks.jenisOf('MEMBEKAL, MENGHANTAR, MEMASANG', 'DESKTOP'), 'DESKTOP', 'fallback kod SODO komputer');
+    }],
+
+    ['Kemas kini rekod UTMFin sedia ada tanpa pendua: medan UTMFin dikekalkan, lokasi fizikal & status keadaan dikemas kini, makmal dipaut semula', function (t) {
+      AppFx.real();
+      const a = TestHelpers.admin(ROLES.ADMIN);
+      TestAssert.apiOk(TestHelpers.call(a.token, 'aset.import', { rows: [
+        { noAset: 'MT0001', model: 'DESKTOP COMPUTER TYPE 2', kodSodo: 'B35201', tahunPerolehan: '2020', kodLokasi: 'J.C77.01.108-01', statusPengesahan: 'Penjaga - Penggunaan Makmal', pegawaiBertanggungjawab: 'PENJAGA REKAAN' },
+        { noAset: 'MT0002', model: 'DESKTOP COMPUTER TYPE 2', kodSodo: 'B35201', tahunPerolehan: '2020', kodLokasi: 'J.C77.01.108-01', statusPengesahan: 'Penjaga - Penggunaan Makmal' },
+        { noAset: 'MT0003', model: 'DESKTOP COMPUTER TYPE 2', kodSodo: 'B35201', tahunPerolehan: '2020', kodLokasi: 'J.C77.01.108-01', statusPengesahan: 'Penjaga - Penggunaan Makmal' }
+      ] }));
+      /* Makmal lama dijana ikut UTMFin (aras 01) */
+      TestAssert.apiOk(TestHelpers.call(a.token, 'aset.janaMakmal', { min: 3 }));
+      const before = Repo.of('ASET').all().filter(function (x) { return x.no_aset === 'MT0001'; })[0];
+      t.ok(before.makmal, 'dipaut ke makmal UTMFin dahulu');
+      const total0 = Repo.of('ASET').all().length;
+      /* Senarai penyelenggaraan: PC sebenarnya di C77.411; satu baris monitor tanpa barcode; satu pendua */
+      const r = TestAssert.apiOk(TestHelpers.call(a.token, 'aset.import', { rows: [
+        { lokasiFizikal: 'C77.411', namaAlat: 'Desktop Type 2 HP Elite Desk 800 G4', tahunPerolehan: '2019', kategoriAset: 'Aset Tetap', statusPengesahan: 'Baik', kegunaan: 'Pengajaran', noAset: 'MT0001', borangKewpa: 'KEW.PA-2', sopAda: 'ADA', selenggaraCutiSem: '/', picMakmal: 'PIC REKAAN', monitor: 'HP N246v (S/N 6CM0001)' },
+        { lokasiFizikal: '', namaAlat: 'Monitor HP N246v', noAset: '-' },
+        { lokasiFizikal: 'C77.411', namaAlat: 'Desktop Type 2 HP Elite Desk 800 G4', statusPengesahan: 'Penyelenggaraan', noAset: 'MT0002' },
+        { lokasiFizikal: 'C77.411', namaAlat: 'Desktop Type 2 HP Elite Desk 800 G4', statusPengesahan: 'Baik', noAset: 'MT0003' },
+        { lokasiFizikal: 'C77.411', namaAlat: 'Desktop Type 2 HP Elite Desk 800 G4', statusPengesahan: 'Baik', noAset: 'MT0003' },
+        { lokasiFizikal: 'C77.411', namaAlat: 'Printer Canon G3100', kategoriAset: 'Inventori', noAset: 'IAMT001', tahunPerolehan: '2022', nilaiPerolehan: '680' }
+      ] }));
+      t.ok(!r.dryRun && r.errorCount === 0, JSON.stringify(r.errors));
+      t.eq(r.updated, 3, 'tiga rekod sedia ada dikemas kini'); t.eq(r.created, 1, 'hanya pencetak baharu');
+      t.eq(r.skippedCount, 2, 'monitor tanpa barcode & pendua dilangkau');
+      t.eq(Repo.of('ASET').all().length, total0 + 1, 'tiada pendua dicipta');
+      const by = {};
+      Repo.of('ASET').invalidate();
+      Repo.of('ASET').all().forEach(function (x) { by[x.no_aset] = x; });
+      const m1 = by.MT0001;
+      t.eq(String(m1.tahun_perolehan), '2019', 'tahun dalam fail digunakan bila diberi (fail CSV gabungan tidak menghantar tahun bagi rekod sedia ada)');
+      t.eq(m1.kod_lokasi, 'J.C77.01.108-01', 'kod lokasi UTMFin dikekalkan');
+      t.eq(m1.status_pengesahan, 'MAKMAL', 'status pengesahan UTMFin dikekalkan');
+      t.eq(m1.pegawai_bertanggungjawab, 'PENJAGA REKAAN');
+      t.eq(m1.lokasi_fizikal, 'C77.411'); t.eq(String(m1.lokasi_berbeza).toUpperCase(), 'TRUE');
+      t.eq(m1.lokasi, 'C77 · Aras 04 · Bilik 411'); t.eq(m1.jenama, 'HP'); t.eq(m1.kategori_aset, 'ASET_TETAP');
+      t.eq(String(m1.sop_ada).toUpperCase(), 'TRUE'); t.eq(String(m1.selenggara_cuti_sem).toUpperCase(), 'TRUE');
+      t.eq(m1.monitor, 'HP N246v (S/N 6CM0001)'); t.eq(m1.status, 'BERFUNGSI');
+      t.eq(by.MT0002.status, 'PERLU_BAIKI', 'Penyelenggaraan → Perlu dibaiki');
+      t.eq(by.IAMT001.jenis, 'PENCETAK'); t.eq(Number(by.IAMT001.nilai_perolehan), 680);
+      /* Jana makmal ikut lokasi fizikal → aset dipaut semula dari makmal UTMFin lama */
+      const g = TestAssert.apiOk(TestHelpers.call(a.token, 'aset.janaMakmal', { min: 3 }));
+      const lab = g.labs.filter(function (l) { return l.kod === 'C77-04-411'; })[0];
+      t.ok(lab && lab.pc === 3 && lab.penyelaras === 'PIC REKAAN', JSON.stringify(g.labs));
+      Repo.of('ASET').invalidate();
+      const newLab = Repo.of('MAKMAL').all().filter(function (l) { return l.kod === 'C77-04-411'; })[0];
+      t.eq(Repo.of('ASET').findById(m1.id).makmal, newLab.id, 'dipaut semula ke makmal fizikal');
+      t.ok(Repo.of('ASET').findById(m1.id).makmal !== before.makmal);
+      t.ok(g.deactivated.indexOf('C77-01-108') >= 0, 'makmal UTMFin lama yang kosong dinyahaktif: ' + JSON.stringify(g.deactivated));
+      t.eq(Repo.of('MAKMAL').findById(before.makmal).status, 'TIDAK_AKTIF');
+      /* Sunting manual: tukar lokasi fizikal ikut UTMFin → bendera dibersihkan */
+      TestAssert.apiOk(TestHelpers.call(a.token, 'crud.update', { module: 'aset', id: m1.id, lokasiFizikal: 'C77.108' }));
+      t.eq(String(Repo.of('ASET').findById(m1.id).lokasi_berbeza).toUpperCase(), 'FALSE');
+      const o = TestAssert.apiOk(TestHelpers.call(a.token, 'aset.overview', {}));
+      t.ok(o.assets.lokasiBerbeza >= 2, 'overview kira lokasi berbeza');
     }]
   ]
 };

@@ -172,7 +172,8 @@
       ${a.recordTotal && Object.keys(a.byPengesahan).length ? html`<div class="xo-grid3">
         <section class="panel xo-wide"><div class="panel-head"><h3>Pengesahan aset (KEWPA)</h3><a class="small" href="#/admin/aset">Lihat</a></div>
           ${C.hbars(PENGESAHAN.filter((k) => a.byPengesahan[k]).map((k) => ({ label: PENGESAHAN_LABEL[k], value: a.byPengesahan[k] })), { title: 'Status pengesahan aset' })}
-          <p class="xs muted mt-2">${fmtNum(a.recordTotal - (a.byPengesahan.TIDAK_DISAHKAN || 0))} daripada ${fmtNum(a.recordTotal)} rekod dapat disahkan penjaga.${a.nilai ? html` Nilai perolehan aset aktif: ${rm(a.nilai)}.` : ''}</p></section>
+          <p class="xs muted mt-2">${fmtNum(a.recordTotal - (a.byPengesahan.TIDAK_DISAHKAN || 0))} daripada ${fmtNum(a.recordTotal)} rekod dapat disahkan penjaga.${a.nilai ? html` Nilai perolehan aset aktif: ${rm(a.nilai)}.` : ''}</p>
+          ${a.lokasiBerbeza ? html`<p class="small mt-2" style="color:var(--warn)">${icon('alert', 'i-sm')} <b>${fmtNum(a.lokasiBerbeza)}</b> aset berada di lokasi fizikal yang berbeza daripada rekod UTMFin — rekod pergerakan KEWPA mungkin perlu dikemas kini. <a href="#/admin/aset">Tapis "Lokasi fizikal ≠ UTMFin"</a></p>` : ''}</section>
         <section class="panel xo-wide"><div class="panel-head"><h3>Semakan oleh pegawai IT</h3><span class="xs muted">Rekod dikemas kini</span></div>
           ${a.byVerifier.length ? C.hbars(a.byVerifier, { title: 'Rekod disemak mengikut pegawai' }) : html`<p class="muted small">Tiada rekod semakan.</p>`}</section>
       </div>` : ''}
@@ -219,9 +220,14 @@
     PTJ: 'ptjPerolehan', TAHUN_BELI: 'tahunPerolehan', CHARGELINE: 'chargeline', NO_RUJUKAN: 'noRujukanPerolehan', NO_PT: 'noPt',
     NO_IDENTITI: 'noPekerjaPenjaga', NAMA: 'pegawaiBertanggungjawab', EMAIL: 'emailPenjaga', NILAI_PEMBELIAN: 'nilaiPerolehan',
     ID_LOKASI: 'kodLokasi', NEW_COST_CENTER: 'costCenter', TARIKH_ASET: 'tarikhAset', REFERENCE_REQUISITION: 'noRequisition',
-    'STATUS ALAT': 'statusPengesahan', 'NAMA PENJAGA TERKINI': 'penjagaTerkini', 'DIKEMASKINI OLEH': 'disemakOleh'
+    'STATUS ALAT': 'statusPengesahan', 'NAMA PENJAGA TERKINI': 'penjagaTerkini', 'DIKEMASKINI OLEH': 'disemakOleh',
+    /* Senarai penyelenggaraan PC makmal (satu sheet bagi setiap makmal) */
+    BARKOD: 'noAset', 'NO.SIRI': 'noSiri', 'NO. SIRI': 'noSiri', 'LOKASI MAKMAL': 'lokasiFizikal', 'PIC MAKMAL': 'picMakmal', 'NAMA ALAT': 'namaAlat',
+    'TAHUN DIBELI': 'tahunPerolehan', 'JENIS ASET': 'kategoriAset', 'HARGA (RM)': 'nilaiPerolehan', 'STATUS PENGGUNAAN': 'kegunaan', KEWPA: 'borangKewpa', SOP: 'sopAda',
+    'PENYELENGARAAN BERKALA SETIAP CUTI SEMESTER': 'selenggaraCutiSem', 'PENYELENGARAAN BULANAN (3 BULAN SEKALI)': 'selenggaraSukuTahun',
+    'PENYELENGARAAN MENGIKUT KEADAAN HARDWARE/SOFTWARE & ADUAN SEMASA': 'selenggaraIkutKeadaan'
   };
-  const IGNORE = ['PTJ_STAF'];
+  const IGNORE = ['PTJ_STAF', 'BIL ALAT'];
   const importFields = () => (KD.moduleOf('aset').fields || []).filter((f) => f.type !== 'files' && !f.readonly);
   const norm = (s) => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
 
@@ -230,14 +236,14 @@
       const fields = importFields();
       el.innerHTML = html`<div class="page-head"><div><h1>Import aset IT</h1><p>Muat naik daftar aset (CSV). Rekod dengan No. aset sedia ada akan dikemas kini; yang baharu akan ditambah.</p></div>
           <div class="xo-toolbar"><button class="btn btn-outline" data-act="tpl">${icon('download')}Templat CSV</button></div></div>
-        <div class="im-steps"><div class="im-step"><b>1 · Sediakan fail</b>Guna templat, atau eksport UTMFin / DATA PC (lajur BAR_CODE, ITEM_ASSET, ID_LOKASI, STATUS ALAT… dikenali terus). Dalam Excel: <i>Fail → Simpan sebagai → CSV UTF-8</i>.</div>
+        <div class="im-steps"><div class="im-step"><b>1 · Sediakan fail</b>Guna templat, eksport UTMFin / DATA PC, atau senarai penyelenggaraan makmal (lajur BAR_CODE / BARKOD, ID_LOKASI / LOKASI MAKMAL… dikenali terus). Rekod sedia ada dikemas kini ikut barcode — tiada pendua. Dalam Excel: <i>Fail → Simpan sebagai → CSV UTF-8</i>.</div>
           <div class="im-step"><b>2 · Semak</b>Sistem menyemak setiap baris dahulu (tiada data ditulis). Makmal boleh ditulis sebagai kod (cth. ME-01).</div>
           <div class="im-step"><b>3 · Import</b>Hanya apabila tiada ralat. Status boleh ditulis sebagai label, cth. <i>Berfungsi</i>.</div></div>
         <label class="im-drop mt-4" data-drop style="display:block;cursor:pointer"><div style="display:flex;justify-content:center">${icon('download')}</div><div class="mt-2"><b>Pilih fail CSV</b> atau seret ke sini</div><div class="xs muted mt-1">Maksimum 5,000 baris</div>
           <input type="file" accept=".csv,text/csv" data-file class="sr-only"></label>
         <div data-out class="mt-4"></div>
         <section class="panel mt-4" data-labs><div class="panel-head"><h3>Jana makmal daripada lokasi aset</h3></div>
-          <p class="small muted">Untuk aset berstatus <b>Penjaga - Penggunaan Makmal</b>: setiap bilik (kod lokasi UTMFin, cth. J.C24.01.108) dengan sekurang-kurangnya
+          <p class="small muted">Untuk aset dengan <b>lokasi fizikal</b> (senarai penyelenggaraan makmal) atau berstatus <b>Penjaga - Penggunaan Makmal</b>: setiap bilik (lokasi fizikal diutamakan, jika tiada guna kod lokasi UTMFin) dengan sekurang-kurangnya
           <select class="select" data-labmin style="width:auto;display:inline-block;padding:2px 28px 2px 8px;height:auto" aria-label="Minimum PC">${[1, 2, 3, 5, 10].map((n) => html`<option value="${n}" ${n === 3 ? raw('selected') : ''}>${n}</option>`)}</select>
           PC dijadikan rekod Makmal, kemudian aset dipautkan ke makmal itu. Makmal sedia ada (ikut kod lokasi) tidak diduplikasi. Nama makmal boleh dikemas kini kemudian.</p>
           <div class="row row-wrap mt-2"><button class="btn btn-outline" data-act="labs-preview">${icon('eye')}Pratonton</button><button class="btn btn-primary" data-act="labs-run">${icon('plus')}Jana & pautkan</button></div>
@@ -279,15 +285,18 @@
           <div data-result class="mt-4"></div></section>`.s;
       };
 
+      const skippedNote = (total) => total.skippedCount ? html`<details class="mt-2 small"><summary style="cursor:pointer;color:var(--warn)">${icon('alert', 'i-sm')} ${fmtNum(total.skippedCount)} baris dilangkau (tiada barcode / pendua dalam fail) — klik untuk lihat</summary>
+        <div class="im-scroll mt-2"><table class="xo-table"><thead><tr><th>Baris</th><th>No. aset</th><th>Sebab</th></tr></thead><tbody>${total.skipped.slice(0, 200).map((x) => html`<tr><td class="num">${x.line}</td><td>${x.noAset || ''}</td><td>${x.reason}</td></tr>`)}</tbody></table></div></details>` : '';
       const run = async (dryRun, btn) => {
         const res = qs('[data-result]', out);
         const CH = 500;
-        const total = { created: 0, updated: 0, errors: [], errorCount: 0 };
+        const total = { created: 0, updated: 0, linked: 0, errors: [], errorCount: 0, skipped: [], skippedCount: 0 };
         try {
           await busy(btn, async () => {
             for (let i = 0; i < rows.length; i += CH) {
               const r = await KD.api.call('aset.import', { rows: rows.slice(i, i + CH), dryRun, offset: i });
               total.created += r.created; total.updated += r.updated; total.errorCount += r.errorCount; total.errors = total.errors.concat(r.errors);
+              total.linked += r.linked || 0; total.skippedCount += r.skippedCount || 0; total.skipped = total.skipped.concat(r.skipped || []);
               if (!dryRun && r.errorCount) break;
             }
           });
@@ -301,11 +310,11 @@
         }
         if (dryRun) {
           importBtn.disabled = false;
-          res.innerHTML = html`<div class="small" style="color:var(--success)">${icon('check', 'i-sm')} <b>Semakan lulus.</b> ${fmtNum(total.created)} rekod baharu, ${fmtNum(total.updated)} dikemas kini.</div>`.s;
+          res.innerHTML = html`<div class="small" style="color:var(--success)">${icon('check', 'i-sm')} <b>Semakan lulus.</b> ${fmtNum(total.created)} rekod baharu, ${fmtNum(total.updated)} sedia ada akan dikemas kini (tiada pendua dicipta).</div>${skippedNote(total)}`.s;
         } else {
           importBtn.disabled = true;
           toast('Import selesai.');
-          res.innerHTML = html`<div class="small" style="color:var(--success)">${icon('check', 'i-sm')} <b>Import selesai.</b> ${fmtNum(total.created)} ditambah, ${fmtNum(total.updated)} dikemas kini. <a href="#/admin/aset">Lihat daftar aset</a></div>`.s;
+          res.innerHTML = html`<div class="small" style="color:var(--success)">${icon('check', 'i-sm')} <b>Import selesai.</b> ${fmtNum(total.created)} ditambah, ${fmtNum(total.updated)} dikemas kini${total.linked ? html`, ${fmtNum(total.linked)} dipaut ke makmal` : ''}. <a href="#/admin/aset">Lihat daftar aset</a></div>${skippedNote(total)}`.s;
           qs('[data-labs]', el).scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
       };
@@ -317,6 +326,7 @@
             out2.innerHTML = html`<div class="small"><b>${dryRun ? 'Akan dicipta' : 'Dicipta'}: ${fmtNum(r.created)} makmal</b>${dryRun ? '' : html` · ${fmtNum(r.linked)} aset dipautkan`}.</div>
               ${r.labs.length ? html`<div class="im-scroll mt-2"><table class="xo-table"><thead><tr><th>Kod</th><th>Nama (sementara)</th><th class="num">PC</th><th>Penjaga utama</th></tr></thead><tbody>${r.labs.map((l) => html`<tr><td>${l.kod}</td><td>${l.nama}</td><td class="num">${fmtNum(l.pc)}</td><td>${l.penyelaras}</td></tr>`)}</tbody></table></div>`
                 : html`<p class="xs muted mt-1">Tiada bilik baharu yang memenuhi syarat${dryRun ? '' : '; aset tanpa makmal telah dipautkan jika kod lokasi sepadan'}.</p>`}
+              ${!dryRun && r.deactivated && r.deactivated.length ? html`<p class="small mt-2" style="color:var(--warn)">${fmtNum(r.deactivated.length)} makmal jana automatik kini tiada aset (lokasi UTMFin lama) dan ditanda <b>Tidak aktif</b>: ${r.deactivated.join(', ')}.</p>` : ''}
               ${!dryRun && r.created ? html`<p class="small mt-2"><a href="#/admin/makmal">Kemas kini nama makmal →</a></p>` : ''}`.s;
           });
           if (!dryRun) toast('Makmal dijana.');

@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 1.2.0 — 2026-10-13 · Senarai penyelenggaraan PC makmal
+### Ditambah
+- **Import senarai penyelenggaraan makmal** (lajur BARKOD, LOKASI MAKMAL, NAMA ALAT, STATUS ALAT Baik/Penyelenggaraan, JENIS ASET, KEWPA, SOP, PIC MAKMAL, jadual penyelenggaraan). Rekod sedia ada dikemas kini ikut barcode — tiada pendua; medan UTMFin (kod lokasi, penjaga, status pengesahan) dikekalkan.
+- Medan aset baharu: **lokasi fizikal**, *lokasi fizikal ≠ UTMFin* (ditanda automatik, boleh ditapis), PIC makmal, nama alat, monitor, kategori aset (Aset Tetap / Inventori), borang KEWPA, status penggunaan, SOP, tiga jadual penyelenggaraan.
+- Pautan makmal ikut **lokasi fizikal** (mengatasi UTMFin); *Jana & pautkan* mengumpul ikut bilik fizikal dan menyahaktif makmal jana automatik yang kini kosong.
+- Import: baris tanpa barcode (cth. monitor) dan pendua dalam fail kini **dilangkau dengan amaran**, bukan ralat yang menghalang import.
+- Executive Overview: bilangan aset yang lokasi fizikalnya berbeza daripada UTMFin.
+
 ## 1.1.0 — 2026-10-13 · Data aset UTMFin / KEWPA
 ### Ditambah
 - **Medan aset selaras UTMFin / senarai DATA PC**: penjaga aset (KEWPA), no. pekerja & email penjaga, penjaga terkini, **status pengesahan aset** (8 status rasmi), disemak oleh, kod lokasi (ID_LOKASI), tarikh aset, nilai pembelian, serta maklumat perolehan (deskripsi, kod SODO, PTJ, chargeline, no. rujukan PD, no. PT, requisition PM, cost center).

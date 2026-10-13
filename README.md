@@ -23,7 +23,7 @@ Sistem pengurusan Unit IT, Fakulti Kejuruteraan Mekanikal (FKM), UTM: aset IT, k
 Logik: `src/modules/<modul>/<Nama>Hooks.gs`. Overview & import: `src/modules/aset/AsetHooks.gs`, paparan `src/frontend/modules/aset.html`. Ujian domain: `src/tests/AppTests.gs`.
 
 ## Import daftar aset (termasuk eksport UTMFin / DATA PC)
-Fail eksport UTMFin boleh diimport terus — lajur `BAR_CODE`, `ITEM_ASSET`, `ID_LOKASI`, `STATUS ALAT`, `NAMA`, `EMAIL`, `NILAI_PEMBELIAN`, `TARIKH_ASET`, `DIKEMASKINI OLEH` dan lain-lain dikenali secara automatik. Selepas import, gunakan **Jana & pautkan** untuk mencipta makmal daripada bilik yang mempunyai PC *Penggunaan Makmal*.
+Fail eksport UTMFin boleh diimport terus — lajur `BAR_CODE`, `ITEM_ASSET`, `ID_LOKASI`, `STATUS ALAT`, `NAMA`, `EMAIL`, `NILAI_PEMBELIAN`, `TARIKH_ASET`, `DIKEMASKINI OLEH` dan lain-lain dikenali secara automatik. Senarai penyelenggaraan PC makmal (BARKOD, LOKASI MAKMAL, NAMA ALAT…) juga dikenali: rekod sedia ada dikemas kini ikut barcode, lokasi fizikal disimpan berasingan daripada kod lokasi UTMFin dan ditanda jika berbeza. Selepas import, gunakan **Jana & pautkan** untuk mencipta makmal daripada bilik yang mempunyai PC *Penggunaan Makmal*.
 
 
 Admin → **Import aset** → *Templat CSV*. Dari Excel: *Simpan sebagai → CSV UTF-8*. Pengepala boleh guna kunci (`noAset`) atau label (`No. aset`); makmal ditulis dengan kod (cth. `ME-01`) — tambah makmal dahulu. Sistem menyemak semua baris dahulu; tiada data ditulis jika ada ralat. Baris dengan No. aset sedia ada dikemas kini.
