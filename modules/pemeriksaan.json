@@ -1,0 +1,165 @@
+{
+  "key": "pemeriksaan",
+  "label": "Pemeriksaan Aset",
+  "labelPlural": "Pemeriksaan Aset",
+  "icon": "shield",
+  "prefix": "PM",
+  "refFormat": "PMR-{YYYY}-{SEQ4}",
+  "description": "Laporan pemeriksaan aset alih (KEW.PA-10/11): keberadaan, keadaan, lokasi dan pengguna sebenar. Rekod aset dikemas kini serta-merta.",
+  "access": {
+    "create": "ADMIN",
+    "list": "OWN",
+    "edit": "ADMIN",
+    "delete": "ADMIN"
+  },
+  "statuses": [
+    {
+      "value": "DIREKOD",
+      "label": "Direkod",
+      "tone": "brand"
+    },
+    {
+      "value": "DISAHKAN",
+      "label": "Disahkan",
+      "tone": "success"
+    }
+  ],
+  "notify": {
+    "adminsOnCreate": false,
+    "ownerOnStatus": false
+  },
+  "titleField": "noAset",
+  "subtitleField": "keadaan",
+  "nav": {
+    "user": false,
+    "admin": true,
+    "order": 27
+  },
+  "fields": [
+    {
+      "key": "noAset",
+      "label": "No. aset",
+      "type": "string",
+      "required": true,
+      "max": 60,
+      "list": true,
+      "search": true,
+      "hint": "Seperti pada label / tag aset (cth. UTM/FKM/H/2019/00123).",
+      "lockAfterCreate": true
+    },
+    {
+      "key": "butiranAset",
+      "label": "Aset",
+      "type": "string",
+      "readonly": true,
+      "list": true,
+      "search": true
+    },
+    {
+      "key": "aset",
+      "label": "Rekod aset",
+      "type": "ref",
+      "ref": "aset",
+      "readonly": true,
+      "adminOnly": true
+    },
+    {
+      "key": "tarikhPemeriksaan",
+      "label": "Tarikh pemeriksaan",
+      "type": "date",
+      "required": true,
+      "list": true
+    },
+    {
+      "key": "pemeriksa",
+      "label": "Pegawai pemeriksa",
+      "type": "string",
+      "required": true,
+      "max": 120,
+      "search": true
+    },
+    {
+      "key": "keberadaan",
+      "label": "Keberadaan",
+      "type": "enum",
+      "required": true,
+      "list": true,
+      "filter": true,
+      "default": "ADA",
+      "options": [
+        {
+          "value": "ADA",
+          "label": "Ada / dijumpai"
+        },
+        {
+          "value": "TIADA",
+          "label": "Tidak dijumpai"
+        }
+      ]
+    },
+    {
+      "key": "keadaan",
+      "label": "Keadaan",
+      "type": "enum",
+      "required": true,
+      "list": true,
+      "filter": true,
+      "default": "BAIK",
+      "options": [
+        {
+          "value": "BAIK",
+          "label": "Baik"
+        },
+        {
+          "value": "ROSAK",
+          "label": "Rosak"
+        },
+        {
+          "value": "USANG",
+          "label": "Usang"
+        },
+        {
+          "value": "TIDAK_DIGUNAKAN",
+          "label": "Tidak digunakan / berlebihan"
+        }
+      ]
+    },
+    {
+      "key": "lokasiSebenar",
+      "label": "Lokasi sebenar",
+      "type": "string",
+      "max": 80
+    },
+    {
+      "key": "penggunaSebenar",
+      "label": "Pengguna / penjaga sebenar",
+      "type": "string",
+      "max": 80
+    },
+    {
+      "key": "labelAda",
+      "label": "Label / tag aset ada",
+      "type": "bool",
+      "default": true
+    },
+    {
+      "key": "maklumatSepadan",
+      "label": "Maklumat sepadan dengan daftar",
+      "type": "bool",
+      "default": true
+    },
+    {
+      "key": "catatan",
+      "label": "Catatan",
+      "type": "text",
+      "max": 1000
+    },
+    {
+      "key": "lampiran",
+      "label": "Gambar",
+      "type": "files",
+      "maxFiles": 3,
+      "public": false
+    }
+  ]
+}

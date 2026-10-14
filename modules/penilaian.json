@@ -1,0 +1,216 @@
+{
+  "key": "penilaian",
+  "label": "Penilaian Aset",
+  "labelPlural": "Penilaian Aset",
+  "icon": "chart",
+  "prefix": "PN",
+  "refFormat": "PNL-{YYYY}-{SEQ4}",
+  "description": "Penilaian keadaan aset (skor fizikal, prestasi & keperluan) dan nilai semasa. Keputusan disahkan dikemas kini sebagai cadangan pada rekod aset.",
+  "access": {
+    "create": "ADMIN",
+    "list": "OWN",
+    "edit": "ADMIN",
+    "delete": "ADMIN"
+  },
+  "statuses": [
+    {
+      "value": "DRAF",
+      "label": "Draf",
+      "tone": "muted"
+    },
+    {
+      "value": "DISAHKAN",
+      "label": "Disahkan",
+      "tone": "success"
+    }
+  ],
+  "notify": {
+    "adminsOnCreate": false,
+    "ownerOnStatus": false
+  },
+  "titleField": "noAset",
+  "subtitleField": "keputusan",
+  "nav": {
+    "user": false,
+    "admin": true,
+    "order": 28
+  },
+  "fields": [
+    {
+      "key": "noAset",
+      "label": "No. aset",
+      "type": "string",
+      "required": true,
+      "max": 60,
+      "list": true,
+      "search": true,
+      "hint": "Seperti pada label / tag aset (cth. UTM/FKM/H/2019/00123).",
+      "lockAfterCreate": true
+    },
+    {
+      "key": "butiranAset",
+      "label": "Aset",
+      "type": "string",
+      "readonly": true,
+      "list": true,
+      "search": true
+    },
+    {
+      "key": "aset",
+      "label": "Rekod aset",
+      "type": "ref",
+      "ref": "aset",
+      "readonly": true,
+      "adminOnly": true
+    },
+    {
+      "key": "tarikhPenilaian",
+      "label": "Tarikh penilaian",
+      "type": "date",
+      "required": true,
+      "list": true
+    },
+    {
+      "key": "jenisPenilaian",
+      "label": "Jenis penilaian",
+      "type": "enum",
+      "required": true,
+      "filter": true,
+      "default": "KEDUA",
+      "options": [
+        {
+          "value": "KEADAAN",
+          "label": "Keadaan aset"
+        },
+        {
+          "value": "NILAI",
+          "label": "Nilai semasa"
+        },
+        {
+          "value": "KEDUA",
+          "label": "Keadaan & nilai semasa"
+        }
+      ]
+    },
+    {
+      "key": "skorFizikal",
+      "label": "Keadaan fizikal (1–5)",
+      "type": "int",
+      "min": 1,
+      "max": 5,
+      "hint": "1 = sangat buruk, 5 = sangat baik"
+    },
+    {
+      "key": "skorPrestasi",
+      "label": "Prestasi / fungsi (1–5)",
+      "type": "int",
+      "min": 1,
+      "max": 5
+    },
+    {
+      "key": "skorKeperluan",
+      "label": "Memenuhi keperluan pengguna (1–5)",
+      "type": "int",
+      "min": 1,
+      "max": 5
+    },
+    {
+      "key": "skorKeseluruhan",
+      "label": "Skor keseluruhan (%)",
+      "type": "int",
+      "readonly": true,
+      "list": true
+    },
+    {
+      "key": "keputusan",
+      "label": "Keputusan / cadangan",
+      "type": "enum",
+      "list": true,
+      "filter": true,
+      "hint": "Kosongkan untuk cadangan automatik daripada skor.",
+      "options": [
+        {
+          "value": "KEKAL",
+          "label": "Kekal guna"
+        },
+        {
+          "value": "BAIKI",
+          "label": "Baiki"
+        },
+        {
+          "value": "NAIK_TARAF",
+          "label": "Naik taraf"
+        },
+        {
+          "value": "GANTI",
+          "label": "Ganti"
+        },
+        {
+          "value": "LUPUS",
+          "label": "Lupus"
+        }
+      ]
+    },
+    {
+      "key": "nilaiPerolehan",
+      "label": "Nilai perolehan (RM)",
+      "type": "number",
+      "readonly": true
+    },
+    {
+      "key": "nilaiBuku",
+      "label": "Nilai buku semasa (RM)",
+      "type": "number",
+      "readonly": true
+    },
+    {
+      "key": "nilaiSemasa",
+      "label": "Anggaran nilai semasa (RM)",
+      "type": "number",
+      "min": 0,
+      "decimals": 2,
+      "list": true,
+      "hint": "Kosongkan untuk guna nilai buku (susut nilai garis lurus)."
+    },
+    {
+      "key": "kaedahNilai",
+      "label": "Kaedah penilaian nilai",
+      "type": "enum",
+      "default": "SUSUT_NILAI",
+      "options": [
+        {
+          "value": "SUSUT_NILAI",
+          "label": "Susut nilai garis lurus"
+        },
+        {
+          "value": "PASARAN",
+          "label": "Harga pasaran / sebut harga"
+        },
+        {
+          "value": "PENILAI",
+          "label": "Penilai bertauliah"
+        }
+      ]
+    },
+    {
+      "key": "penilai",
+      "label": "Pegawai penilai",
+      "type": "string",
+      "required": true,
+      "max": 120
+    },
+    {
+      "key": "catatan",
+      "label": "Ulasan",
+      "type": "text",
+      "max": 1500
+    },
+    {
+      "key": "lampiran",
+      "label": "Dokumen sokongan",
+      "type": "files",
+      "maxFiles": 3,
+      "public": false
+    }
+  ]
+}

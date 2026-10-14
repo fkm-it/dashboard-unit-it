@@ -29,8 +29,16 @@ const Migration = {
     // Migrasi modul (cipta sheet / tambah lajur) — DIJANA oleh `npm run gen`. ID berubah apabila medan berubah.
     // @generator:migrations:start
     { id: 'MODULE_TIKET_75AFC152', description: 'Modul Tiket: sheet TIKET & lajur', up: function () { return SheetManager.ensure('TIKET'); } },
-    { id: 'MODULE_ASET_A2CE088D', description: 'Modul Aset IT: sheet ASET & lajur', up: function () { return SheetManager.ensure('ASET'); } },
+    { id: 'MODULE_ASET_14F2EC4A', description: 'Modul Aset IT: sheet ASET & lajur', up: function () { return SheetManager.ensure('ASET'); } },
     { id: 'MODULE_TINDAKAN_F54CF4D8', description: 'Modul Tindakan KEWPA: sheet TINDAKAN & lajur', up: function () { return SheetManager.ensure('TINDAKAN'); } },
+    { id: 'MODULE_PERGERAKAN_19797A07', description: 'Modul Pergerakan Aset: sheet PERGERAKAN & lajur', up: function () { return SheetManager.ensure('PERGERAKAN'); } },
+    { id: 'MODULE_PINJAMAN_6CC31202', description: 'Modul Pinjaman Aset: sheet PINJAMAN & lajur', up: function () { return SheetManager.ensure('PINJAMAN'); } },
+    { id: 'MODULE_ADUANASET_D48BFBB3', description: 'Modul Aduan Kerosakan Aset: sheet ADUANASET & lajur', up: function () { return SheetManager.ensure('ADUANASET'); } },
+    { id: 'MODULE_SELENGGARA_4FE5B3B2', description: 'Modul Penyelenggaraan Aset: sheet SELENGGARA & lajur', up: function () { return SheetManager.ensure('SELENGGARA'); } },
+    { id: 'MODULE_PEMERIKSAAN_5316BEA8', description: 'Modul Pemeriksaan Aset: sheet PEMERIKSAAN & lajur', up: function () { return SheetManager.ensure('PEMERIKSAAN'); } },
+    { id: 'MODULE_PENILAIAN_897D24D1', description: 'Modul Penilaian Aset: sheet PENILAIAN & lajur', up: function () { return SheetManager.ensure('PENILAIAN'); } },
+    { id: 'MODULE_PELUPUSAN_EFC5D954', description: 'Modul Pelupusan Aset: sheet PELUPUSAN & lajur', up: function () { return SheetManager.ensure('PELUPUSAN'); } },
+    { id: 'MODULE_KEHILANGAN_EDA99332', description: 'Modul Kehilangan Aset: sheet KEHILANGAN & lajur', up: function () { return SheetManager.ensure('KEHILANGAN'); } },
     { id: 'MODULE_KEPERLUAN_522932E2', description: 'Modul Keperluan Komputer Makmal: sheet KEPERLUAN & lajur', up: function () { return SheetManager.ensure('KEPERLUAN'); } },
     { id: 'MODULE_MAKMAL_6C756663', description: 'Modul Makmal: sheet MAKMAL & lajur', up: function () { return SheetManager.ensure('MAKMAL'); } },
     { id: 'MODULE_PERISIAN_89847E0B', description: 'Modul Perisian & Lesen: sheet PERISIAN & lajur', up: function () { return SheetManager.ensure('PERISIAN'); } },

@@ -1,0 +1,165 @@
+{
+  "key": "selenggara",
+  "label": "Penyelenggaraan Aset",
+  "labelPlural": "Penyelenggaraan",
+  "icon": "settings",
+  "prefix": "SL",
+  "refFormat": "SLG-{YYYY}-{SEQ4}",
+  "description": "Daftar penyelenggaraan aset (KEW.PA-14): penyelenggaraan berjadual, pembetulan dan naik taraf. Tarikh selenggara terakhir & seterusnya dikemas kini pada rekod aset.",
+  "access": {
+    "create": "ADMIN",
+    "list": "OWN",
+    "edit": "ADMIN",
+    "delete": "ADMIN"
+  },
+  "statuses": [
+    {
+      "value": "DIJADUALKAN",
+      "label": "Dijadualkan",
+      "tone": "info"
+    },
+    {
+      "value": "SELESAI",
+      "label": "Selesai",
+      "tone": "success"
+    },
+    {
+      "value": "DIBATALKAN",
+      "label": "Dibatalkan",
+      "tone": "muted"
+    }
+  ],
+  "notify": {
+    "adminsOnCreate": false,
+    "ownerOnStatus": false
+  },
+  "titleField": "noAset",
+  "subtitleField": "jenisSelenggara",
+  "nav": {
+    "user": false,
+    "admin": true,
+    "order": 26
+  },
+  "fields": [
+    {
+      "key": "noAset",
+      "label": "No. aset",
+      "type": "string",
+      "required": true,
+      "max": 60,
+      "list": true,
+      "search": true,
+      "hint": "Seperti pada label / tag aset (cth. UTM/FKM/H/2019/00123).",
+      "lockAfterCreate": true
+    },
+    {
+      "key": "butiranAset",
+      "label": "Aset",
+      "type": "string",
+      "readonly": true,
+      "list": true,
+      "search": true
+    },
+    {
+      "key": "aset",
+      "label": "Rekod aset",
+      "type": "ref",
+      "ref": "aset",
+      "readonly": true,
+      "adminOnly": true
+    },
+    {
+      "key": "jenisSelenggara",
+      "label": "Jenis",
+      "type": "enum",
+      "required": true,
+      "list": true,
+      "filter": true,
+      "default": "PENCEGAHAN",
+      "options": [
+        {
+          "value": "PENCEGAHAN",
+          "label": "Pencegahan (berjadual)"
+        },
+        {
+          "value": "PEMBETULAN",
+          "label": "Pembetulan (kerosakan)"
+        },
+        {
+          "value": "NAIK_TARAF",
+          "label": "Naik taraf"
+        }
+      ]
+    },
+    {
+      "key": "tarikhSelenggara",
+      "label": "Tarikh",
+      "type": "date",
+      "required": true,
+      "list": true
+    },
+    {
+      "key": "butiranKerja",
+      "label": "Butiran kerja",
+      "type": "text",
+      "required": true,
+      "max": 2000,
+      "search": true
+    },
+    {
+      "key": "dilaksanakanOleh",
+      "label": "Dilaksanakan oleh",
+      "type": "enum",
+      "filter": true,
+      "default": "DALAMAN",
+      "options": [
+        {
+          "value": "DALAMAN",
+          "label": "Unit IT FKM"
+        },
+        {
+          "value": "PEMBEKAL",
+          "label": "Pembekal / kontraktor"
+        }
+      ]
+    },
+    {
+      "key": "namaSyarikat",
+      "label": "Nama syarikat",
+      "type": "string",
+      "max": 120,
+      "search": true
+    },
+    {
+      "key": "noPesanan",
+      "label": "No. pesanan / LO",
+      "type": "string",
+      "max": 60
+    },
+    {
+      "key": "kos",
+      "label": "Kos (RM)",
+      "type": "number",
+      "min": 0,
+      "decimals": 2
+    },
+    {
+      "key": "tarikhSeterusnya",
+      "label": "Selenggara seterusnya",
+      "type": "date"
+    },
+    {
+      "key": "rujukanAduan",
+      "label": "Rujukan aduan",
+      "type": "string",
+      "readonly": true
+    },
+    {
+      "key": "lampiran",
+      "label": "Laporan / invois",
+      "type": "files",
+      "maxFiles": 3,
+      "public": false
+    }
+  ]
+}

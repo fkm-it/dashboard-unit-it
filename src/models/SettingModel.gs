@@ -35,6 +35,8 @@ const SETTINGS_DEFS = Object.freeze({
   TINDAKAN_SASARAN_HARI: { type: 'int', default: 30, min: 1, max: 365, minRole: 'ADMIN', public: false, description: 'Tindakan KEWPA: tempoh sasaran penyelesaian (hari) bagi tindakan baharu' },
   EMAIL_RINGKASAN_BULANAN: { type: 'bool', default: true, minRole: 'ADMIN', public: false, description: 'Hantar email ringkasan aset IT setiap awal bulan kepada pengguna Pengurusan & Admin' },
   KEPERLUAN_DOMAIN_EMAIL: { type: 'string', default: 'utm.my', max: 200, minRole: 'ADMIN', public: true, description: 'Borang banci makmal: domain email dibenarkan (dipisah koma; subdomain diterima, cth. utm.my). * = semua domain' },
+  ASET_DOMAIN_EMAIL: { type: 'string', default: 'utm.my', max: 200, minRole: 'ADMIN', public: true, description: 'Borang awam pinjaman / aduan kerosakan / kehilangan aset: domain email dibenarkan (dipisah koma; subdomain diterima, cth. utm.my merangkumi graduate.utm.my). * = semua domain' },
+  PINJAMAN_MAX_HARI: { type: 'int', default: 30, min: 1, max: 365, minRole: 'ADMIN', public: true, description: 'Pinjaman aset: tempoh maksimum (hari)' },
   EMAIL_RINGKASAN_TAMBAHAN: { type: 'string', default: '', max: 400, minRole: 'ADMIN', public: false, description: 'Penerima tambahan email ringkasan bulanan (dipisah koma), cth. pejabat Dekan' }
 });
 

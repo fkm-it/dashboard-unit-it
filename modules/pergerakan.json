@@ -1,0 +1,173 @@
+{
+  "key": "pergerakan",
+  "label": "Pergerakan Aset",
+  "labelPlural": "Pergerakan Aset",
+  "icon": "send",
+  "prefix": "PR",
+  "refFormat": "PGR-{YYYY}-{SEQ4}",
+  "description": "Permohonan pergerakan aset alih (KEW.PA-6): pindah lokasi, tukar penjaga atau keluar FKM. Rekod aset dikemas kini apabila pergerakan selesai.",
+  "access": {
+    "create": "USER",
+    "list": "OWN",
+    "edit": "OWNER",
+    "delete": "OWNER",
+    "ownerEditStatuses": [
+      "DIMOHON"
+    ]
+  },
+  "statuses": [
+    {
+      "value": "DIMOHON",
+      "label": "Dimohon",
+      "tone": "info"
+    },
+    {
+      "value": "DILULUSKAN",
+      "label": "Diluluskan",
+      "tone": "brand"
+    },
+    {
+      "value": "SELESAI",
+      "label": "Selesai dipindahkan",
+      "tone": "success"
+    },
+    {
+      "value": "DITOLAK",
+      "label": "Ditolak",
+      "tone": "danger"
+    },
+    {
+      "value": "DIBATALKAN",
+      "label": "Dibatalkan",
+      "tone": "muted"
+    }
+  ],
+  "titleField": "noAset",
+  "subtitleField": "jenisPergerakan",
+  "nav": {
+    "user": true,
+    "admin": true,
+    "order": 23
+  },
+  "fields": [
+    {
+      "key": "noAset",
+      "label": "No. aset",
+      "type": "string",
+      "required": true,
+      "max": 60,
+      "list": true,
+      "search": true,
+      "hint": "Seperti pada label / tag aset (cth. UTM/FKM/H/2019/00123).",
+      "lockAfterCreate": true
+    },
+    {
+      "key": "butiranAset",
+      "label": "Aset",
+      "type": "string",
+      "readonly": true,
+      "list": true,
+      "search": true
+    },
+    {
+      "key": "aset",
+      "label": "Rekod aset",
+      "type": "ref",
+      "ref": "aset",
+      "readonly": true,
+      "adminOnly": true
+    },
+    {
+      "key": "jenisPergerakan",
+      "label": "Jenis pergerakan",
+      "type": "enum",
+      "required": true,
+      "list": true,
+      "filter": true,
+      "options": [
+        {
+          "value": "PINDAH_LOKASI",
+          "label": "Pindah lokasi (dalam FKM)"
+        },
+        {
+          "value": "TUKAR_PENJAGA",
+          "label": "Tukar penjaga / pengguna"
+        },
+        {
+          "value": "PINDAH_TUKAR",
+          "label": "Pindah lokasi & tukar penjaga"
+        },
+        {
+          "value": "KELUAR_PTJ",
+          "label": "Keluar FKM (pindah ke PTJ lain)"
+        }
+      ]
+    },
+    {
+      "key": "lokasiAsal",
+      "label": "Lokasi asal",
+      "type": "string",
+      "readonly": true
+    },
+    {
+      "key": "makmalBaru",
+      "label": "Makmal baharu (jika ke makmal)",
+      "type": "ref",
+      "ref": "makmal"
+    },
+    {
+      "key": "lokasiBaru",
+      "label": "Lokasi baharu",
+      "type": "string",
+      "max": 80,
+      "placeholder": "cth. C24-410 / Bilik pensyarah C23-205"
+    },
+    {
+      "key": "penjagaBaru",
+      "label": "Penjaga / pengguna baharu",
+      "type": "string",
+      "max": 80
+    },
+    {
+      "key": "emailPenjagaBaru",
+      "label": "Email penjaga baharu",
+      "type": "email"
+    },
+    {
+      "key": "ptjBaru",
+      "label": "PTJ penerima (jika keluar FKM)",
+      "type": "string",
+      "max": 120
+    },
+    {
+      "key": "tarikhPergerakan",
+      "label": "Tarikh pergerakan",
+      "type": "date",
+      "required": true,
+      "list": true
+    },
+    {
+      "key": "sebab",
+      "label": "Sebab / justifikasi",
+      "type": "text",
+      "required": true,
+      "max": 1000,
+      "search": true
+    },
+    {
+      "key": "lampiran",
+      "label": "Dokumen sokongan",
+      "type": "files",
+      "maxFiles": 3,
+      "public": false
+    },
+    {
+      "key": "catatanUnit",
+      "label": "Catatan Unit IT",
+      "type": "text",
+      "max": 1000,
+      "adminOnly": true,
+      "visibleToOwner": true
+    }
+  ]
+}

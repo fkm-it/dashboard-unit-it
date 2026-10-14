@@ -7,7 +7,8 @@
  * Suntingan terus dalam Google Sheets (bukan melalui sistem) kelihatan selepas jam berikutnya.
  */
 const AsetCache = {
-  SHEETS: ['ASET', 'TIKET', 'MAKMAL', 'KEPERLUAN', 'TINDAKAN', 'PEGAWAI', 'STAF', 'PERISIAN', 'SETTINGS', 'CATEGORIES', 'RINGKASAN_BULANAN'],
+  SHEETS: ['ASET', 'TIKET', 'MAKMAL', 'KEPERLUAN', 'TINDAKAN', 'PEGAWAI', 'STAF', 'PERISIAN', 'SETTINGS', 'CATEGORIES', 'RINGKASAN_BULANAN',
+    'PERGERAKAN', 'PINJAMAN', 'ADUANASET', 'SELENGGARA', 'PEMERIKSAAN', 'PENILAIAN', 'PELUPUSAN', 'KEHILANGAN'],
   TTL: 3600,
 
   /** Payload → kunci stabil (kunci disusun, nilai kosong dibuang). */

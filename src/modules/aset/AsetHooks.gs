@@ -47,6 +47,8 @@ const AsetHooks = {
     'aset.indeksMakmal': { role: 'PENGURUSAN', fn: function () { return AsetCache.get('aset.indeksMakmal', {}, function () { return AsetHooks.reportLabHealth(); }); } },
     'aset.eksekutif': { role: 'PENGURUSAN', fn: function (payload) { return AsetCache.get('aset.eksekutif', payload, function () { return AsetHooks.reportExecutive(payload || {}); }); } },
     'aset.trend': { role: 'PENGURUSAN', fn: function (payload) { return AsetCache.get('aset.trend', payload, function () { return AsetTrend.trend(payload || {}); }); } },
+    'aset.sejarah': { role: 'ADMIN', fn: function (payload) { return AsetLink.history(payload || {}); } },
+    'aset.kitarHayat': { role: 'PENGURUSAN', fn: function () { return AsetCache.get('aset.kitarHayat', {}, function () { return AsetLink.summary(); }); } },
     'aset.hantarRingkasan': { role: 'ADMIN', fn: function (payload, ctx) { return AsetTrend.sendNow(payload || {}, ctx); } }
   },
 
@@ -144,7 +146,7 @@ const AsetHooks = {
     const labs = {};
     AsetHooks.active_('makmal').forEach(function (l) { labs[l.id] = l.kod ? l.kod + ' · ' + l.nama : l.nama; });
     const rows = AsetHooks.active_('aset').filter(function (r) {
-      if (r.status === 'DILUPUS') return false;
+      if (AsetLink.isGone(r)) return false;
       if (payload.makmal && r.makmal !== payload.makmal) return false;
       if (payload.kategori && r.kategori_aset !== payload.kategori) return false;
       if (payload.jenis === 'KOMPUTER' && AsetHooks.COMPUTERS.indexOf(r.jenis) < 0) return false;
@@ -327,7 +329,7 @@ const AsetHooks = {
     const BROKEN = ['PERLU_BAIKI', 'MENUNGGU_ALAT_GANTI', 'TIDAK_BOLEH_GUNA'];
     AsetHooks.active_('aset').forEach(function (r) {
       const L = byLab[r.makmal];
-      if (!L || r.status === 'DILUPUS' || AsetHooks.COMPUTERS.indexOf(r.jenis) < 0) return;
+      if (!L || AsetLink.isGone(r) || AsetHooks.COMPUTERS.indexOf(r.jenis) < 0) return;
       const d = AsetHooks.depreciation(r, now, dcfg);
       const n = comp[String(r.no_aset || '').trim().toLowerCase()] || 0;
       const s = AsetHooks.replacementScore(r, d, n, cfg);
@@ -440,7 +442,7 @@ const AsetHooks = {
     const pct = function (a, b) { return b ? Math.round((a / b) * 1000) / 10 : null; };
 
     // ---- Aset
-    const assets = AsetHooks.active_('aset').filter(function (r) { return r.status !== 'DILUPUS'; });
+    const assets = AsetHooks.active_('aset').filter(function (r) { return !AsetLink.isGone(r); });
     const aStatus = {};
     const aJenis = {};
     let verified = 0;
@@ -829,7 +831,7 @@ const AsetHooks = {
     const min = Math.max(1, Math.min(50, Number(payload.min) || 3));
     const dryRun = payload.dryRun === true;
     const mdef = CrudEngine.get('makmal');
-    const assets = AsetHooks.active_('aset').filter(function (r) { return r.status !== 'DILUPUS'; });
+    const assets = AsetHooks.active_('aset').filter(function (r) { return !AsetLink.isGone(r); });
     const groups = {};
     assets.forEach(function (r) {
       const fiz = AsetHooks.physicalRoom(r.lokasi_fizikal);

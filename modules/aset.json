@@ -42,6 +42,21 @@
       "value": "DILUPUS",
       "label": "Dilupus",
       "tone": "muted"
+    },
+    {
+      "value": "HILANG",
+      "label": "Hilang / dalam siasatan",
+      "tone": "danger"
+    },
+    {
+      "value": "HAPUS_KIRA",
+      "label": "Hapus kira (hilang)",
+      "tone": "muted"
+    },
+    {
+      "value": "DIPINDAH_KELUAR",
+      "label": "Dipindahkan keluar FKM",
+      "tone": "muted"
     }
   ],
   "notify": {
@@ -526,6 +541,61 @@
       "label": "Cost center",
       "type": "string",
       "max": 40
+    },
+    {
+      "key": "bolehDipinjam",
+      "label": "Boleh dipinjam",
+      "type": "bool",
+      "filter": true,
+      "hint": "Aset boleh dimohon melalui modul Pinjaman Aset."
+    },
+    {
+      "key": "dipinjam",
+      "label": "Sedang dipinjam",
+      "type": "bool",
+      "readonly": true
+    },
+    {
+      "key": "peminjamSemasa",
+      "label": "Peminjam semasa",
+      "type": "string",
+      "readonly": true
+    },
+    {
+      "key": "tarikhPulangJangka",
+      "label": "Tarikh pulang dijangka",
+      "type": "date",
+      "readonly": true
+    },
+    {
+      "key": "tarikhSelenggaraTerakhir",
+      "label": "Selenggara terakhir",
+      "type": "date",
+      "readonly": true
+    },
+    {
+      "key": "tarikhSelenggaraSeterusnya",
+      "label": "Selenggara seterusnya",
+      "type": "date",
+      "readonly": true
+    },
+    {
+      "key": "tarikhPenilaian",
+      "label": "Tarikh penilaian",
+      "type": "date",
+      "readonly": true
+    },
+    {
+      "key": "skorKeadaan",
+      "label": "Skor keadaan (%)",
+      "type": "int",
+      "readonly": true
+    },
+    {
+      "key": "nilaiSemasa",
+      "label": "Nilai semasa (RM)",
+      "type": "number",
+      "readonly": true
     }
   ]
 }

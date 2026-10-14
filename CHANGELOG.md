@@ -1,5 +1,46 @@
 # CHANGELOG
 
+## 1.14.0 — 2026-10-14 · Kitar hayat aset (KEWPA)
+### Ditambah
+Lapan modul baharu, semuanya dipautkan kepada daftar Aset IT melalui **No. aset**. Daftar aset dikemas kini secara automatik.
+- **Pergerakan Aset** (KEW.PA-6)
+  - Staf boleh memohon untuk pindah lokasi, tukar penjaga, atau keluar FKM.
+  - Apabila status ditukar kepada Selesai, lokasi fizikal, makmal dan penjaga aset dikemas kini.
+  - Lokasi yang berbeza daripada UTMFin menjana tindakan KEWPA.
+- **Pinjaman Aset**
+  - Staf boleh memohon selepas log masuk; pelajar boleh memohon melalui borang awam (email UTM).
+  - Hanya aset yang ditanda "Boleh dipinjam" boleh dimohon, untuk tempoh maksimum `PINJAMAN_MAX_HARI`, dan tarikh tidak boleh bertindih dengan pinjaman lain.
+  - Pelajar wajib menyatakan penyelia.
+  - Aset ditanda dipinjam semasa diserahkan dan dibebaskan apabila dipulangkan. Aset yang dipulangkan rosak bertukar status kepada Perlu dibaiki.
+  - Email peringatan dihantar sehari sebelum tarikh pulang dan semasa lewat.
+- **Aduan Kerosakan Aset** (KEW.PA-9)
+  - Borang awam dan borang dalaman. Hanya satu aduan terbuka dibenarkan bagi setiap aset.
+  - Semasa pembaikan, aset berstatus Perlu dibaiki atau Menunggu alat ganti.
+  - Apabila selesai, aset kembali Berfungsi dan rekod penyelenggaraan dicipta automatik.
+  - Jika tidak ekonomi dibaiki, aset ditanda Tidak boleh digunakan dengan cadangan Lupus.
+- **Penyelenggaraan** (KEW.PA-14): rekod pencegahan, pembetulan dan naik taraf. Tarikh selenggara terakhir dan seterusnya disimpan pada aset, dan admin dimaklumkan sebelum penyelenggaraan berjadual.
+- **Pemeriksaan Aset** (KEW.PA-10/11)
+  - Merekod keberadaan, keadaan, lokasi dan pengguna sebenar, dan rekod aset dikemas kini serta-merta.
+  - Aset yang tidak dijumpai ditanda "tidak dapat disahkan".
+- **Penilaian Aset**
+  - Penilaian keadaan menggunakan tiga skor 1–5, dan cadangan dijana automatik daripada skor.
+  - Nilai semasa lalai ialah nilai buku (susut nilai).
+  - Penilaian yang disahkan menjadi cadangan pada rekod aset.
+- **Pelupusan Aset** (KEW.PA-16/17)
+  - Aliran: Dicadangkan → Diperiksa Lembaga Pemeriksa → Diluluskan → Dilupuskan.
+  - No. rujukan kelulusan, kaedah dan tarikh pelupusan wajib diisi.
+  - Aset ditanda Dilupus dan tindakan KEWPA untuk mengemas kini UTMFin dijana.
+- **Kehilangan Aset** (KEW.PA-28)
+  - Laporan awal boleh dihantar oleh staf atau pelajar, termasuk maklumat laporan polis.
+  - Aset berstatus Hilang semasa siasatan. Jika ditemui semula, status asal dipulihkan; jika tidak, aset dihapus kira.
+- **Butiran aset**
+  - Butang pantas untuk setiap modul (borang diisi awal dengan no. aset).
+  - Sejarah lengkap aset merentas modul dan tiket Helpdesk.
+- **Executive Overview**: panel "Kitar hayat aset (KEWPA)" yang memaparkan kiraan sahaja, tanpa data peribadi.
+- **Status aset baharu**: Hilang, Hapus kira, dan Dipindahkan keluar FKM.
+- **Medan aset baharu**: boleh dipinjam, sedang dipinjam, selenggara terakhir/seterusnya, skor keadaan dan nilai semasa.
+- **Tetapan baharu**: `ASET_DOMAIN_EMAIL` (lalai `utm.my`, termasuk `graduate.utm.my`) dan `PINJAMAN_MAX_HARI` (lalai 30).
+
 ## 1.13.2 — 2026-10-14 · Supabase aktif
 - Data dipindahkan ke Supabase (`pindahKeSupabase`): 22 sheet, 693 baris, semuanya tersulit.
 - Laman web kini memanggil Supabase terus (`webUsesEdge: true`). Pautan lama `/exec` diteruskan ke Supabase secara automatik.

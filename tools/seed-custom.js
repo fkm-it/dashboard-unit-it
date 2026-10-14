@@ -94,5 +94,32 @@ module.exports = function ({ api, ok, sup, user, ctx }) {
       }
     })()`, ctx);
   }
-  console.log('Data contoh Dashboard Unit IT dimasukkan (6 makmal, 4 pegawai, 72 aset, 5 keperluan, 10 tiket).');
+  /* Kitar hayat aset (data rekaan) */
+  const day = (n) => { const d = new Date(Date.now() + n * 86400000 + 8 * 3600000); return d.toISOString().slice(0, 10); };
+  A('aset.import', { rows: ['1055', '1060', '1065', '1070'].map((n) => ({ noAset: 'DEMO/FKM/' + n, bolehDipinjam: 'Ya' })) });
+  const fsign = (key) => ctx ? require('vm').runInContext('SecurityUtils', ctx).signFormToken('crud:' + key, Date.now() - 5000) : '';
+  const pub = (key, p) => ok(api({ action: 'crud.publicCreate', payload: Object.assign({ module: key, formToken: fsign(key) }, p) }));
+  const pinj = pub('pinjaman', { nama: 'Pelajar Contoh', email: 'pelajar.contoh@graduate.utm.my', kategoriPemohon: 'PRASISWAZAH', noPengenalan: 'A00KM0001', telefon: '012-0000001',
+    penyelia: 'Dr. Penyelia Contoh', noAset: 'DEMO/FKM/1060', tujuan: 'Projek tahun akhir (data contoh)', lokasiPenggunaan: 'Makmal Projek Tahun Akhir', tarikhPinjam: day(0), tarikhPulang: day(7) });
+  const findRef = (key, ref) => A('crud.list', { module: key, q: ref, pageSize: 5 }).items[0];
+  const pj = findRef('pinjaman', pinj.refNo);
+  A('crud.setStatus', { module: 'pinjaman', id: pj.id, status: 'DILULUSKAN' });
+  A('crud.setStatus', { module: 'pinjaman', id: pj.id, status: 'DIPINJAM' });
+  pub('pinjaman', { nama: 'Staf Contoh', email: 'staf.contoh@utm.my', kategoriPemohon: 'STAF', noPengenalan: 'D0002', telefon: '012-0000002',
+    noAset: 'DEMO/FKM/1065', tujuan: 'Bengkel jabatan (data contoh)', lokasiPenggunaan: 'Bilik Seminar', tarikhPinjam: day(2), tarikhPulang: day(4) });
+  const adu = pub('aduanaset', { nama: 'Pelajar Contoh B', email: 'pelajar.b@graduate.utm.my', noAset: 'DEMO/FKM/1007', tarikhKerosakan: day(0), lokasi: 'Makmal CAD, PC 7', keteranganKerosakan: 'Skrin tidak memaparkan apa-apa (data contoh).' });
+  A('crud.setStatus', { module: 'aduanaset', id: findRef('aduanaset', adu.refNo).id, status: 'DALAM_PEMBAIKAN' });
+  pub('aduanaset', { nama: 'Staf Contoh C', email: 'staf.c@utm.my', noAset: 'DEMO/FKM/1013', tarikhKerosakan: day(-1), lokasi: 'Makmal Simulasi', keteranganKerosakan: 'Papan kekunci tidak berfungsi (data contoh).' });
+  A('crud.create', { module: 'selenggara', noAset: 'DEMO/FKM/1001', jenisSelenggara: 'PENCEGAHAN', tarikhSelenggara: day(5), butiranKerja: 'Pembersihan dalaman & kemas kini sistem (data contoh)', tarikhSeterusnya: day(185) });
+  const sl = A('crud.create', { module: 'selenggara', noAset: 'DEMO/FKM/1002', jenisSelenggara: 'PENCEGAHAN', tarikhSelenggara: day(-3), butiranKerja: 'Penggantian pes terma (data contoh)', kos: 0, tarikhSeterusnya: day(180) });
+  A('crud.setStatus', { module: 'selenggara', id: sl.id, status: 'SELESAI' });
+  A('crud.create', { module: 'pemeriksaan', noAset: 'DEMO/FKM/1003', tarikhPemeriksaan: day(-1), pemeriksa: 'Pegawai Teknologi Maklumat A', keberadaan: 'ADA', keadaan: 'BAIK' });
+  A('crud.create', { module: 'pemeriksaan', noAset: 'DEMO/FKM/1062', tarikhPemeriksaan: day(-1), pemeriksa: 'Pegawai Teknologi Maklumat A', keberadaan: 'TIADA', keadaan: 'BAIK', catatan: 'Tidak dijumpai di lokasi (data contoh).' });
+  const pn = A('crud.create', { module: 'penilaian', noAset: 'DEMO/FKM/1005', tarikhPenilaian: day(-2), jenisPenilaian: 'KEDUA', skorFizikal: 2, skorPrestasi: 2, skorKeperluan: 2, penilai: 'Penolong Pegawai TM B' });
+  A('crud.setStatus', { module: 'penilaian', id: pn.id, status: 'DISAHKAN' });
+  A('crud.create', { module: 'pelupusan', noAset: 'DEMO/FKM/1005', sebab: 'USANG', justifikasi: 'Tidak memenuhi keperluan perisian kursus (data contoh).' });
+  A('crud.create', { module: 'pergerakan', noAset: 'DEMO/FKM/1011', jenisPergerakan: 'PINDAH_LOKASI', lokasiBaru: 'C24-410', tarikhPergerakan: day(1), sebab: 'Penyusunan semula makmal (data contoh).' });
+  pub('kehilangan', { nama: 'Staf Contoh D', email: 'staf.d@utm.my', kategoriPelapor: 'STAF', telefon: '012-0000004', noAset: 'DEMO/FKM/1058', tarikhKehilangan: day(-2), tarikhDiketahui: day(-1),
+    lokasiKehilangan: 'Dewan Kuliah (data contoh)', keadaanKehilangan: 'Tidak ditemui selepas digunakan dalam kuliah (data contoh).' });
+  console.log('Data contoh Dashboard Unit IT dimasukkan (6 makmal, 4 pegawai, 72 aset, 5 keperluan, 10 tiket, kitar hayat aset).');
 };

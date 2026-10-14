@@ -224,6 +224,24 @@ await test('Lampiran: disimpan dalam Google Drive melalui Apps Script (bertandat
   await store.ackOutbox(q.map((r) => ({ id: r.id, ok: true })));
 });
 
+await test('Kitar hayat aset di Supabase: pinjaman awam → dipinjam → dipulangkan; rekod aset dikemas kini merentas isolat', async () => {
+  const pin = ok(await call(A, 'crud.list', { module: 'pinjaman', status: 'DIMOHON', pageSize: 20 }, sup.token)).items[0];
+  assert(pin, 'pinjaman demo');
+  ok(await call(A, 'crud.setStatus', { module: 'pinjaman', id: pin.id, status: 'DILULUSKAN' }, sup.token));
+  ok(await call(B, 'crud.setStatus', { module: 'pinjaman', id: pin.id, status: 'DIPINJAM' }, sup.token));
+  const asetId = (await call(A, 'crud.get', { module: 'pinjaman', id: pin.id }, sup.token)).data.values.aset;
+  let as = ok(await call(B, 'crud.get', { module: 'aset', id: asetId }, sup.token));
+  assert(as.values.dipinjam === true && /PJM-/.test(as.values.peminjamSemasa), 'aset dipinjam: ' + JSON.stringify(as.values.peminjamSemasa));
+  ok(await call(A, 'crud.setStatus', { module: 'pinjaman', id: pin.id, status: 'DIPULANGKAN' }, sup.token));
+  as = ok(await call(B, 'crud.get', { module: 'aset', id: asetId }, sup.token));
+  assert(as.values.dipinjam === false && !as.values.peminjamSemasa, 'aset dibebaskan');
+  const h = ok(await call(A, 'aset.sejarah', { id: asetId }, sup.token));
+  assert(h.counts.pinjaman >= 1, 'sejarah');
+  const k = ok(await call(B, 'aset.kitarHayat', {}, sup.token));
+  assert(k.kehilangan.terbuka >= 1 && k.aduan.terbuka >= 1, 'ringkasan kitar hayat');
+  await assertNoPlain(['Pelajar Contoh', 'pelajar.contoh@graduate.utm.my']);
+});
+
 await test('Sheet malas (AUDIT_LOGS) dimuat apabila diperlukan', async () => {
   const r = ok(await call(mkRuntime(), 'admin.audit', {}, sup.token));
   assert(r && (Array.isArray(r) ? r.length : (r.items || []).length) > 0, 'audit kosong');

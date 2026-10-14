@@ -4,7 +4,7 @@
  * Dalam Apps Script: runTestsPart5. Dalam Node: npm test.
  */
 const AppTests = {
-  suites: function () { return [TestSuiteDashboardIT, TestSuiteUtmfin, TestSuiteMaintenance, TestSuiteNilai, TestSuitePengurusan, TestSuiteKewpa, TestSuiteTrend, TestSuiteBanci, TestSuiteDataMakmal, TestSuitePrestasi, TestSuiteAkaun, TestSuiteJenisPermohonan, TestSuiteKomputerMakmal]; }
+  suites: function () { return [TestSuiteDashboardIT, TestSuiteUtmfin, TestSuiteMaintenance, TestSuiteNilai, TestSuitePengurusan, TestSuiteKewpa, TestSuiteTrend, TestSuiteBanci, TestSuiteDataMakmal, TestSuitePrestasi, TestSuiteAkaun, TestSuiteJenisPermohonan, TestSuiteKomputerMakmal, TestSuiteKitarHayat]; }
 };
 
 const AppFx = {
@@ -983,6 +983,231 @@ const TestSuiteKomputerMakmal = {
       Repo.of('ASET').updateMany((function () { const p = {}; Repo.of('ASET').all().filter(function (x) { return x.no_aset === 'KM-T1'; }).forEach(function (x) { p[x.id] = { jenis: 'LAPTOP' }; }); return p; })());
       Migration.LIST.filter(function (m) { return m.id === 'MIGRATION_007'; })[0].up();
       t.eq(Repo.of('ASET').all().filter(function (x) { return x.no_aset === 'KM-T1'; })[0].jenis, 'DESKTOP', 'migrasi membetulkan');
+    }]
+  ]
+};
+
+/** Fixture kitar hayat aset. */
+const KhFx = {
+  seq: 0,
+  /* Akaun dikongsi dalam suite (had kadar pendaftaran global dalam ujian) */
+  admin: function () {
+    if (!KhFx.a_ || !AuthService.resolveSession(KhFx.a_.token)) {
+      KhFx.a_ = TestHelpers.admin(ROLES.ADMIN);
+      /* Ujian juga dijalankan dalam Apps Script sebenar: domain tidak wujud supaya tiada email sebenar dihantar */
+      TestAssert.apiOk(TestHelpers.call(KhFx.a_.token, 'admin.settings.update', { changes: { ASET_DOMAIN_EMAIL: 'test.local' } }));
+    }
+    return KhFx.a_;
+  },
+  user: function () {
+    if (!KhFx.u_ || !AuthService.resolveSession(KhFx.u_.token)) KhFx.u_ = TestHelpers.user('kitar');
+    return KhFx.u_;
+  },
+  assets: function (a, rows) { TestAssert.apiOk(TestHelpers.call(a.token, 'aset.import', { rows: rows })); },
+  aset: function (no) { return Repo.of('ASET').all().filter(function (x) { return x.no_aset === no; })[0]; },
+  /** Borang awam → { success, data: { id, refNo, row } } (rekod dicari ikut no. rujukan). */
+  pub: function (key, extra) {
+    const r = api({ action: 'crud.publicCreate', payload: Object.assign({ module: key, formToken: SecurityUtils.signFormToken('crud:' + key, Date.now() - 5000) }, extra) });
+    if (!r.success) return r;
+    const def = CrudEngine.get(key);
+    const repo = CrudEngine.repo(def);
+    repo.invalidate();
+    const row = repo.all().filter(function (x) { return x.ref_no === r.data.refNo; })[0];
+    return { success: true, data: { id: row.id, refNo: row.ref_no, row: row } };
+  },
+  day: function (n) { return DateUtils.dayKey(DateUtils.addDays(new Date(), n)); },
+  st: function (a, key, id, status, note) { return TestHelpers.call(a.token, 'crud.setStatus', { module: key, id: id, status: status, note: note || '' }); },
+  pinjam: function (no, extra) {
+    KhFx.seq++;
+    return KhFx.pub('pinjaman', Object.assign({
+      nama: 'Pelajar Ujian ' + KhFx.seq, email: 'pelajar' + KhFx.seq + '@pelajar.test.local', kategoriPemohon: 'PRASISWAZAH', noPengenalan: 'A22KM' + (1000 + KhFx.seq),
+      telefon: '012-3456789', penyelia: 'Dr. Penyelia Contoh', noAset: no, tujuan: 'Projek tahun akhir', lokasiPenggunaan: 'C23 Makmal Projek',
+      tarikhPinjam: KhFx.day(1), tarikhPulang: KhFx.day(5)
+    }, extra || {}));
+  }
+};
+
+const TestSuiteKitarHayat = {
+  name: 'Kitar hayat aset (pergerakan, pinjaman, aduan, selenggara, pemeriksaan, penilaian, pelupusan, kehilangan)',
+  tests: [
+    ['Pinjaman: email UTM, aset boleh dipinjam, tarikh & had hari, penyelia pelajar, pertindihan; aliran status mengemas kini aset; peringatan lewat', function (t) {
+      AppFx.real();
+      const a = KhFx.admin();
+      KhFx.assets(a, [{ noAset: 'KH-P1', jenis: 'LAPTOP', model: 'ThinkPad L14', bolehDipinjam: 'Ya' }, { noAset: 'KH-P2', jenis: 'LAPTOP', model: 'ThinkPad L14' }]);
+      t.ok(AsetLink.isTrue(KhFx.aset('KH-P1').boleh_dipinjam), 'boleh dipinjam melalui import');
+      TestAssert.apiFail(KhFx.pinjam('KH-P1', { email: 'orang@gmail.com' }), ERROR_CODES.VALIDATION_ERROR);
+      TestAssert.apiFail(KhFx.pinjam('KH-P2'), ERROR_CODES.VALIDATION_ERROR);
+      TestAssert.apiFail(KhFx.pinjam('TIADA-123'), ERROR_CODES.VALIDATION_ERROR);
+      TestAssert.apiFail(KhFx.pinjam('KH-P1', { tarikhPinjam: KhFx.day(-2) }), ERROR_CODES.VALIDATION_ERROR);
+      TestAssert.apiFail(KhFx.pinjam('KH-P1', { tarikhPulang: KhFx.day(60) }), ERROR_CODES.VALIDATION_ERROR);
+      TestAssert.apiFail(KhFx.pinjam('KH-P1', { penyelia: '' }), ERROR_CODES.VALIDATION_ERROR);
+      const p = TestAssert.apiOk(KhFx.pinjam(' kh-p1 '));
+      t.eq(p.row.no_aset, 'KH-P1', 'no. aset dinormalkan');
+      t.ok(/ThinkPad/.test(p.row.butiran_aset), 'ringkasan aset');
+      TestAssert.apiFail(KhFx.pinjam('KH-P1', { tarikhPinjam: KhFx.day(3), tarikhPulang: KhFx.day(8) }), ERROR_CODES.CONFLICT);
+      TestAssert.apiOk(KhFx.pinjam('KH-P1', { tarikhPinjam: KhFx.day(6), tarikhPulang: KhFx.day(7) }));
+      const staf = KhFx.user();
+      TestAssert.apiOk(TestHelpers.call(staf.token, 'crud.create', { module: 'pinjaman', kategoriPemohon: 'STAF', noPengenalan: 'D9001', telefon: '012-1112222', noAset: 'KH-P1', tujuan: 'Bengkel', lokasiPenggunaan: 'Dewan', tarikhPinjam: KhFx.day(10), tarikhPulang: KhFx.day(11) }));
+      TestAssert.apiFail(KhFx.st(a, 'pinjaman', p.id, 'DIPINJAM'), ERROR_CODES.VALIDATION_ERROR);
+      TestAssert.apiOk(KhFx.st(a, 'pinjaman', p.id, 'DILULUSKAN'));
+      TestAssert.apiOk(KhFx.st(a, 'pinjaman', p.id, 'DIPINJAM'));
+      let as = KhFx.aset('KH-P1');
+      t.ok(AsetLink.isTrue(as.dipinjam) && /Pelajar Ujian/.test(as.peminjam_semasa) && as.tarikh_pulang_jangka === KhFx.day(5), 'aset ditanda dipinjam');
+      t.ok(TestAssert.apiOk(TestHelpers.call(a.token, 'aset.kitarHayat', {})).pinjaman.dipinjam >= 1);
+      /* Lewat + peringatan email */
+      Repo.of('PINJAMAN').update(p.id, { tarikh_pinjam: KhFx.day(-5), tarikh_pulang: KhFx.day(-1) });
+      Repo.of('PINJAMAN').invalidate();
+      TestAssert.apiOk(TestHelpers.call(a.token, 'admin.settings.update', { changes: { NOTIFY_EMAIL_ENABLED: true } }));
+      const mock = typeof globalThis !== 'undefined' && globalThis.__mockState;
+      const before = mock ? mock.mails.length : 0;
+      const m = PinjamanHooks.maintenance();
+      t.ok(m.lewat >= 1 && m.peringatan >= 1, JSON.stringify(m));
+      if (mock) t.ok(mock.mails.slice(before).some(function (x) { return /lewat/.test(x.subject); }), 'email lewat');
+      t.ok(TestAssert.apiOk(TestHelpers.call(a.token, 'crud.get', { module: 'pinjaman', id: p.id })).lewat, 'tanda lewat');
+      TestAssert.apiOk(TestHelpers.call(a.token, 'crud.update', { module: 'pinjaman', id: p.id, keadaanPulang: 'ROSAK' }));
+      TestAssert.apiOk(KhFx.st(a, 'pinjaman', p.id, 'DIPULANGKAN'));
+      as = KhFx.aset('KH-P1');
+      t.ok(!AsetLink.isTrue(as.dipinjam) && !as.peminjam_semasa, 'aset dibebaskan');
+      t.eq(as.status, 'PERLU_BAIKI', 'dipulangkan rosak → perlu dibaiki');
+      t.eq(Repo.of('PINJAMAN').findById(p.id).tarikh_dipulangkan, AsetLink.today());
+    }],
+    ['Aduan kerosakan (KEW.PA-9): satu aduan terbuka setiap aset; pembaikan → status aset; selesai → rekod penyelenggaraan automatik; tidak ekonomi → cadang lupus', function (t) {
+      AppFx.real();
+      const a = KhFx.admin();
+      KhFx.assets(a, [{ noAset: 'KH-A1', jenis: 'DESKTOP', model: 'OptiPlex 7090', lokasiFizikal: 'C24-410' }, { noAset: 'KH-A2', jenis: 'PENCETAK', model: 'LaserJet' }]);
+      const body = { nama: 'Pengadu', email: 'pengadu@test.local', noAset: 'KH-A1', tarikhKerosakan: AsetLink.today(), lokasi: 'C24-410 PC 12', keteranganKerosakan: 'Komputer tidak boleh dihidupkan langsung.' };
+      TestAssert.apiFail(KhFx.pub('aduanaset', Object.assign({}, body, { tarikhKerosakan: KhFx.day(2) })), ERROR_CODES.VALIDATION_ERROR);
+      const d = TestAssert.apiOk(KhFx.pub('aduanaset', body));
+      TestAssert.apiFail(KhFx.pub('aduanaset', Object.assign({}, body, { email: 'lain@test.local' })), ERROR_CODES.CONFLICT);
+      TestAssert.apiOk(TestHelpers.call(a.token, 'crud.update', { module: 'aduanaset', id: d.id, tindakan: 'BAIKI_DALAMAN', kosPembaikan: 120, laporanTeknikal: 'Bekalan kuasa diganti.' }));
+      TestAssert.apiOk(KhFx.st(a, 'aduanaset', d.id, 'DALAM_PEMBAIKAN'));
+      t.eq(KhFx.aset('KH-A1').status, 'PERLU_BAIKI');
+      TestAssert.apiOk(KhFx.st(a, 'aduanaset', d.id, 'SELESAI'));
+      t.eq(KhFx.aset('KH-A1').status, 'BERFUNGSI');
+      t.eq(KhFx.aset('KH-A1').tarikh_selenggara_terakhir, AsetLink.today());
+      const sl = Repo.of('SELENGGARA').all().filter(function (r) { return r.rujukan_aduan === d.refNo; })[0];
+      t.ok(sl && sl.status === 'SELESAI' && sl.jenis_selenggara === 'PEMBETULAN' && Number(sl.kos) === 120 && /Bekalan kuasa/.test(sl.butiran_kerja), 'rekod KEW.PA-14');
+      t.ok(/^SLG-/.test(sl.ref_no), 'no. rujukan selenggara');
+      const d2 = TestAssert.apiOk(KhFx.pub('aduanaset', Object.assign({}, body, { noAset: 'KH-A2', email: 'p2@test.local' })));
+      TestAssert.apiOk(KhFx.st(a, 'aduanaset', d2.id, 'TIDAK_EKONOMI'));
+      t.eq(KhFx.aset('KH-A2').status, 'TIDAK_BOLEH_GUNA');
+      t.eq(KhFx.aset('KH-A2').cadangan, 'LUPUS');
+    }],
+    ['Pergerakan (KEW.PA-6): maklumat ikut jenis, satu permohonan terbuka; selesai → lokasi/makmal/penjaga aset; keluar FKM → aset tidak lagi boleh dimohon', function (t) {
+      AppFx.real();
+      const a = KhFx.admin();
+      const lab = AppFx.lab(a, 'KH-LAB');
+      KhFx.assets(a, [{ noAset: 'KH-M1', jenis: 'DESKTOP', kodLokasi: 'J.C23.01.101-01', lokasiFizikal: 'C23-101' }, { noAset: 'KH-M2', jenis: 'LAPTOP' }]);
+      const u = KhFx.user();
+      TestAssert.apiFail(TestHelpers.call(u.token, 'crud.create', { module: 'pergerakan', noAset: 'KH-M1', jenisPergerakan: 'PINDAH_TUKAR', penjagaBaru: 'Encik Baharu', tarikhPergerakan: AsetLink.today(), sebab: 'Penyusunan semula makmal' }), ERROR_CODES.VALIDATION_ERROR);
+      const r = TestAssert.apiOk(TestHelpers.call(u.token, 'crud.create', { module: 'pergerakan', noAset: 'KH-M1', jenisPergerakan: 'PINDAH_TUKAR', lokasiBaru: 'c24-410', makmalBaru: lab.id, penjagaBaru: 'Encik Baharu', tarikhPergerakan: AsetLink.today(), sebab: 'Penyusunan semula makmal' }));
+      t.eq(Repo.of('PERGERAKAN').findById(r.id).lokasi_asal, 'C23-101', 'lokasi asal disimpan');
+      TestAssert.apiFail(TestHelpers.call(u.token, 'crud.create', { module: 'pergerakan', noAset: 'KH-M1', jenisPergerakan: 'TUKAR_PENJAGA', penjagaBaru: 'X', tarikhPergerakan: AsetLink.today(), sebab: 'Ujian pendua' }), ERROR_CODES.CONFLICT);
+      TestAssert.apiFail(KhFx.st(u, 'pergerakan', r.id, 'DILULUSKAN'), ERROR_CODES.FORBIDDEN);
+      TestAssert.apiFail(KhFx.st(a, 'pergerakan', r.id, 'SELESAI'), ERROR_CODES.VALIDATION_ERROR);
+      TestAssert.apiOk(KhFx.st(a, 'pergerakan', r.id, 'DILULUSKAN'));
+      TestAssert.apiOk(KhFx.st(a, 'pergerakan', r.id, 'SELESAI'));
+      const as = KhFx.aset('KH-M1');
+      t.eq(as.lokasi_fizikal, 'C24-410'); t.eq(as.makmal, lab.id); t.eq(as.penjaga_terkini, 'Encik Baharu');
+      t.ok(AsetLink.isTrue(as.lokasi_berbeza), 'lokasi berbeza daripada UTMFin → tindakan KEWPA');
+      const k = TestAssert.apiOk(TestHelpers.call(u.token, 'crud.create', { module: 'pergerakan', noAset: 'KH-M2', jenisPergerakan: 'KELUAR_PTJ', ptjBaru: 'Fakulti Kejuruteraan Elektrik', tarikhPergerakan: AsetLink.today(), sebab: 'Pindah ke PTJ lain' }));
+      TestAssert.apiOk(KhFx.st(a, 'pergerakan', k.id, 'DILULUSKAN'));
+      TestAssert.apiOk(KhFx.st(a, 'pergerakan', k.id, 'SELESAI'));
+      t.eq(KhFx.aset('KH-M2').status, 'DIPINDAH_KELUAR');
+      TestAssert.apiFail(KhFx.pub('aduanaset', { nama: 'X', email: 'x@test.local', noAset: 'KH-M2', tarikhKerosakan: AsetLink.today(), lokasi: 'L', keteranganKerosakan: 'Ujian aset keluar FKM.' }), ERROR_CODES.VALIDATION_ERROR);
+      TestAssert.apiOk(TestHelpers.call(a.token, 'crud.update', { module: 'pergerakan', id: k.id, sebab: 'Pindah ke PTJ lain (dikemas kini)' }));
+    }],
+    ['Pemeriksaan (KEW.PA-10/11) & penilaian: rekod aset dikemas kini; skor → cadangan; nilai semasa lalai nilai buku', function (t) {
+      AppFx.real();
+      const a = KhFx.admin();
+      KhFx.assets(a, [{ noAset: 'KH-E1', jenis: 'DESKTOP', tahunPerolehan: '2020', nilaiPerolehan: '5000' }, { noAset: 'KH-E2', jenis: 'DESKTOP' }]);
+      TestAssert.apiOk(TestHelpers.call(a.token, 'crud.create', { module: 'pemeriksaan', noAset: 'KH-E1', tarikhPemeriksaan: AsetLink.today(), pemeriksa: 'Pegawai A', keberadaan: 'ADA', keadaan: 'ROSAK', lokasiSebenar: 'c23-205', penggunaSebenar: 'Dr. Contoh' }));
+      let as = KhFx.aset('KH-E1');
+      t.eq(as.tarikh_semakan, AsetLink.today()); t.ok(AsetLink.isTrue(as.disahkan_fizikal)); t.eq(as.status, 'PERLU_BAIKI');
+      t.eq(as.lokasi_fizikal, 'C23-205'); t.eq(as.penjaga_terkini, 'Dr. Contoh'); t.eq(as.keadaan_fizikal, 'SEDERHANA');
+      const miss = TestAssert.apiOk(TestHelpers.call(a.token, 'crud.create', { module: 'pemeriksaan', noAset: 'KH-E2', tarikhPemeriksaan: AsetLink.today(), pemeriksa: 'Pegawai A', keberadaan: 'TIADA', keadaan: 'BAIK' }));
+      t.eq(KhFx.aset('KH-E2').status_pengesahan, 'TIDAK_DISAHKAN');
+      t.ok(!AsetLink.isTrue(KhFx.aset('KH-E2').disahkan_fizikal));
+      t.ok(/Laporan Kehilangan/.test(miss.cadanganTindakan));
+      TestAssert.apiFail(TestHelpers.call(a.token, 'crud.create', { module: 'penilaian', noAset: 'KH-E1', tarikhPenilaian: AsetLink.today(), jenisPenilaian: 'KEADAAN', penilai: 'P', skorFizikal: 2 }), ERROR_CODES.VALIDATION_ERROR);
+      const n = TestAssert.apiOk(TestHelpers.call(a.token, 'crud.create', { module: 'penilaian', noAset: 'KH-E1', tarikhPenilaian: AsetLink.today(), jenisPenilaian: 'KEDUA', penilai: 'Pegawai B', skorFizikal: 2, skorPrestasi: 2, skorKeperluan: 3 }));
+      t.eq(n.values.skorKeseluruhan, 47); t.eq(n.values.keputusan, 'GANTI');
+      const buku = AsetHooks.depreciation(KhFx.aset('KH-E1'), new Date()).nilaiBuku;
+      t.eq(Number(n.values.nilaiSemasa), buku, 'nilai semasa = nilai buku'); t.eq(Number(n.values.nilaiPerolehan), 5000);
+      t.eq(PenilaianHooks.decide(85), 'KEKAL'); t.eq(PenilaianHooks.decide(65, 2, 4), 'NAIK_TARAF'); t.eq(PenilaianHooks.decide(65, 4, 4), 'BAIKI'); t.eq(PenilaianHooks.decide(30), 'LUPUS');
+      TestAssert.apiOk(KhFx.st(a, 'penilaian', n.id, 'DISAHKAN'));
+      as = KhFx.aset('KH-E1');
+      t.eq(as.cadangan, 'GANTI'); t.eq(Number(as.skor_keadaan), 47); t.eq(Number(as.nilai_semasa), buku); t.eq(as.tarikh_penilaian, AsetLink.today());
+    }],
+    ['Pelupusan (KEW.PA-16/17): aliran lembaga → dilupuskan; maklumat kelulusan wajib; aset ditanda & tindakan UTMFin; ditolak → status pengesahan dipulihkan', function (t) {
+      AppFx.real();
+      const a = KhFx.admin();
+      KhFx.assets(a, [{ noAset: 'KH-L1', jenis: 'DESKTOP', tahunPerolehan: '2012', nilaiPerolehan: '3000' }, { noAset: 'KH-L2', jenis: 'DESKTOP' }]);
+      const r = TestAssert.apiOk(TestHelpers.call(a.token, 'crud.create', { module: 'pelupusan', noAset: 'KH-L1', sebab: 'USANG', justifikasi: 'Melebihi jangka hayat, tidak menyokong Windows 11.' }));
+      let as = KhFx.aset('KH-L1');
+      t.eq(as.cadangan, 'LUPUS'); t.eq(as.status_pengesahan, 'PELUPUSAN');
+      t.ok(Number(r.values.nilaiSemasa) >= 0 && r.values.nilaiPerolehan === 3000, 'nilai daripada aset');
+      TestAssert.apiFail(TestHelpers.call(a.token, 'crud.create', { module: 'pelupusan', noAset: 'KH-L1', sebab: 'USANG', justifikasi: 'Pendua' }), ERROR_CODES.CONFLICT);
+      TestAssert.apiFail(KhFx.st(a, 'pelupusan', r.id, 'DILUPUSKAN'), ERROR_CODES.VALIDATION_ERROR);
+      TestAssert.apiOk(KhFx.st(a, 'pelupusan', r.id, 'DIPERIKSA'));
+      TestAssert.apiOk(KhFx.st(a, 'pelupusan', r.id, 'DILULUSKAN'));
+      TestAssert.apiFail(KhFx.st(a, 'pelupusan', r.id, 'DILUPUSKAN'), ERROR_CODES.VALIDATION_ERROR);
+      TestAssert.apiOk(TestHelpers.call(a.token, 'crud.update', { module: 'pelupusan', id: r.id, kaedah: 'KITAR_SEMULA', noRujukanKelulusan: 'UTM.J.01/2026', tarikhLupus: AsetLink.today() }));
+      TestAssert.apiOk(KhFx.st(a, 'pelupusan', r.id, 'DILUPUSKAN'));
+      as = KhFx.aset('KH-L1');
+      t.eq(as.status, 'DILUPUS'); t.eq(as.status_pengesahan, 'LUPUS_REKOD_AKTIF');
+      TindakanHooks.sync(a.ctx);
+      t.ok(Repo.of('TINDAKAN').all().some(function (x) { return x.aset === as.id && x.jenis === 'REKOD_LUPUS'; }), 'tindakan KEWPA: kemas kini rekod lupus di UTMFin');
+      const r2 = TestAssert.apiOk(TestHelpers.call(a.token, 'crud.create', { module: 'pelupusan', noAset: 'KH-L2', sebab: 'TIDAK_DIPERLUKAN', justifikasi: 'Berlebihan di makmal.' }));
+      TestAssert.apiOk(KhFx.st(a, 'pelupusan', r2.id, 'DITOLAK'));
+      t.eq(KhFx.aset('KH-L2').status_pengesahan, '', 'status pengesahan asal (kosong) dipulihkan');
+    }],
+    ['Kehilangan (KEW.PA-28): laporan awam, laporan polis, aset Hilang; tidak boleh dipinjam; ditemui → dipulihkan; hapus kira', function (t) {
+      AppFx.real();
+      const a = KhFx.admin();
+      KhFx.assets(a, [{ noAset: 'KH-H1', jenis: 'LAPTOP', bolehDipinjam: 'Ya', status: 'Berfungsi tetapi tidak memenuhi keperluan', nilaiPerolehan: '4000', tahunPerolehan: '2023' }, { noAset: 'KH-H2', jenis: 'PROJEKTOR' }]);
+      const body = { nama: 'Pelapor', email: 'pelapor@test.local', kategoriPelapor: 'STAF', telefon: '012-9998888', noAset: 'KH-H1', tarikhKehilangan: KhFx.day(-2), tarikhDiketahui: KhFx.day(-1), lokasiKehilangan: 'Dewan Kuliah', keadaanKehilangan: 'Ditinggalkan selepas kuliah, tiada keesokan hari.' };
+      TestAssert.apiFail(KhFx.pub('kehilangan', Object.assign({}, body, { laporanPolis: true })), ERROR_CODES.VALIDATION_ERROR);
+      TestAssert.apiFail(KhFx.pub('kehilangan', Object.assign({}, body, { tarikhDiketahui: KhFx.day(-3) })), ERROR_CODES.VALIDATION_ERROR);
+      const r = TestAssert.apiOk(KhFx.pub('kehilangan', Object.assign({}, body, { laporanPolis: true, noLaporanPolis: 'SKUDAI/001/26' })));
+      t.eq(KhFx.aset('KH-H1').status, 'HILANG');
+      t.ok(Number(Repo.of('KEHILANGAN').findById(r.id).nilai_kehilangan) > 0, 'nilai buku semasa hilang');
+      TestAssert.apiFail(KhFx.pinjam('KH-H1'), ERROR_CODES.VALIDATION_ERROR);
+      TestAssert.apiFail(KhFx.pub('kehilangan', Object.assign({}, body, { email: 'lain@test.local' })), ERROR_CODES.CONFLICT);
+      TestAssert.apiOk(KhFx.st(a, 'kehilangan', r.id, 'DALAM_SIASATAN'));
+      TestAssert.apiOk(KhFx.st(a, 'kehilangan', r.id, 'DITEMUI'));
+      t.eq(KhFx.aset('KH-H1').status, 'PERLAHAN', 'status asal dipulihkan');
+      const r2 = TestAssert.apiOk(KhFx.pub('kehilangan', Object.assign({}, body, { noAset: 'KH-H2', email: 'p3@test.local' })));
+      TestAssert.apiFail(KhFx.st(a, 'kehilangan', r2.id, 'HAPUS_KIRA'), ERROR_CODES.VALIDATION_ERROR);
+      TestAssert.apiOk(KhFx.st(a, 'kehilangan', r2.id, 'DALAM_SIASATAN'));
+      TestAssert.apiOk(KhFx.st(a, 'kehilangan', r2.id, 'HAPUS_KIRA'));
+      const h2 = KhFx.aset('KH-H2');
+      t.eq(h2.status, 'HAPUS_KIRA'); t.eq(h2.status_pengesahan, 'LUPUS_REKOD_AKTIF');
+      const ov = TestAssert.apiOk(TestHelpers.call(a.token, 'aset.overview', { tahun: 2026 }));
+      t.ok(ov, 'overview masih berfungsi dengan status baharu');
+    }],
+    ['Sejarah aset merentas modul (admin sahaja); ringkasan kitar hayat untuk Pengurusan tanpa data peribadi', function (t) {
+      AppFx.real();
+      const a = KhFx.admin();
+      KhFx.assets(a, [{ noAset: 'KH-S1', jenis: 'DESKTOP', bolehDipinjam: 'Ya' }]);
+      TestAssert.apiOk(KhFx.pinjam('KH-S1', { nama: 'Nama Rahsia Peminjam' }));
+      TestAssert.apiOk(KhFx.pub('aduanaset', { nama: 'X', email: 'x2@test.local', noAset: 'KH-S1', tarikhKerosakan: AsetLink.today(), lokasi: 'L', keteranganKerosakan: 'Skrin berkelip-kelip.' }));
+      TestAssert.apiOk(TestHelpers.call(a.token, 'crud.create', { module: 'selenggara', noAset: 'KH-S1', jenisSelenggara: 'PENCEGAHAN', tarikhSelenggara: KhFx.day(3), butiranKerja: 'Pembersihan habuk & kemas kini OS', tarikhSeterusnya: KhFx.day(120) }));
+      const u = KhFx.user();
+      TestAssert.apiOk(TestHelpers.call(u.token, 'crud.create', { module: 'tiket', tajuk: 'PC lambat', kategori: AppFx.catId(), lokasi: 'C23', noAset: 'kh-s1', keterangan: 'PC sangat perlahan semasa kelas.' }));
+      const as = KhFx.aset('KH-S1');
+      const h = TestAssert.apiOk(TestHelpers.call(a.token, 'aset.sejarah', { id: as.id }));
+      t.ok(h.counts.pinjaman === 1 && h.counts.aduanaset === 1 && h.counts.selenggara === 1 && h.counts.tiket === 1, JSON.stringify(h.counts));
+      t.ok(h.items.every(function (i) { return i.refNo && i.statusLabel && i.modul; }));
+      t.ok(AsetLink.norm(' UTM/FKM 01 ') === 'utm/fkm01');
+      const mgr = TestHelpers.admin(ROLES.PENGURUSAN);
+      TestAssert.apiFail(TestHelpers.call(mgr.token, 'aset.sejarah', { id: as.id }), ERROR_CODES.FORBIDDEN);
+      const s = TestAssert.apiOk(TestHelpers.call(mgr.token, 'aset.kitarHayat', {}));
+      t.ok(s.pinjaman.dimohon >= 1 && s.aduan.terbuka >= 1 && s.selenggara.dijadualkan >= 1, JSON.stringify(s));
+      t.ok(JSON.stringify(s).indexOf('Nama Rahsia') < 0, 'tiada nama dalam ringkasan');
+      const list = TestAssert.apiOk(TestHelpers.call(mgr.token, 'crud.list', { module: 'pinjaman', pageSize: 50 }));
+      t.eq(list.items.length, 0, 'Pengurusan tidak nampak permohonan orang lain');
+      SelenggaraHooks.maintenance();
     }]
   ]
 };

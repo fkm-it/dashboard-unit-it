@@ -97,13 +97,53 @@ const SCHEMA = Object.freeze({
   },
   ASET: {
     sheet: 'ASET', id: 'id', prefix: 'AS', module: 'aset',
-    columns: ['id', 'ref_no', 'owner_user_id', 'owner_name', 'no_aset', 'no_siri', 'jenis', 'jenama', 'model', 'nama_alat', 'monitor', 'makmal', 'lokasi', 'kod_lokasi', 'lokasi_fizikal', 'lokasi_berbeza', 'pic_makmal', 'pegawai_bertanggungjawab', 'no_pekerja_penjaga', 'email_penjaga', 'penjaga_terkini', 'status_pengesahan', 'disemak_oleh', 'tahun_perolehan', 'tarikh_aset', 'nilai_perolehan', 'tamat_waranti', 'cpu', 'ram_gb', 'storan', 'gpu', 'sistem_operasi', 'lesen_os', 'perisian', 'keadaan_fizikal', 'cadangan', 'kategori_aset', 'borang_kewpa', 'kegunaan', 'sop_ada', 'selenggara_cuti_sem', 'selenggara_suku_tahun', 'selenggara_ikut_keadaan', 'disahkan_fizikal', 'tarikh_semakan', 'catatan', 'deskripsi_perolehan', 'kod_sodo', 'ptj_perolehan', 'chargeline', 'no_rujukan_perolehan', 'no_pt', 'no_requisition', 'cost_center', 'status', 'status_note', 'status_changed_at', 'status_changed_by', 'state', 'created_at', 'updated_at', 'deleted_at'],
-    types: {'lokasi_berbeza': 'bool', 'tahun_perolehan': 'intOrNull', 'ram_gb': 'intOrNull', 'sop_ada': 'bool', 'selenggara_cuti_sem': 'bool', 'selenggara_suku_tahun': 'bool', 'selenggara_ikut_keadaan': 'bool', 'disahkan_fizikal': 'bool'}
+    columns: ['id', 'ref_no', 'owner_user_id', 'owner_name', 'no_aset', 'no_siri', 'jenis', 'jenama', 'model', 'nama_alat', 'monitor', 'makmal', 'lokasi', 'kod_lokasi', 'lokasi_fizikal', 'lokasi_berbeza', 'pic_makmal', 'pegawai_bertanggungjawab', 'no_pekerja_penjaga', 'email_penjaga', 'penjaga_terkini', 'status_pengesahan', 'disemak_oleh', 'tahun_perolehan', 'tarikh_aset', 'nilai_perolehan', 'tamat_waranti', 'cpu', 'ram_gb', 'storan', 'gpu', 'sistem_operasi', 'lesen_os', 'perisian', 'keadaan_fizikal', 'cadangan', 'kategori_aset', 'borang_kewpa', 'kegunaan', 'sop_ada', 'selenggara_cuti_sem', 'selenggara_suku_tahun', 'selenggara_ikut_keadaan', 'disahkan_fizikal', 'tarikh_semakan', 'catatan', 'deskripsi_perolehan', 'kod_sodo', 'ptj_perolehan', 'chargeline', 'no_rujukan_perolehan', 'no_pt', 'no_requisition', 'cost_center', 'boleh_dipinjam', 'dipinjam', 'peminjam_semasa', 'tarikh_pulang_jangka', 'tarikh_selenggara_terakhir', 'tarikh_selenggara_seterusnya', 'tarikh_penilaian', 'skor_keadaan', 'nilai_semasa', 'status', 'status_note', 'status_changed_at', 'status_changed_by', 'state', 'created_at', 'updated_at', 'deleted_at'],
+    types: {'lokasi_berbeza': 'bool', 'tahun_perolehan': 'intOrNull', 'ram_gb': 'intOrNull', 'sop_ada': 'bool', 'selenggara_cuti_sem': 'bool', 'selenggara_suku_tahun': 'bool', 'selenggara_ikut_keadaan': 'bool', 'disahkan_fizikal': 'bool', 'boleh_dipinjam': 'bool', 'dipinjam': 'bool', 'skor_keadaan': 'intOrNull'}
   },
   TINDAKAN: {
     sheet: 'TINDAKAN', id: 'id', prefix: 'TD', module: 'tindakan',
     columns: ['id', 'ref_no', 'owner_user_id', 'owner_name', 'jenis', 'aset', 'no_aset', 'butiran', 'makmal', 'pegawai', 'tarikh_sasaran', 'borang', 'catatan', 'automatik', 'selesai_pada', 'status', 'status_note', 'status_changed_at', 'status_changed_by', 'state', 'created_at', 'updated_at', 'deleted_at'],
     types: {'automatik': 'bool'}
+  },
+  PERGERAKAN: {
+    sheet: 'PERGERAKAN', id: 'id', prefix: 'PR', module: 'pergerakan',
+    columns: ['id', 'ref_no', 'owner_user_id', 'owner_name', 'no_aset', 'butiran_aset', 'aset', 'jenis_pergerakan', 'lokasi_asal', 'makmal_baru', 'lokasi_baru', 'penjaga_baru', 'email_penjaga_baru', 'ptj_baru', 'tarikh_pergerakan', 'sebab', 'lampiran', 'catatan_unit', 'status', 'status_note', 'status_changed_at', 'status_changed_by', 'state', 'created_at', 'updated_at', 'deleted_at'],
+    types: {'lampiran': 'int'}
+  },
+  PINJAMAN: {
+    sheet: 'PINJAMAN', id: 'id', prefix: 'PJ', module: 'pinjaman',
+    columns: ['id', 'ref_no', 'owner_user_id', 'owner_name', 'nama', 'email', 'kategori_pemohon', 'no_pengenalan', 'telefon', 'penyelia', 'no_aset', 'butiran_aset', 'aset', 'tujuan', 'lokasi_penggunaan', 'tarikh_pinjam', 'tarikh_pulang', 'lampiran', 'tarikh_diserahkan', 'tarikh_dipulangkan', 'keadaan_pulang', 'catatan_unit', 'status', 'status_note', 'status_changed_at', 'status_changed_by', 'state', 'created_at', 'updated_at', 'deleted_at'],
+    types: {'lampiran': 'int'}
+  },
+  ADUANASET: {
+    sheet: 'ADUANASET', id: 'id', prefix: 'AD', module: 'aduanaset',
+    columns: ['id', 'ref_no', 'owner_user_id', 'owner_name', 'nama', 'email', 'telefon', 'no_aset', 'butiran_aset', 'aset', 'tarikh_kerosakan', 'lokasi', 'keterangan_kerosakan', 'lampiran', 'pegawai', 'tindakan', 'kos_pembaikan', 'laporan_teknikal', 'tarikh_selesai', 'status', 'status_note', 'status_changed_at', 'status_changed_by', 'state', 'created_at', 'updated_at', 'deleted_at'],
+    types: {'lampiran': 'int'}
+  },
+  SELENGGARA: {
+    sheet: 'SELENGGARA', id: 'id', prefix: 'SL', module: 'selenggara',
+    columns: ['id', 'ref_no', 'owner_user_id', 'owner_name', 'no_aset', 'butiran_aset', 'aset', 'jenis_selenggara', 'tarikh_selenggara', 'butiran_kerja', 'dilaksanakan_oleh', 'nama_syarikat', 'no_pesanan', 'kos', 'tarikh_seterusnya', 'rujukan_aduan', 'lampiran', 'status', 'status_note', 'status_changed_at', 'status_changed_by', 'state', 'created_at', 'updated_at', 'deleted_at'],
+    types: {'lampiran': 'int'}
+  },
+  PEMERIKSAAN: {
+    sheet: 'PEMERIKSAAN', id: 'id', prefix: 'PM', module: 'pemeriksaan',
+    columns: ['id', 'ref_no', 'owner_user_id', 'owner_name', 'no_aset', 'butiran_aset', 'aset', 'tarikh_pemeriksaan', 'pemeriksa', 'keberadaan', 'keadaan', 'lokasi_sebenar', 'pengguna_sebenar', 'label_ada', 'maklumat_sepadan', 'catatan', 'lampiran', 'status', 'status_note', 'status_changed_at', 'status_changed_by', 'state', 'created_at', 'updated_at', 'deleted_at'],
+    types: {'label_ada': 'bool', 'maklumat_sepadan': 'bool', 'lampiran': 'int'}
+  },
+  PENILAIAN: {
+    sheet: 'PENILAIAN', id: 'id', prefix: 'PN', module: 'penilaian',
+    columns: ['id', 'ref_no', 'owner_user_id', 'owner_name', 'no_aset', 'butiran_aset', 'aset', 'tarikh_penilaian', 'jenis_penilaian', 'skor_fizikal', 'skor_prestasi', 'skor_keperluan', 'skor_keseluruhan', 'keputusan', 'nilai_perolehan', 'nilai_buku', 'nilai_semasa', 'kaedah_nilai', 'penilai', 'catatan', 'lampiran', 'status', 'status_note', 'status_changed_at', 'status_changed_by', 'state', 'created_at', 'updated_at', 'deleted_at'],
+    types: {'skor_fizikal': 'intOrNull', 'skor_prestasi': 'intOrNull', 'skor_keperluan': 'intOrNull', 'skor_keseluruhan': 'intOrNull', 'lampiran': 'int'}
+  },
+  PELUPUSAN: {
+    sheet: 'PELUPUSAN', id: 'id', prefix: 'LP', module: 'pelupusan',
+    columns: ['id', 'ref_no', 'owner_user_id', 'owner_name', 'no_aset', 'butiran_aset', 'aset', 'sebab', 'justifikasi', 'kaedah', 'nilai_perolehan', 'nilai_semasa', 'lembaga_pemeriksa', 'no_rujukan_kelulusan', 'tarikh_kelulusan', 'tarikh_lupus', 'hasil_pelupusan', 'status_pengesahan_asal', 'lampiran', 'status', 'status_note', 'status_changed_at', 'status_changed_by', 'state', 'created_at', 'updated_at', 'deleted_at'],
+    types: {'lampiran': 'int'}
+  },
+  KEHILANGAN: {
+    sheet: 'KEHILANGAN', id: 'id', prefix: 'HL', module: 'kehilangan',
+    columns: ['id', 'ref_no', 'owner_user_id', 'owner_name', 'nama', 'email', 'kategori_pelapor', 'no_pengenalan', 'telefon', 'no_aset', 'butiran_aset', 'aset', 'tarikh_kehilangan', 'tarikh_diketahui', 'lokasi_kehilangan', 'keadaan_kehilangan', 'laporan_polis', 'no_laporan_polis', 'tarikh_laporan_polis', 'lampiran', 'status_aset_asal', 'nilai_kehilangan', 'keputusan_siasatan', 'tindakan_surcaj', 'status', 'status_note', 'status_changed_at', 'status_changed_by', 'state', 'created_at', 'updated_at', 'deleted_at'],
+    types: {'laporan_polis': 'bool', 'lampiran': 'int'}
   },
   KEPERLUAN: {
     sheet: 'KEPERLUAN', id: 'id', prefix: 'KP', module: 'keperluan',

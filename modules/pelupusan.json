@@ -1,0 +1,224 @@
+{
+  "key": "pelupusan",
+  "label": "Pelupusan Aset",
+  "labelPlural": "Pelupusan Aset",
+  "icon": "archive",
+  "prefix": "LP",
+  "refFormat": "LPS-{YYYY}-{SEQ4}",
+  "description": "Permohonan dan rekod pelupusan aset alih (KEW.PA-16/17): cadangan, pemeriksaan Lembaga Pemeriksa, kelulusan dan pelaksanaan. Aset ditanda Dilupus apabila selesai.",
+  "access": {
+    "create": "ADMIN",
+    "list": "OWN",
+    "edit": "ADMIN",
+    "delete": "ADMIN"
+  },
+  "statuses": [
+    {
+      "value": "DICADANGKAN",
+      "label": "Dicadangkan",
+      "tone": "info"
+    },
+    {
+      "value": "DIPERIKSA",
+      "label": "Diperiksa Lembaga Pemeriksa",
+      "tone": "brand"
+    },
+    {
+      "value": "DILULUSKAN",
+      "label": "Diluluskan",
+      "tone": "warn"
+    },
+    {
+      "value": "DILUPUSKAN",
+      "label": "Dilupuskan",
+      "tone": "success"
+    },
+    {
+      "value": "DITOLAK",
+      "label": "Ditolak",
+      "tone": "danger"
+    },
+    {
+      "value": "DIBATALKAN",
+      "label": "Dibatalkan",
+      "tone": "muted"
+    }
+  ],
+  "notify": {
+    "adminsOnCreate": false,
+    "ownerOnStatus": false
+  },
+  "titleField": "noAset",
+  "subtitleField": "sebab",
+  "nav": {
+    "user": false,
+    "admin": true,
+    "order": 29
+  },
+  "fields": [
+    {
+      "key": "noAset",
+      "label": "No. aset",
+      "type": "string",
+      "required": true,
+      "max": 60,
+      "list": true,
+      "search": true,
+      "hint": "Seperti pada label / tag aset (cth. UTM/FKM/H/2019/00123).",
+      "lockAfterCreate": true
+    },
+    {
+      "key": "butiranAset",
+      "label": "Aset",
+      "type": "string",
+      "readonly": true,
+      "list": true,
+      "search": true
+    },
+    {
+      "key": "aset",
+      "label": "Rekod aset",
+      "type": "ref",
+      "ref": "aset",
+      "readonly": true,
+      "adminOnly": true
+    },
+    {
+      "key": "sebab",
+      "label": "Sebab pelupusan",
+      "type": "enum",
+      "required": true,
+      "list": true,
+      "filter": true,
+      "options": [
+        {
+          "value": "ROSAK_TIDAK_EKONOMI",
+          "label": "Rosak & tidak ekonomi dibaiki"
+        },
+        {
+          "value": "USANG",
+          "label": "Usang"
+        },
+        {
+          "value": "LUPUT_TEKNOLOGI",
+          "label": "Luput teknologi / tidak disokong"
+        },
+        {
+          "value": "TIDAK_DIPERLUKAN",
+          "label": "Tidak diperlukan / berlebihan"
+        },
+        {
+          "value": "LAIN",
+          "label": "Lain-lain"
+        }
+      ]
+    },
+    {
+      "key": "justifikasi",
+      "label": "Justifikasi",
+      "type": "text",
+      "required": true,
+      "max": 2000,
+      "search": true
+    },
+    {
+      "key": "kaedah",
+      "label": "Kaedah pelupusan",
+      "type": "enum",
+      "list": true,
+      "filter": true,
+      "options": [
+        {
+          "value": "JUALAN_TENDER",
+          "label": "Jualan secara tender"
+        },
+        {
+          "value": "JUALAN_SEBUT_HARGA",
+          "label": "Jualan secara sebut harga"
+        },
+        {
+          "value": "JUALAN_LELONG",
+          "label": "Jualan secara lelong"
+        },
+        {
+          "value": "SERAHAN",
+          "label": "Serahan / hadiah"
+        },
+        {
+          "value": "TUKAR_BARANG",
+          "label": "Tukar barang / tukar beli"
+        },
+        {
+          "value": "KITAR_SEMULA",
+          "label": "Kitar semula (e-waste)"
+        },
+        {
+          "value": "MUSNAH",
+          "label": "Musnah"
+        },
+        {
+          "value": "LAIN",
+          "label": "Lain-lain"
+        }
+      ]
+    },
+    {
+      "key": "nilaiPerolehan",
+      "label": "Nilai perolehan (RM)",
+      "type": "number",
+      "readonly": true
+    },
+    {
+      "key": "nilaiSemasa",
+      "label": "Nilai semasa (RM)",
+      "type": "number",
+      "min": 0,
+      "decimals": 2,
+      "hint": "Kosongkan untuk guna penilaian terakhir yang disahkan atau nilai buku."
+    },
+    {
+      "key": "lembagaPemeriksa",
+      "label": "Lembaga Pemeriksa",
+      "type": "text",
+      "max": 500
+    },
+    {
+      "key": "noRujukanKelulusan",
+      "label": "No. rujukan kelulusan",
+      "type": "string",
+      "max": 80
+    },
+    {
+      "key": "tarikhKelulusan",
+      "label": "Tarikh kelulusan",
+      "type": "date"
+    },
+    {
+      "key": "tarikhLupus",
+      "label": "Tarikh dilupuskan",
+      "type": "date",
+      "list": true
+    },
+    {
+      "key": "hasilPelupusan",
+      "label": "Hasil pelupusan (RM)",
+      "type": "number",
+      "min": 0,
+      "decimals": 2
+    },
+    {
+      "key": "statusPengesahanAsal",
+      "label": "Status pengesahan asal aset",
+      "type": "string",
+      "readonly": true,
+      "adminOnly": true
+    },
+    {
+      "key": "lampiran",
+      "label": "Dokumen (KEW.PA-16/17, sijil pelupusan)",
+      "type": "files",
+      "maxFiles": 5,
+      "public": false
+    }
+  ]
+}

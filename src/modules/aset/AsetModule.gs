@@ -48,6 +48,21 @@ const AsetModule = Object.freeze(Object.assign(
         "value": "DILUPUS",
         "label": "Dilupus",
         "tone": "muted"
+      },
+      {
+        "value": "HILANG",
+        "label": "Hilang / dalam siasatan",
+        "tone": "danger"
+      },
+      {
+        "value": "HAPUS_KIRA",
+        "label": "Hapus kira (hilang)",
+        "tone": "muted"
+      },
+      {
+        "value": "DIPINDAH_KELUAR",
+        "label": "Dipindahkan keluar FKM",
+        "tone": "muted"
       }
     ],
     "notify": {
@@ -582,6 +597,70 @@ const AsetModule = Object.freeze(Object.assign(
         "type": "string",
         "max": 40,
         "column": "cost_center"
+      },
+      {
+        "key": "bolehDipinjam",
+        "label": "Boleh dipinjam",
+        "type": "bool",
+        "filter": true,
+        "hint": "Aset boleh dimohon melalui modul Pinjaman Aset.",
+        "column": "boleh_dipinjam"
+      },
+      {
+        "key": "dipinjam",
+        "label": "Sedang dipinjam",
+        "type": "bool",
+        "readonly": true,
+        "column": "dipinjam"
+      },
+      {
+        "key": "peminjamSemasa",
+        "label": "Peminjam semasa",
+        "type": "string",
+        "readonly": true,
+        "column": "peminjam_semasa"
+      },
+      {
+        "key": "tarikhPulangJangka",
+        "label": "Tarikh pulang dijangka",
+        "type": "date",
+        "readonly": true,
+        "column": "tarikh_pulang_jangka"
+      },
+      {
+        "key": "tarikhSelenggaraTerakhir",
+        "label": "Selenggara terakhir",
+        "type": "date",
+        "readonly": true,
+        "column": "tarikh_selenggara_terakhir"
+      },
+      {
+        "key": "tarikhSelenggaraSeterusnya",
+        "label": "Selenggara seterusnya",
+        "type": "date",
+        "readonly": true,
+        "column": "tarikh_selenggara_seterusnya"
+      },
+      {
+        "key": "tarikhPenilaian",
+        "label": "Tarikh penilaian",
+        "type": "date",
+        "readonly": true,
+        "column": "tarikh_penilaian"
+      },
+      {
+        "key": "skorKeadaan",
+        "label": "Skor keadaan (%)",
+        "type": "int",
+        "readonly": true,
+        "column": "skor_keadaan"
+      },
+      {
+        "key": "nilaiSemasa",
+        "label": "Nilai semasa (RM)",
+        "type": "number",
+        "readonly": true,
+        "column": "nilai_semasa"
       }
     ],
     "name": "Aset",

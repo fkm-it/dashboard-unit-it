@@ -1,4 +1,9 @@
 <style>
+  .kh-links { display: flex; flex-wrap: wrap; gap: 6px; }
+  .kh-links .btn { padding: 4px 10px; }
+  .kh-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 10px; }
+  .kh-list li { padding-bottom: 8px; border-bottom: 1px solid var(--line, #E5E7EB); min-width: 0; overflow-wrap: anywhere; }
+  .kh-list li:last-child { border-bottom: 0; }
 /* ===== Dashboard Unit IT: Executive Overview + Import aset ===== */
 .xo-kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--sp-4); }
 .xo-kpi { display: flex; gap: var(--sp-3); align-items: flex-start; padding: var(--sp-5); background: var(--white); border: 1px solid var(--line); border-radius: var(--r-lg); color: inherit; text-decoration: none; transition: box-shadow .15s, border-color .15s; min-width: 0; }
@@ -148,6 +153,7 @@
         try {
           const o = await KD.api.call('aset.overview', { tahun });
           box.innerHTML = view(o).s;
+          KD.api.call('aset.kitarHayat', {}).then((k) => { const kb = qs('[data-kh-box]', box); if (kb) kb.innerHTML = kitarPanel(k).s; }).catch(() => {});
         } catch (err) { box.innerHTML = errorState(err, 'reload').s; }
       };
       on(el, 'click', '[data-act="reload"]', load);
@@ -179,6 +185,25 @@
         <td>${i.tahap ? html`${toneBadge((HEALTH_T[i.tahap] || [i.tahap])[0] + ' · ' + i.indeks, (HEALTH_T[i.tahap] || [])[1] || 'muted')}` : html`<span class="muted xs">—</span>`}</td></tr>`)}
         <tr><td><b>Jumlah</b></td><td class="num"><b>${fmtNum(j.pc)}</b></td><td>${opBar({ pc: j.pc, beroperasi: j.beroperasi })}</td><td class="num"><b>${fmtNum(j.rosak)}</b></td><td class="num"><b>${fmtNum(j.perluGanti)}</b></td><td></td><td></td></tr></tbody></table></div>
       <p class="xs muted mt-2">Komputer = komputer meja, riba dan workstation yang dipautkan ke makmal (tidak termasuk dilupus).${k.tanpaMakmal ? ' ' + fmtNum(k.tanpaMakmal) + ' komputer lain tidak dipautkan ke mana-mana makmal (pejabat / staf).' : ''}${k.makmalTanpaPc ? ' ' + fmtNum(k.makmalTanpaPc) + ' makmal belum ada komputer dalam daftar aset.' : ''} Klik nama makmal untuk senarai aset.</p></section>`;
+  }
+
+  /* Kitar hayat aset (KEWPA): kiraan modul pergerakan, pinjaman, aduan, selenggara, pemeriksaan, penilaian, pelupusan, kehilangan */
+  function kitarPanel(k) {
+    if (!k) return html``;
+    const card = (href, label, big, sub, tone) => html`<a class="lp-card ${tone ? 'is-' + tone : ''}" href="#${href}" style="text-decoration:none;color:inherit"><span class="xs muted">${label}</span><b>${big}</b><span class="xs muted">${sub}</span></a>`;
+    const pm = k.pemeriksaan;
+    const cov = pm.jumlahAset ? Math.round((pm.asetDiperiksaTahunIni / pm.jumlahAset) * 100) : 0;
+    return html`<section class="panel mt-4"><div class="panel-head"><h3>Kitar hayat aset (KEWPA)</h3><span class="xs muted">Tahun ${new Date().getFullYear()}</span></div>
+      <div class="lp-cards">
+        ${card('/admin/pinjaman?status=DIPINJAM', 'Pinjaman aset', fmtNum(k.pinjaman.dipinjam) + ' dipinjam', fmtNum(k.pinjaman.dimohon) + ' menunggu kelulusan' + (k.pinjaman.lewat ? ' · ' + fmtNum(k.pinjaman.lewat) + ' lewat' : '') + ' · ' + fmtNum(k.pinjaman.bolehDipinjam) + ' aset boleh dipinjam', k.pinjaman.lewat ? 'danger' : '')}
+        ${card('/admin/aduanaset', 'Aduan kerosakan', fmtNum(k.aduan.terbuka) + ' terbuka', fmtNum(k.aduan.tahunIni) + ' aduan tahun ini' + (k.aduan.tidakEkonomi ? ' · ' + fmtNum(k.aduan.tidakEkonomi) + ' tidak ekonomi' : ''), k.aduan.terbuka ? 'warn' : '')}
+        ${card('/admin/selenggara', 'Penyelenggaraan', fmtNum(k.selenggara.selesaiTahunIni) + ' selesai', fmtNum(k.selenggara.dijadualkan) + ' dijadualkan' + (k.selenggara.lewat ? ' (' + fmtNum(k.selenggara.lewat) + ' lewat)' : '') + ' · kos RM ' + rmx(k.selenggara.kosTahunIni) + (k.selenggara.asetPerluSelenggara ? ' · ' + fmtNum(k.selenggara.asetPerluSelenggara) + ' aset perlu diselenggara ≤ 30 hari' : ''), k.selenggara.lewat ? 'danger' : '')}
+        ${card('/admin/pemeriksaan', 'Pemeriksaan aset', cov + '% diperiksa', fmtNum(pm.asetDiperiksaTahunIni) + ' daripada ' + fmtNum(pm.jumlahAset) + ' aset' + (pm.tidakDijumpai ? ' · ' + fmtNum(pm.tidakDijumpai) + ' tidak dijumpai' : ''), pm.tidakDijumpai ? 'danger' : '')}
+        ${card('/admin/pergerakan', 'Pergerakan aset', fmtNum(k.pergerakan.terbuka) + ' dalam proses', fmtNum(k.pergerakan.tahunIni) + ' pergerakan tahun ini', '')}
+        ${card('/admin/penilaian', 'Penilaian aset', fmtNum(k.penilaian.tahunIni) + ' dinilai', fmtNum(k.penilaian.cadangLupus) + ' aset dicadang lupus', '')}
+        ${card('/admin/pelupusan', 'Pelupusan', fmtNum(k.pelupusan.dalamProses) + ' dalam proses', fmtNum(k.pelupusan.dilupusTahunIni) + ' dilupuskan tahun ini' + (k.pelupusan.hasilTahunIni ? ' · hasil RM ' + rmx(k.pelupusan.hasilTahunIni) : ''), '')}
+        ${card('/admin/kehilangan', 'Kehilangan', fmtNum(k.kehilangan.terbuka) + ' dalam siasatan', (k.kehilangan.nilaiTerbuka ? 'Nilai buku RM ' + rmx(k.kehilangan.nilaiTerbuka) + ' · ' : '') + fmtNum(k.kehilangan.hapusKiraTahunIni) + ' hapus kira tahun ini', k.kehilangan.terbuka ? 'danger' : '')}
+      </div></section>`;
   }
 
   /* Kesediaan Windows 11 & profil spesifikasi */
@@ -263,6 +288,7 @@
       ${pcLabPanel(o.komputerMakmal)}
       ${o.spesifikasi && o.spesifikasi.jumlah ? html`<div class="xo-grid3">${win11Panel(o.spesifikasi)}${capacityPanel(o.komputerMakmal)}</div>` : ''}
       ${penilaianPanel(o.penilaian)}
+      <div data-kh-box></div>
       <div class="xo-grid4">
         <section class="panel"><div class="panel-head"><h3>Pematuhan SLA</h3><span class="xs muted">6 bulan</span></div>
           ${lastSla ? html`<div class="xo-big">${pctTxt(lastSla.value)}</div><div class="xs muted mt-1 mb-4">${monthName(lastSla.label)}: ${fmtNum(lastSla.within)} daripada ${fmtNum(lastSla.total)} tiket selesai dalam sasaran</div>
@@ -858,12 +884,36 @@
     }
   };
 
+  /* Kitar hayat di halaman butiran aset: tindakan pantas + sejarah merentas modul (dimuat selepas paparan) */
+  const KH_LINKS = [['pemeriksaan', 'Pemeriksaan'], ['selenggara', 'Selenggara'], ['aduanaset', 'Aduan kerosakan'], ['pergerakan', 'Pergerakan'],
+    ['pinjaman', 'Pinjaman'], ['penilaian', 'Penilaian'], ['pelupusan', 'Pelupusan'], ['kehilangan', 'Kehilangan']];
+  const loadSejarah = async (id) => {
+    const box = document.querySelector('[data-kh-sejarah="' + id + '"]');
+    if (!box) return;
+    try {
+      const h = await KD.api.call('aset.sejarah', { id });
+      box.innerHTML = (h.items.length ? html`<ul class="kh-list">${h.items.slice(0, 30).map((i) => html`<li>
+          <a href="#/admin/${i.module}/${i.id}"><b class="small">${i.modul}</b> <span class="rec-ref">${i.refNo}</span></a> ${toneBadge(i.statusLabel, i.tone)}
+          <div class="xs muted">${i.tarikh ? fmtDate(i.tarikh) + ' · ' : ''}${i.ringkasan}</div></li>`)}</ul>${h.items.length > 30 ? html`<p class="xs muted">+ ${h.items.length - 30} rekod lagi</p>` : ''}`
+        : html`<p class="xs muted">Belum ada rekod pergerakan, pinjaman, aduan, selenggara, pemeriksaan, penilaian, pelupusan atau kehilangan.</p>`).s;
+    } catch (err) { box.innerHTML = html`<p class="xs muted">Sejarah tidak dapat dimuat.</p>`.s; }
+  };
+  const kitarSide = (d) => {
+    if (!isAdm()) return "";
+    const no = encodeURIComponent(d.values.noAset || '');
+    setTimeout(() => loadSejarah(d.id), 0);
+    return html`<div class="status-note"><strong>Kitar hayat aset</strong>
+      <div class="kh-links mt-2">${KH_LINKS.map((x) => html`<a class="btn btn-outline btn-sm" href="#/admin/${x[0]}/baru?noAset=${no}">${icon('plus', 'i-sm')}${x[1]}</a>`)}</div>
+      <div class="label mt-4">Sejarah</div><div data-kh-sejarah="${d.id}"><p class="xs muted">Memuatkan…</p></div></div>`;
+  };
+
   /* Panel nilai di halaman butiran aset */
-  KD.detailSide.aset = (d) => d.susutNilai ? html`<div class="status-note"><strong>Nilai & susut nilai</strong>
+  const nilaiSide = (d) => d.susutNilai ? html`<div class="status-note"><strong>Nilai & susut nilai</strong>
     <dl class="rec-detail__meta" style="grid-template-columns:1fr 1fr;margin-top:var(--sp-2)">
       <div><dt>Nilai perolehan</dt><dd>RM ${rmx(d.susutNilai.kos)}</dd></div><div><dt>Nilai buku</dt><dd>RM ${rmx(d.susutNilai.nilaiBuku)}</dd></div>
       <div><dt>Umur</dt><dd>${umurTxt(d.susutNilai.umurTahun)}</dd></div><div><dt>Susut setahun</dt><dd>RM ${rmx(d.susutNilai.susutTahunan)}</dd></div></dl>
     <div class="mt-2"><a class="small" href="#/admin/laporan-aset?t=ganti">Lihat cadangan penggantian →</a></div></div>` : '';
+  KD.detailSide.aset = (d) => html`${nilaiSide(d)}${kitarSide(d)}`;
 
   /* Penjejak tindakan KEWPA: butang segerak di halaman senarai */
   KD.listActions.tindakan = {
@@ -878,7 +928,7 @@
   };
 
   // ================================================================ Pendaftaran laluan & menu
-  ['aset.overview', 'aset.eksekutif', 'aset.laporanNilai', 'aset.laporanGanti', 'aset.laporanLokasi', 'aset.pelan', 'aset.indeksMakmal', 'aset.trend', 'tindakan.ringkasan']
+  ['aset.overview', 'aset.kitarHayat', 'aset.eksekutif', 'aset.laporanNilai', 'aset.laporanGanti', 'aset.laporanLokasi', 'aset.pelan', 'aset.indeksMakmal', 'aset.trend', 'tindakan.ringkasan']
     .forEach((a) => KD.api.cacheable && KD.api.cacheable.add(a));
   KD.views.adminSistem = KD.views.adminDashboard;
   KD.views.adminDashboard = overview;
