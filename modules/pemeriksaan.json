@@ -64,6 +64,14 @@
       "adminOnly": true
     },
     {
+      "key": "sesi",
+      "label": "Sesi stock-take",
+      "type": "ref",
+      "ref": "stoktake",
+      "readonly": true,
+      "filter": true
+    },
+    {
       "key": "tarikhPemeriksaan",
       "label": "Tarikh pemeriksaan",
       "type": "date",

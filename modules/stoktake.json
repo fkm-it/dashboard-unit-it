@@ -1,0 +1,125 @@
+{
+  "key": "stoktake",
+  "label": "Sesi Stock-take",
+  "labelPlural": "Stock-take",
+  "icon": "list",
+  "prefix": "ST",
+  "refFormat": "STK-{YYYY}-{SEQ3}",
+  "description": "Sesi semakan stok (verifikasi fizikal): imbas label QR / barcode aset dengan kamera telefon atau pengimbas. Setiap imbasan direkod sebagai pemeriksaan aset; aset yang tidak dijumpai disenaraikan apabila sesi ditutup.",
+  "access": {
+    "create": "ADMIN",
+    "list": "OWN",
+    "edit": "ADMIN",
+    "delete": "ADMIN"
+  },
+  "statuses": [
+    {
+      "value": "BERJALAN",
+      "label": "Sedang berjalan",
+      "tone": "warn"
+    },
+    {
+      "value": "SELESAI",
+      "label": "Selesai",
+      "tone": "success"
+    }
+  ],
+  "notify": {
+    "adminsOnCreate": false,
+    "ownerOnStatus": false
+  },
+  "titleField": "nama",
+  "subtitleField": "tarikh",
+  "nav": {
+    "user": false,
+    "admin": true,
+    "order": 27
+  },
+  "fields": [
+    {
+      "key": "nama",
+      "label": "Nama sesi",
+      "type": "string",
+      "required": true,
+      "max": 100,
+      "list": true,
+      "search": true,
+      "placeholder": "cth. Stock-take Makmal CAD 2026"
+    },
+    {
+      "key": "makmal",
+      "label": "Skop: makmal",
+      "type": "ref",
+      "ref": "makmal",
+      "filter": true,
+      "list": true,
+      "hint": "Aset yang didaftarkan di makmal ini dijangka dijumpai."
+    },
+    {
+      "key": "lokasi",
+      "label": "Skop: lokasi fizikal",
+      "type": "string",
+      "max": 60,
+      "placeholder": "cth. C24-410",
+      "hint": "Pilihan. Jika diisi, lokasi fizikal aset yang diimbas dikemas kini kepada lokasi ini. Kosongkan makmal & lokasi untuk semakan semua aset."
+    },
+    {
+      "key": "tarikh",
+      "label": "Tarikh",
+      "type": "date",
+      "required": true,
+      "list": true
+    },
+    {
+      "key": "pemeriksa",
+      "label": "Pegawai pemeriksa",
+      "type": "string",
+      "required": true,
+      "max": 120
+    },
+    {
+      "key": "catatan",
+      "label": "Catatan",
+      "type": "text",
+      "max": 1000
+    },
+    {
+      "key": "dijangka",
+      "label": "Aset dijangka",
+      "type": "int",
+      "readonly": true,
+      "list": true
+    },
+    {
+      "key": "dijumpai",
+      "label": "Dijumpai",
+      "type": "int",
+      "readonly": true,
+      "list": true
+    },
+    {
+      "key": "tidakDijumpai",
+      "label": "Tidak dijumpai",
+      "type": "int",
+      "readonly": true
+    },
+    {
+      "key": "luarSkop",
+      "label": "Dijumpai tetapi didaftarkan di lokasi lain",
+      "type": "int",
+      "readonly": true
+    },
+    {
+      "key": "tidakBerdaftar",
+      "label": "No. aset diimbas tetapi tiada dalam daftar",
+      "type": "text",
+      "readonly": true
+    },
+    {
+      "key": "tarikhSelesai",
+      "label": "Ditutup pada",
+      "type": "string",
+      "readonly": true
+    }
+  ]
+}

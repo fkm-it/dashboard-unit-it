@@ -73,6 +73,15 @@ const PemeriksaanModule = Object.freeze(Object.assign(
         "column": "aset"
       },
       {
+        "key": "sesi",
+        "label": "Sesi stock-take",
+        "type": "ref",
+        "ref": "stoktake",
+        "readonly": true,
+        "filter": true,
+        "column": "sesi"
+      },
+      {
         "key": "tarikhPemeriksaan",
         "label": "Tarikh pemeriksaan",
         "type": "date",

@@ -47,6 +47,7 @@ const AsetHooks = {
     'aset.indeksMakmal': { role: 'PENGURUSAN', fn: function () { return AsetCache.get('aset.indeksMakmal', {}, function () { return AsetHooks.reportLabHealth(); }); } },
     'aset.eksekutif': { role: 'PENGURUSAN', fn: function (payload) { return AsetCache.get('aset.eksekutif', payload, function () { return AsetHooks.reportExecutive(payload || {}); }); } },
     'aset.trend': { role: 'PENGURUSAN', fn: function (payload) { return AsetCache.get('aset.trend', payload, function () { return AsetTrend.trend(payload || {}); }); } },
+    'aset.label': { role: 'PUBLIC', fn: function (payload, ctx) { return AsetLink.labelInfo(payload || {}, ctx); } },
     'aset.sejarah': { role: 'ADMIN', fn: function (payload) { return AsetLink.history(payload || {}); } },
     'aset.kitarHayat': { role: 'PENGURUSAN', fn: function () { return AsetCache.get('aset.kitarHayat', {}, function () { return AsetLink.summary(); }); } },
     'aset.hantarRingkasan': { role: 'ADMIN', fn: function (payload, ctx) { return AsetTrend.sendNow(payload || {}, ctx); } }

@@ -92,7 +92,7 @@ const SCHEMA = Object.freeze({
   // @generator:schema:start
   TIKET: {
     sheet: 'TIKET', id: 'id', prefix: 'TK', module: 'tiket',
-    columns: ['id', 'ref_no', 'owner_user_id', 'owner_name', 'nama', 'email', 'telefon', 'tajuk', 'kategori', 'keutamaan', 'lokasi', 'makmal', 'no_aset', 'keterangan', 'lampiran', 'pegawai', 'tarikh_sasaran', 'diakui_pada', 'selesai_pada', 'penyelesaian', 'catatan_dalaman', 'status', 'status_note', 'status_changed_at', 'status_changed_by', 'state', 'created_at', 'updated_at', 'deleted_at'],
+    columns: ['id', 'ref_no', 'owner_user_id', 'owner_name', 'nama', 'email', 'telefon', 'tajuk', 'kategori', 'keutamaan', 'lokasi', 'makmal', 'no_aset', 'aset', 'keterangan', 'lampiran', 'pegawai', 'tarikh_sasaran', 'diakui_pada', 'selesai_pada', 'penyelesaian', 'catatan_dalaman', 'status', 'status_note', 'status_changed_at', 'status_changed_by', 'state', 'created_at', 'updated_at', 'deleted_at'],
     types: {'lampiran': 'int'}
   },
   ASET: {
@@ -132,8 +132,13 @@ const SCHEMA = Object.freeze({
   },
   PEMERIKSAAN: {
     sheet: 'PEMERIKSAAN', id: 'id', prefix: 'PM', module: 'pemeriksaan',
-    columns: ['id', 'ref_no', 'owner_user_id', 'owner_name', 'no_aset', 'butiran_aset', 'aset', 'tarikh_pemeriksaan', 'pemeriksa', 'keberadaan', 'keadaan', 'lokasi_sebenar', 'pengguna_sebenar', 'label_ada', 'maklumat_sepadan', 'catatan', 'lampiran', 'status', 'status_note', 'status_changed_at', 'status_changed_by', 'state', 'created_at', 'updated_at', 'deleted_at'],
+    columns: ['id', 'ref_no', 'owner_user_id', 'owner_name', 'no_aset', 'butiran_aset', 'aset', 'sesi', 'tarikh_pemeriksaan', 'pemeriksa', 'keberadaan', 'keadaan', 'lokasi_sebenar', 'pengguna_sebenar', 'label_ada', 'maklumat_sepadan', 'catatan', 'lampiran', 'status', 'status_note', 'status_changed_at', 'status_changed_by', 'state', 'created_at', 'updated_at', 'deleted_at'],
     types: {'label_ada': 'bool', 'maklumat_sepadan': 'bool', 'lampiran': 'int'}
+  },
+  STOKTAKE: {
+    sheet: 'STOKTAKE', id: 'id', prefix: 'ST', module: 'stoktake',
+    columns: ['id', 'ref_no', 'owner_user_id', 'owner_name', 'nama', 'makmal', 'lokasi', 'tarikh', 'pemeriksa', 'catatan', 'dijangka', 'dijumpai', 'tidak_dijumpai', 'luar_skop', 'tidak_berdaftar', 'tarikh_selesai', 'status', 'status_note', 'status_changed_at', 'status_changed_by', 'state', 'created_at', 'updated_at', 'deleted_at'],
+    types: {'dijangka': 'intOrNull', 'dijumpai': 'intOrNull', 'tidak_dijumpai': 'intOrNull', 'luar_skop': 'intOrNull'}
   },
   PENILAIAN: {
     sheet: 'PENILAIAN', id: 'id', prefix: 'PN', module: 'penilaian',

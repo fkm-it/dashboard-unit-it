@@ -30,6 +30,12 @@ const TiketHooks = {
 
   beforeSave: function (row, info) {
     const cur = info.current || {};
+    /* Pautan tiket ↔ aset: no. aset (taip / imbas QR label) dipadankan dengan daftar aset */
+    if (row.no_aset !== undefined) {
+      const a = AsetLink.find(row.no_aset);
+      row.aset = a ? a.id : '';
+      if (a) row.no_aset = a.no_aset;
+    }
     if (info.mode !== 'update') {
       row.tarikh_sasaran = TiketHooks.dueIso(row.created_at, row.keutamaan || 'SEDERHANA');
       if (row.pegawai && row.status === 'BARU') { row.status = 'DITUGASKAN'; row.diakui_pada = row.created_at; }

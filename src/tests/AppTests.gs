@@ -1244,6 +1244,57 @@ const TestSuiteKitarHayat = {
       const h = TestAssert.apiOk(TestHelpers.call(a.token, 'aset.sejarah', { id: KhFx.aset(units1[0]).id }));
       t.eq(h.counts.pinjaman, 1, 'sejarah unit kit');
     }],
+    ['Label QR & stock-take: maklumat awam minimum; imbasan → pemeriksaan & rekod aset; ulang/tidak berdaftar/luar skop; tutup sesi tanda tidak dijumpai; tiket dipautkan ke aset', function (t) {
+      AppFx.real();
+      const a = KhFx.admin();
+      const lab = AppFx.lab(a, 'KH-STK');
+      const lab2 = AppFx.lab(a, 'KH-STK2');
+      KhFx.assets(a, [
+        { noAset: 'KH-T1', jenis: 'DESKTOP', model: 'OptiPlex', makmal: 'KH-STK', pegawaiBertanggungjawab: 'Penjaga Rahsia', nilaiPerolehan: '4000' },
+        { noAset: 'KH-T2', jenis: 'DESKTOP', makmal: 'KH-STK' }, { noAset: 'KH-T3', jenis: 'DESKTOP', makmal: 'KH-STK' },
+        { noAset: 'KH-T4', jenis: 'DESKTOP', makmal: 'KH-STK2' }, { noAset: 'KH-T5', jenis: 'DESKTOP', makmal: 'KH-STK', status: 'Dilupus' }
+      ]);
+      /* Label awam */
+      const pubInfo = TestAssert.apiOk(api({ action: 'aset.label', payload: { a: 'kh-t1' } }));
+      t.eq(pubInfo.noAset, 'KH-T1'); t.ok(!pubInfo.id, 'tiada ID untuk awam');
+      t.ok(JSON.stringify(pubInfo).indexOf('Penjaga Rahsia') < 0 && JSON.stringify(pubInfo).indexOf('4000') < 0, 'tiada penjaga / nilai');
+      t.ok(TestAssert.apiOk(TestHelpers.call(a.token, 'aset.label', { a: 'KH-T1' })).id, 'admin dapat ID');
+      TestAssert.apiFail(api({ action: 'aset.label', payload: { a: 'TIADA-1' } }), ERROR_CODES.NOT_FOUND);
+      t.eq(StoktakeHooks.noFromScan('https://contoh.github.io/app/#/qr?a=UTM%2FFKM%2F001'), 'UTM/FKM/001');
+      t.eq(StoktakeHooks.noFromScan(' KH-T1 '), 'KH-T1');
+      /* Sesi */
+      const s = TestAssert.apiOk(TestHelpers.call(a.token, 'crud.create', { module: 'stoktake', nama: 'Stock-take ujian', makmal: lab.id, lokasi: 'C24-410', tarikh: AsetLink.today(), pemeriksa: 'Pegawai A' }));
+      t.eq(s.values.dijangka, 3, 'dilupus tidak dijangka');
+      const scan = function (kod, extra) { return TestAssert.apiOk(TestHelpers.call(a.token, 'stoktake.imbas', Object.assign({ sesi: s.id, kod: kod }, extra || {}))); };
+      let r = scan('https://x.github.io/app/#/qr?a=KH-T1');
+      t.eq(r.status, 'DIREKOD'); t.eq(r.kiraan.dijumpai, 1);
+      t.eq(scan('kh-t1').status, 'ULANG');
+      r = scan('KH-T2', { keadaan: 'ROSAK' });
+      t.eq(KhFx.aset('KH-T2').status, 'PERLU_BAIKI', 'rosak semasa imbasan');
+      r = scan('KH-T4');
+      t.ok(r.status === 'DIREKOD' && r.luarSkop, 'luar skop');
+      t.eq(scan('TIADA-DAFTAR-9').status, 'TIDAK_BERDAFTAR');
+      t.eq(scan('KH-T5').status, 'DILUPUS');
+      const as1 = KhFx.aset('KH-T1');
+      t.eq(as1.tarikh_semakan, AsetLink.today()); t.ok(AsetLink.isTrue(as1.disahkan_fizikal)); t.eq(as1.lokasi_fizikal, 'C24-410');
+      const sm = TestAssert.apiOk(TestHelpers.call(a.token, 'stoktake.ringkasan', { sesi: s.id }));
+      t.eq(sm.dijangka, 3); t.eq(sm.dijumpai, 3); t.eq(sm.belumJumlah, 1); t.eq(sm.belum[0].noAset, 'KH-T3');
+      t.eq(sm.luarSkop.length, 1); t.ok(/Makmal Ujian/.test(sm.luarSkop[0].daftar), 'makmal daftar');
+      t.eq(sm.tidakBerdaftar.join(), 'TIADA-DAFTAR-9');
+      const c = TestAssert.apiOk(TestHelpers.call(a.token, 'stoktake.tutup', { sesi: s.id, tandaTidakDijumpai: true }));
+      t.eq(c.tidakDijumpai, 1);
+      t.eq(KhFx.aset('KH-T3').status_pengesahan, 'TIDAK_DISAHKAN', 'tidak dijumpai → tidak dapat disahkan');
+      t.eq(Repo.of('STOKTAKE').findById(s.id).status, 'SELESAI');
+      TestAssert.apiFail(TestHelpers.call(a.token, 'stoktake.imbas', { sesi: s.id, kod: 'KH-T3' }), ERROR_CODES.VALIDATION_ERROR);
+      const mgr = TestHelpers.admin(ROLES.PENGURUSAN);
+      TestAssert.apiFail(TestHelpers.call(mgr.token, 'stoktake.imbas', { sesi: s.id, kod: 'KH-T3' }), ERROR_CODES.FORBIDDEN);
+      /* Tiket ↔ aset */
+      const u = KhFx.user();
+      const tk = TestAssert.apiOk(TestHelpers.call(u.token, 'crud.create', { module: 'tiket', tajuk: 'Skrin gelap', kategori: AppFx.catId(), lokasi: 'C24', noAset: ' kh-t1 ', keterangan: 'Skrin tidak memaparkan apa-apa.' }));
+      const tr = Repo.of('TIKET').findById(tk.id);
+      t.eq(tr.aset, as1.id); t.eq(tr.no_aset, 'KH-T1');
+      t.ok(lab2.id, 'makmal kedua');
+    }],
     ['Sejarah aset merentas modul (admin sahaja); ringkasan kitar hayat untuk Pengurusan tanpa data peribadi', function (t) {
       AppFx.real();
       const a = KhFx.admin();

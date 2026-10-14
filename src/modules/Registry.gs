@@ -5,6 +5,6 @@
 const ModuleRegistry = {
   /** Susunan = nav.order. Diselesaikan semasa panggilan (tiada kebergantungan susunan muat). */
   list: function () {
-    return [TiketModule, AsetModule, TindakanModule, PergerakanModule, KitModule, PinjamanModule, AduanasetModule, SelenggaraModule, PemeriksaanModule, PenilaianModule, PelupusanModule, KehilanganModule, KeperluanModule, MakmalModule, PerisianModule, StafModule, PegawaiModule];
+    return [TiketModule, AsetModule, TindakanModule, PergerakanModule, KitModule, PinjamanModule, AduanasetModule, SelenggaraModule, PemeriksaanModule, StoktakeModule, PenilaianModule, PelupusanModule, KehilanganModule, KeperluanModule, MakmalModule, PerisianModule, StafModule, PegawaiModule];
   }
 };

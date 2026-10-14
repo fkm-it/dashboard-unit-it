@@ -1,5 +1,31 @@
 # CHANGELOG
 
+## 1.16.0 — 2026-10-14 · Fasa 2b: label QR aset, stock-take & pautan tiket–aset
+### Ditambah
+- **Label QR aset** (Admin → Label QR aset)
+  - Label boleh dicetak secara pukal mengikut makmal, jenis atau carian, pada kertas A4: 24 label (63.5 × 33.9 mm) atau 40 label (48.5 × 25.4 mm).
+  - Butiran aset ada butang "Label QR" untuk mencetak satu label.
+  - Kod QR pada label cetakan telah disahkan boleh dibaca.
+- **Halaman imbasan label** (`#/qr?a=<no aset>`, awam)
+  - Memaparkan maklumat minimum sahaja: no. aset, jenis, model, makmal dan status. Nama penjaga, nilai dan data peribadi tidak dipaparkan.
+  - Butang tindakan: lapor kerosakan, Helpdesk, mohon pinjam (jika aset boleh dipinjam) dan lapor kehilangan. Borang yang dibuka akan terisi no. aset secara automatik.
+  - Unit IT nampak butang "Buka rekod aset" dan "Rekod dijumpai" untuk sesi stock-take yang aktif.
+- **Stock-take** (modul Sesi Stock-take)
+  - Skop sesi boleh ditetapkan kepada makmal, lokasi fizikal, atau semua aset.
+  - Halaman Imbas aset:
+    - imbasan kamera dalam app (Chrome/Android: QR dan barcode)
+    - pengimbas USB/Bluetooth atau taip no. aset
+    - pilihan keadaan aset; imbasan berulang diabaikan
+  - Untuk iPhone, imbas label dengan kamera telefon, kemudian tekan "Rekod dijumpai" di halaman yang terbuka.
+  - Setiap imbasan direkod sebagai Pemeriksaan Aset dan rekod aset dikemas kini (tarikh semakan, disahkan fizikal, lokasi fizikal, dan keadaan rosak).
+  - Ringkasan sesi menyenaraikan:
+    - liputan (%)
+    - aset belum dijumpai
+    - aset dijumpai tetapi didaftarkan di lokasi lain
+    - no. aset yang diimbas tetapi tiada dalam daftar
+  - Semasa sesi ditutup, aset yang tidak dijumpai boleh direkod sebagai "Tidak dijumpai" (status pengesahan "tidak dapat disahkan", dan tindakan KEWPA dijana).
+- **Tiket ↔ aset**: no. aset pada tiket Helpdesk dipadankan dengan daftar aset, dan sejarah aset memaparkan tiket berkaitan.
+
 ## 1.15.0 — 2026-10-14 · Kit peralatan, pinjaman kelas & kod QR
 ### Ditambah
 - **Kit Peralatan** (modul baharu)

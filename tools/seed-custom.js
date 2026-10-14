@@ -129,5 +129,8 @@ module.exports = function ({ api, ok, sup, user, ctx }) {
     kit: kit.id, kuantiti: 8, kodKursus: 'SKMM 3023 Mekatronik (contoh)', namaPensyarah: 'Dr. Pensyarah Contoh', emailPensyarah: 'pensyarah.contoh@utm.my', bilanganPelajar: 32,
     tujuan: 'Amali kelas (data contoh)', lokasiPenggunaan: 'Makmal Robotik', tarikhPinjam: day(1), tarikhPulang: day(3) });
   A('crud.setStatus', { module: 'pinjaman', id: findRef('pinjaman', kp.refNo).id, status: 'DILULUSKAN' });
-  console.log('Data contoh Dashboard Unit IT dimasukkan (6 makmal, 4 pegawai, 72 aset, 5 keperluan, 10 tiket, kitar hayat aset, kit Raspberry Pi).');
+  /* Sesi stock-take contoh (Makmal CAD): 3 aset diimbas */
+  const stk = A('crud.create', { module: 'stoktake', nama: 'Stock-take Makmal CAD (contoh)', makmal: labs[0].id, tarikh: day(0), pemeriksa: 'Pegawai Teknologi Maklumat A' });
+  ['DEMO/FKM/1000', 'DEMO/FKM/1006', 'DEMO/FKM/1013'].forEach((no) => A('stoktake.imbas', { sesi: stk.id, kod: no }));
+  console.log('Data contoh Dashboard Unit IT dimasukkan (6 makmal, 4 pegawai, 72 aset, 5 keperluan, 10 tiket, kitar hayat aset, kit Raspberry Pi, stock-take).');
 };

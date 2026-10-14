@@ -1,0 +1,272 @@
+<style>
+  .scan-wrap { display: grid; gap: var(--sp-4); grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+  @media (max-width: 860px) { .scan-wrap { grid-template-columns: minmax(0, 1fr); } }
+  .scan-video { position: relative; background: #0B1F3A; border-radius: var(--r-md); overflow: hidden; aspect-ratio: 4 / 3; }
+  .scan-video video { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .scan-video .scan-frame { position: absolute; inset: 18%; border: 3px solid rgba(255,255,255,.85); border-radius: 12px; pointer-events: none; }
+  .scan-video .scan-hint { position: absolute; inset: auto 0 10px; text-align: center; color: #fff; font-size: var(--fs-xs); }
+  .scan-counts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .scan-counts div { background: var(--white); border: 1px solid var(--line); border-radius: var(--r-md); padding: 10px; text-align: center; }
+  .scan-counts b { display: block; font-size: var(--fs-xl); }
+  .scan-log { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; max-height: 420px; overflow: auto; }
+  .scan-log li { display: flex; gap: 8px; align-items: flex-start; padding: 8px 10px; border-radius: var(--r-md); background: var(--white); border: 1px solid var(--line); min-width: 0; overflow-wrap: anywhere; }
+  .scan-log li.is-ok { border-color: #BBF7D0; background: #F0FDF4; } .scan-log li.is-warn { border-color: #FDE68A; background: #FFFBEB; }
+  .scan-log li.is-bad { border-color: #FECACA; background: #FFF7F7; }
+  .qrl-card { max-width: 440px; margin: 0 auto; }
+  .qrl-card .qrl-no { font-size: var(--fs-xl); font-weight: 700; overflow-wrap: anywhere; }
+  .qrl-actions { display: grid; gap: 8px; margin-top: var(--sp-4); }
+  .lbl-sheet { display: grid; gap: 0; }
+  .lbl { box-sizing: border-box; display: flex; align-items: center; gap: 2mm; padding: 2mm 3mm; border: 1px dashed #CBD5E1; overflow: hidden; background: #fff; color: #0B1F3A; }
+  .lbl svg { flex: none; height: 100%; width: auto; }
+  .lbl .lbl-t { min-width: 0; line-height: 1.15; }
+  .lbl .lbl-no { font-weight: 700; font-size: 8.5pt; overflow-wrap: anywhere; }
+  .lbl .lbl-sub { font-size: 6.5pt; color: #334155; }
+  .lbl .lbl-org { font-size: 6pt; color: #64748B; margin-top: 1mm; }
+  .lbl-sheet.l-24 { grid-template-columns: repeat(3, 63.5mm); grid-auto-rows: 33.9mm; }
+  .lbl-sheet.l-40 { grid-template-columns: repeat(4, 48.5mm); grid-auto-rows: 25.4mm; }
+  .lbl-sheet.l-24 .lbl-no { font-size: 10pt; } .lbl-sheet.l-24 .lbl-sub { font-size: 7.5pt; }
+  .lbl-preview { overflow: auto; max-width: 100%; background: #F1F5F9; padding: 8px; border-radius: var(--r-md); }
+  @media print {
+    @page { size: A4; margin: 10mm 7mm; }
+    body * { visibility: hidden !important; }
+    .lbl-print, .lbl-print * { visibility: visible !important; }
+    .lbl-print { position: absolute; left: 0; top: 0; background: #fff; padding: 0 !important; }
+    .lbl { border-color: transparent; break-inside: avoid; }
+  }
+</style>
+<script>
+(function (KD) {
+  'use strict';
+  const { html, raw, qs, on, fmtNum } = KD.utils;
+  const { icon, toast, toastError, modal, busy, errorState, skeletonList, toneBadge, confirm } = KD.ui;
+  const STORE = 'kd.stoktake';
+  const getSess = () => { try { return JSON.parse(localStorage.getItem(STORE) || 'null'); } catch (e) { return null; } };
+  const setSess = (v) => { try { if (v) localStorage.setItem(STORE, JSON.stringify(v)); else localStorage.removeItem(STORE); } catch (e) { /* storan tidak tersedia */ } };
+  const base = () => location.href.split('#')[0];
+  const labelUrl = (no) => base() + '#/qr?a=' + encodeURIComponent(no);
+  const statusTone = (s) => ({ BERFUNGSI: 'success', PERLAHAN: 'brand', PERLU_BAIKI: 'warn', MENUNGGU_ALAT_GANTI: 'warn', TIDAK_BOLEH_GUNA: 'danger', HILANG: 'danger' }[s] || 'muted');
+
+  // ================================================================ Halaman imbasan label QR (awam)
+  KD.views.qrAset = {
+    async render(el, params, query) {
+      const no = (query && query.a) || '';
+      const shell = (inner) => { el.innerHTML = html`${KD.views.publicTop ? KD.views.publicTop() : ''}<div class="bm-wrap"><div class="bm-card qrl-card">${inner}</div></div>`.s; };
+      shell(skeletonList(2));
+      let d;
+      try { d = await KD.api.call('aset.label', { a: no }); } catch (err) { shell(errorState(err)); return; }
+      const q = '?noAset=' + encodeURIComponent(d.noAset);
+      const sess = KD.auth.isAdmin() ? getSess() : null;
+      shell(html`<div class="xs muted">Aset ICT · Unit IT FKM</div><div class="qrl-no mt-2">${d.noAset}</div>
+        <div class="small mt-2">${[d.jenis, d.model].filter(Boolean).join(' · ')}</div>
+        ${d.makmal ? html`<div class="small muted">${d.makmal}</div>` : ''}
+        <div class="row row-wrap mt-2">${toneBadge(d.statusLabel, statusTone(d.status))}${d.dipinjam ? toneBadge('Sedang dipinjam', 'warn') : ''}</div>
+        ${sess ? html`<div class="status-note mt-4"><strong>Stock-take: ${sess.nama}</strong><div class="row row-wrap mt-2">
+          <button class="btn btn-primary" data-qr-scan="BAIK">${icon('check')}Rekod dijumpai</button><button class="btn btn-outline" data-qr-scan="ROSAK">Dijumpai · rosak</button></div><div data-qr-res class="small mt-2"></div></div>` : ''}
+        <div class="qrl-actions">${d.aktif ? html`
+          <a class="btn btn-outline btn-block" href="#/borang/aduanaset${q}">${icon('activity')}Lapor kerosakan aset</a>
+          <a class="btn btn-outline btn-block" href="#/borang/tiket${q}">${icon('inbox')}Aduan / bantuan IT (Helpdesk)</a>
+          ${d.bolehDipinjam ? html`<a class="btn btn-outline btn-block" href="#/borang/pinjaman${q}">${icon('briefcase')}Mohon pinjam aset ini</a>` : ''}
+          <a class="btn btn-outline btn-block" href="#/borang/kehilangan${q}">${icon('bell')}Lapor kehilangan</a>` : html`<p class="small muted">Aset ini tidak lagi aktif dalam simpanan FKM.</p>`}
+          ${d.id ? html`<a class="btn btn-ghost btn-block" href="#/admin/aset/${d.id}">${icon('database')}Buka rekod aset (Unit IT)</a>` : ''}</div>`);
+      on(el, 'click', '[data-qr-scan]', (e, b) => busy(b, async () => {
+        const out = qs('[data-qr-res]', el);
+        try {
+          const r = await KD.api.call('stoktake.imbas', { sesi: sess.id, kod: d.noAset, keadaan: b.getAttribute('data-qr-scan') });
+          out.textContent = r.status === 'DIREKOD' ? 'Direkod ✓ (' + r.kiraan.dijumpai + '/' + r.kiraan.dijangka + ' dijumpai)' + (r.luarSkop ? ' · didaftarkan di lokasi lain' : '') : r.status === 'ULANG' ? 'Sudah direkod dalam sesi ini.' : r.status;
+        } catch (err) {
+          if (err && /ditutup|tidak dijumpai/i.test(err.message || '')) setSess(null);
+          toastError(err);
+        }
+      }));
+    }
+  };
+
+  // ================================================================ Pengimbas stock-take (admin)
+  KD.views.imbasStok = {
+    async render(el, params, query) {
+      let sesiId = (query && query.sesi) || (getSess() || {}).id || '';
+      el.innerHTML = html`<div class="page-head"><div><a class="back-link" href="#/admin/stoktake">${icon('chev-left', 'i-sm')}Stock-take</a><h1 class="mt-2">Imbas aset</h1>
+        <p>Imbas label QR atau barcode dengan kamera, pengimbas USB/Bluetooth, atau taip no. aset.</p></div></div><div data-box>${skeletonList(2)}</div>`.s;
+      const box = qs('[data-box]', el);
+      let sessions;
+      try { sessions = (await KD.api.list('stoktake', { status: 'BERJALAN', pageSize: 50 })).items || []; } catch (err) { box.innerHTML = errorState(err).s; return; }
+      if (!sessions.length) { box.innerHTML = html`<div class="panel"><p>Tiada sesi stock-take yang sedang berjalan.</p><a class="btn btn-primary mt-4" href="#/admin/stoktake/baru">${icon('plus')}Cipta sesi</a></div>`.s; return; }
+      if (!sessions.some((s) => s.id === sesiId)) sesiId = sessions[0].id;
+      const sess = () => sessions.filter((s) => s.id === sesiId)[0];
+      setSess({ id: sesiId, nama: sess().title });
+      const canCam = 'BarcodeDetector' in window && navigator.mediaDevices && navigator.mediaDevices.getUserMedia;
+      box.innerHTML = html`<div class="scan-wrap">
+        <section class="panel">
+          <div class="field"><label class="label" for="sc-sesi">Sesi</label><select class="select" id="sc-sesi">${sessions.map((s) => html`<option value="${s.id}" ${s.id === sesiId ? raw('selected') : ''}>${s.title} · ${s.refNo}</option>`)}</select></div>
+          ${canCam ? html`<div class="scan-video" data-cam hidden><video playsinline muted></video><div class="scan-frame"></div><div class="scan-hint">Halakan kamera ke label QR / barcode</div></div>
+            <button class="btn btn-primary btn-block mt-2" data-act="cam">${icon('grid')}Buka kamera</button>`
+            : html`<p class="xs muted">Imbasan kamera dalam app tidak disokong pelayar ini (iPhone/Safari). Gunakan kamera telefon untuk mengimbas label: halaman aset akan memaparkan butang "Rekod dijumpai" bagi sesi ini.</p>`}
+          <form data-manual class="mt-4" autocomplete="off"><label class="label" for="sc-kod">No. aset / imbasan</label>
+            <div class="row"><input class="input" id="sc-kod" name="kod" placeholder="Imbas atau taip, kemudian Enter" autofocus>
+            <button class="btn btn-outline" type="submit">Rekod</button></div>
+            <div class="field mt-2"><label class="label" for="sc-keadaan">Keadaan</label><select class="select" id="sc-keadaan"><option value="BAIK">Baik</option><option value="ROSAK">Rosak</option><option value="USANG">Usang</option><option value="TIDAK_DIGUNAKAN">Tidak digunakan</option></select></div></form>
+        </section>
+        <section class="panel"><div class="scan-counts"><div><span class="xs muted">Dijangka</span><b data-c="dijangka">${fmtNum(sess().values.dijangka || 0)}</b></div>
+          <div><span class="xs muted">Dijumpai</span><b data-c="dijumpai">${fmtNum(sess().values.dijumpai || 0)}</b></div><div><span class="xs muted">Lokasi lain</span><b data-c="luarSkop">${fmtNum(sess().values.luarSkop || 0)}</b></div></div>
+          <div class="row row-wrap mt-4"><a class="btn btn-outline btn-sm" data-sum href="#/admin/stoktake/${sesiId}">Ringkasan & tutup sesi</a></div>
+          <ul class="scan-log mt-4" data-log><li class="xs muted">Belum ada imbasan dalam paparan ini.</li></ul></section></div>`.s;
+      const log = qs('[data-log]', box);
+      let first = true;
+      const recent = {};
+      const record = async (kod) => {
+        const k = String(kod || '').trim();
+        if (!k) return;
+        const now = Date.now();
+        if (recent[k] && now - recent[k] < 3000) return;
+        recent[k] = now;
+        try {
+          const r = await KD.api.call('stoktake.imbas', { sesi: sesiId, kod: k, keadaan: qs('#sc-keadaan', box).value });
+          const cls = r.status === 'DIREKOD' ? (r.luarSkop ? 'is-warn' : 'is-ok') : r.status === 'ULANG' ? '' : 'is-bad';
+          const msg = { DIREKOD: r.luarSkop ? 'Dijumpai — didaftarkan di lokasi lain' : 'Dijumpai', ULANG: 'Sudah direkod', TIDAK_BERDAFTAR: 'Tiada dalam daftar aset', DILUPUS: 'Aset tidak aktif (' + (r.statusAset || '') + ')' }[r.status];
+          if (first) { log.innerHTML = ''; first = false; }
+          log.insertAdjacentHTML('afterbegin', html`<li class="${cls}">${icon(r.status === 'DIREKOD' ? 'check' : 'alert', 'i-sm')}<div><b class="small">${r.noAset}</b> <span class="xs">${msg}</span>${r.label ? html`<div class="xs muted">${r.label}</div>` : ''}</div></li>`.s);
+          Object.keys(r.kiraan || {}).forEach((key) => { const n = qs('[data-c="' + key + '"]', box); if (n) n.textContent = fmtNum(r.kiraan[key]); });
+          if (r.status === 'DIREKOD' && navigator.vibrate) navigator.vibrate(60);
+        } catch (err) { toastError(err); }
+      };
+      on(box, 'change', '#sc-sesi', (e) => { KD.router.go('/admin/imbas?sesi=' + encodeURIComponent(e.target.value)); });
+      qs('[data-manual]', box).addEventListener('submit', (e) => {
+        e.preventDefault();
+        const inp = qs('#sc-kod', box);
+        const v = inp.value;
+        inp.value = '';
+        record(v);
+        inp.focus();
+      });
+      if (!canCam) return;
+      let stream = null, timer = null, det = null;
+      const video = qs('video', box);
+      const stop = () => { if (timer) clearInterval(timer); timer = null; if (stream) stream.getTracks().forEach((t) => t.stop()); stream = null; };
+      on(box, 'click', '[data-act="cam"]', (e, b) => busy(b, async () => {
+        if (stream) { stop(); qs('[data-cam]', box).hidden = true; b.lastChild.textContent = 'Buka kamera'; return; }
+        try {
+          const want = ['qr_code', 'code_128', 'code_39', 'ean_13', 'data_matrix'];
+          const fmts = (await BarcodeDetector.getSupportedFormats()).filter((f) => want.indexOf(f) >= 0);
+          det = new BarcodeDetector({ formats: fmts.length ? fmts : ['qr_code'] });
+          stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+          video.srcObject = stream;
+          await video.play();
+          qs('[data-cam]', box).hidden = false;
+          b.lastChild.textContent = 'Tutup kamera';
+          timer = setInterval(async () => {
+            if (!document.body.contains(video)) { stop(); return; }
+            try { const codes = await det.detect(video); if (codes && codes.length) record(codes[0].rawValue); } catch (err) { /* bingkai belum sedia */ }
+          }, 350);
+        } catch (err) { stop(); toast('Kamera tidak dapat dibuka: ' + (err && err.message ? err.message : err), 'error'); }
+      }));
+    }
+  };
+
+  /* Butiran sesi: ringkasan (dimuat selepas paparan) + tindakan */
+  const loadSum = async (id) => {
+    const box = document.querySelector('[data-stk-sum="' + id + '"]');
+    if (!box) return;
+    try {
+      const s = await KD.api.call('stoktake.ringkasan', { sesi: id });
+      const list = (items, fn) => html`<ul class="kh-list">${items.slice(0, 100).map(fn)}</ul>${items.length > 100 ? html`<p class="xs muted">+ ${items.length - 100} lagi</p>` : ''}`;
+      box.innerHTML = html`<dl class="rec-detail__meta" style="grid-template-columns:1fr 1fr;margin-top:var(--sp-2)">
+          <div><dt>Liputan</dt><dd><b>${s.peratus === null ? '—' : s.peratus + '%'}</b></dd></div><div><dt>Dijumpai</dt><dd>${fmtNum(s.dijumpai)} / ${fmtNum(s.dijangka)}</dd></div></dl>
+        ${s.belumJumlah ? html`<div class="label mt-4">Belum dijumpai (${fmtNum(s.belumJumlah)})</div>${list(s.belum, (a) => html`<li><a href="#/admin/aset/${a.id}"><b class="small">${a.noAset}</b></a><div class="xs muted">${a.label}</div></li>`)}` : ''}
+        ${s.luarSkop.length ? html`<div class="label mt-4">Dijumpai, didaftarkan di lokasi lain (${s.luarSkop.length})</div>${list(s.luarSkop, (a) => html`<li><a href="#/admin/aset/${a.id}"><b class="small">${a.noAset}</b></a><div class="xs muted">Daftar: ${a.daftar}</div></li>`)}<p class="xs muted">Buat permohonan Pergerakan Aset untuk mengemas kini makmal.</p>` : ''}
+        ${s.tidakBerdaftar.length ? html`<div class="label mt-4">Diimbas tetapi tiada dalam daftar (${s.tidakBerdaftar.length})</div><p class="small">${s.tidakBerdaftar.join(', ')}</p>` : ''}
+        ${s.sesi.status === 'BERJALAN' ? html`<div class="row row-wrap mt-4"><a class="btn btn-primary btn-sm" href="#/admin/imbas?sesi=${s.sesi.id}">${icon('grid')}Sambung imbas</a><button class="btn btn-outline btn-sm" data-stk-close="${s.sesi.id}" data-missing="${s.belumJumlah}">Tutup sesi</button></div>` : ''}`.s;
+    } catch (err) { box.innerHTML = html`<p class="xs muted">Ringkasan tidak dapat dimuat.</p>`.s; }
+  };
+  KD.detailActions = KD.detailActions || {};
+  KD.detailActions.stoktake = (d) => d.status === 'BERJALAN' ? html`<a class="btn btn-primary" href="#/admin/imbas?sesi=${d.id}">${icon('grid')}Mula imbas</a>` : '';
+  KD.detailSide = KD.detailSide || {};
+  KD.detailSide.stoktake = (d) => { setTimeout(() => loadSum(d.id), 0); return html`<div class="status-note"><strong>Ringkasan stock-take</strong><div data-stk-sum="${d.id}"><p class="xs muted">Memuatkan…</p></div></div>`; };
+  document.addEventListener('click', async (e) => {
+    const b = e.target.closest && e.target.closest('[data-stk-close]');
+    if (!b) return;
+    const missing = Number(b.getAttribute('data-missing')) || 0;
+    let mark = false;
+    if (missing) {
+      const r = await confirm({ title: 'Tutup sesi stock-take?', message: missing + ' aset belum dijumpai. Rekod sebagai "Tidak dijumpai"? Status pengesahan aset itu akan ditanda "tidak dapat disahkan" (tindakan KEWPA dijana).', confirmText: 'Tutup & rekod tidak dijumpai' });
+      if (!r) return;
+      mark = true;
+    } else if (!(await confirm({ title: 'Tutup sesi stock-take?', message: 'Semua aset dijangka telah dijumpai.', confirmText: 'Tutup sesi' }))) return;
+    busy(b, async () => {
+      try {
+        const r = await KD.api.call('stoktake.tutup', { sesi: b.getAttribute('data-stk-close'), tandaTidakDijumpai: mark });
+        const cur = getSess();
+        if (cur && cur.id === b.getAttribute('data-stk-close')) setSess(null);
+        toast('Sesi ditutup. ' + r.tidakDijumpai + ' aset tidak dijumpai.');
+        KD.router.render();
+      } catch (err) { toastError(err); }
+    });
+  });
+
+  // ================================================================ Cetak label QR aset (admin)
+  const labelHtml = (a) => {
+    const svg = KD.qr.svg(labelUrl(a.no), { label: a.no });
+    return html`<div class="lbl">${raw(svg)}<div class="lbl-t"><div class="lbl-no">${a.no}</div><div class="lbl-sub">${a.sub}</div><div class="lbl-org">Unit IT FKM · imbas untuk aduan / pinjaman</div></div></div>`;
+  };
+  const dtoToLbl = (d) => ({ no: d.values.noAset, sub: [d.values.jenama, d.values.model].filter(Boolean).join(' ') + (d.labels && d.labels.makmal ? ' · ' + d.labels.makmal : '') });
+
+  KD.views.labelAset = {
+    async render(el, params, query) {
+      const m = KD.moduleOf('aset');
+      const jenis = (m.fields.filter((f) => f.key === 'jenis')[0] || {}).options || [];
+      let labs = [];
+      try { labs = (await KD.api.list('makmal', { pageSize: 100 })).items || []; } catch (err) { labs = []; }
+      el.innerHTML = html`<div class="page-head"><div><h1>Label QR aset</h1><p>Cetak label untuk ditampal pada aset. Imbasan membuka halaman aset: lapor kerosakan, Helpdesk, pinjaman, kehilangan, dan rekod stock-take (Unit IT).</p></div></div>
+        <section class="panel"><form data-f class="form-grid">
+          <div class="field"><label class="label" for="lb-mk">Makmal</label><select class="select" id="lb-mk" name="makmal"><option value="">Semua</option>${labs.map((l) => html`<option value="${l.id}" ${query && query.makmal === l.id ? raw('selected') : ''}>${l.title}</option>`)}</select></div>
+          <div class="field"><label class="label" for="lb-j">Jenis</label><select class="select" id="lb-j" name="jenis"><option value="">Semua</option>${jenis.map((o) => html`<option value="${o.value}">${o.label}</option>`)}</select></div>
+          <div class="field"><label class="label" for="lb-q">Carian / no. aset</label><input class="input" id="lb-q" name="q" value="${(query && query.q) || ''}" placeholder="cth. DEMO/FKM/10"></div>
+          <div class="field"><label class="label" for="lb-sz">Saiz label (A4)</label><select class="select" id="lb-sz" name="sz"><option value="l-24">24 label · 63.5 × 33.9 mm</option><option value="l-40">40 label · 48.5 × 25.4 mm</option></select></div>
+        </form><div class="row row-wrap mt-4"><button class="btn btn-outline" data-act="load">${icon('search')}Papar</button><button class="btn btn-primary" data-act="print" disabled>${icon('pdf')}Cetak</button><span class="small muted" data-n></span></div></section>
+        <div class="lbl-preview mt-4" data-prev><p class="small muted">Pilih penapis, kemudian tekan Papar.</p></div>`.s;
+      const form = qs('[data-f]', el);
+      const load = () => busy(qs('[data-act="load"]', el), async () => {
+        const f = Object.fromEntries(new FormData(form).entries());
+        const filters = {};
+        if (f.makmal) filters.makmal = f.makmal;
+        if (f.jenis) filters.jenis = f.jenis;
+        const items = [];
+        try {
+          for (let page = 1; page <= 10; page++) {
+            const r = await KD.api.list('aset', { pageSize: 100, page, q: f.q || '', filters });
+            items.push(...(r.items || []));
+            if (!r.meta || page >= (r.meta.totalPages || 1)) break;
+          }
+        } catch (err) { toastError(err); return; }
+        const rows = items.filter((d) => d.values.noAset).map(dtoToLbl).sort((x, y) => String(x.no).localeCompare(String(y.no)));
+        qs('[data-n]', el).textContent = rows.length + ' label' + (rows.length >= 1000 ? ' (had 1000)' : '');
+        qs('[data-act="print"]', el).disabled = !rows.length;
+        qs('[data-prev]', el).innerHTML = rows.length ? html`<div class="lbl-sheet lbl-print ${f.sz}">${rows.map(labelHtml)}</div>`.s : html`<p class="small muted">Tiada aset sepadan.</p>`.s;
+      });
+      on(el, 'click', '[data-act="load"]', load);
+      on(el, 'click', '[data-act="print"]', () => window.print());
+      on(el, 'change', '#lb-sz', (e) => { const sh = qs('.lbl-sheet', el); if (sh) { sh.classList.remove('l-24', 'l-40'); sh.classList.add(e.target.value); } });
+      if (query && (query.makmal || query.q)) load();
+    }
+  };
+
+  /* Butiran aset: label QR tunggal */
+  const prevAset = KD.detailActions.aset;
+  KD.detailActions.aset = (d, m) => html`${prevAset ? prevAset(d, m) : ''}<button class="btn btn-outline" data-lbl-one="${d.values.noAset || ''}">${icon('grid')}Label QR</button>`;
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest && e.target.closest('[data-lbl-one]');
+    if (!b) return;
+    const no = b.getAttribute('data-lbl-one');
+    const md = modal({
+      title: 'Label QR aset',
+      body: html`<div class="lbl-sheet lbl-print l-24" style="justify-content:center">${labelHtml({ no, sub: '' })}</div><p class="xs muted mt-2">${labelUrl(no)}</p>`,
+      foot: html`<button class="btn btn-outline" data-close>Tutup</button><a class="btn btn-outline" href="#/admin/label-aset?q=${encodeURIComponent(no)}">Label pukal</a><button class="btn btn-primary" data-lbl-print>${icon('pdf')}Cetak</button>`
+    });
+    qs('[data-lbl-print]', md.el).addEventListener('click', () => window.print());
+  });
+
+  KD.extraRoutes.push({ path: '/qr', view: 'qrAset', access: 'public', layout: 'public', title: 'Aset ICT FKM' });
+  KD.extraRoutes.push({ path: '/admin/imbas', view: 'imbasStok', access: 'admin', layout: 'admin', title: 'Imbas aset' });
+  KD.extraRoutes.push({ path: '/admin/label-aset', view: 'labelAset', access: 'admin', layout: 'admin', title: 'Label QR aset' });
+  KD.extraNav.admin.push(['/admin/label-aset', 'grid', 'Label QR aset'], ['/admin/imbas', 'search', 'Imbas aset']);
+})(window.KD);
+</script>

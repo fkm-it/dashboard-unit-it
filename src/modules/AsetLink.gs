@@ -208,6 +208,27 @@ const AsetLink = {
     }
   },
 
+  /**
+   * Halaman imbasan label QR (awam): maklumat minimum aset — tiada penjaga, nilai atau data peribadi.
+   * Admin turut menerima ID rekod (pautan ke butiran aset).
+   */
+  labelInfo: function (payload, ctx) {
+    SecurityService.rateLimit('aset.label', 'all');
+    const no = String((payload && payload.a) || '').trim().slice(0, 80);
+    const a = no ? AsetLink.find(no) : null;
+    if (!a) throw Errors.notFound('Aset');
+    const def = CrudEngine.get('aset');
+    const jenisF = def.fields.filter(function (f) { return f.key === 'jenis'; })[0];
+    const jenis = ((jenisF && jenisF.options) || []).filter(function (o) { return o.value === a.jenis; })[0];
+    const out = {
+      noAset: a.no_aset, jenis: jenis ? jenis.label : (a.jenis || ''), model: [a.jenama, a.model || a.nama_alat].filter(function (x) { return x; }).join(' '),
+      makmal: a.makmal ? CrudEngine.refTitle('makmal', a.makmal) : '', status: a.status, statusLabel: AsetLink.statusLabel_('aset', a.status),
+      aktif: !AsetLink.isGone(a), bolehDipinjam: AsetLink.isTrue(a.boleh_dipinjam) && !AsetLink.isGone(a), dipinjam: AsetLink.isTrue(a.dipinjam)
+    };
+    if (ctx && SecurityService.hasRole(ctx.role, ROLES.ADMIN)) out.id = a.id;
+    return out;
+  },
+
   /** Sejarah satu aset merentas modul kitar hayat + tiket Helpdesk (ikut no. aset). ADMIN sahaja. */
   history: function (payload) {
     const a = AsetLink.byId(payload && payload.id);

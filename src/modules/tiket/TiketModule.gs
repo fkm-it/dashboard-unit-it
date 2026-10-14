@@ -171,7 +171,17 @@ const TiketModule = Object.freeze(Object.assign(
         "type": "string",
         "max": 40,
         "search": true,
+        "hint": "Seperti pada label aset. Imbas kod QR pada label untuk mengisi secara automatik.",
         "column": "no_aset"
+      },
+      {
+        "key": "aset",
+        "label": "Rekod aset",
+        "type": "ref",
+        "ref": "aset",
+        "readonly": true,
+        "adminOnly": true,
+        "column": "aset"
       },
       {
         "key": "keterangan",
