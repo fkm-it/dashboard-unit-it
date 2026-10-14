@@ -66,6 +66,17 @@
 .lp-card b { display: block; font-size: var(--fs-xl); font-variant-numeric: tabular-nums; margin-top: 2px; }
 .lp-card.is-danger { border-color: #FECACA; background: #FFF7F7; } .lp-card.is-warn { border-color: #FDE68A; background: #FFFBEB; }
 .lp-chip { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 999px; background: var(--canvas-200); margin: 1px 2px 1px 0; white-space: nowrap; }
+.uj-in .input { max-width: 140px; margin-left: auto; text-align: right; }
+.uj-in .uj-yr { max-width: 110px; margin-left: 0; text-align: left; }
+@media (max-width: 640px) { .uj-in .uj-yr { width: 84px; min-width: 84px; padding-left: 8px; padding-right: 4px; } .uj-in .input { padding-left: 8px; padding-right: 8px; } }
+.uj-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--sp-3); }
+.uj-grid .input, .uj-grid .select { width: 100%; }
+.uj-bars { display: grid; gap: var(--sp-4); }
+.uj-bar { display: grid; gap: 4px; }
+.uj-track { height: 12px; background: var(--canvas-200); border-radius: 6px; overflow: hidden; }
+.uj-track i { display: block; height: 100%; border-radius: 6px; }
+.uj-track .is-ada { background: #94A3B8; } .uj-track .is-ok { background: var(--success); } .uj-track .is-kurang { background: var(--danger); }
+.uj-red { color: var(--danger); font-weight: 600; }
 .lp-note { font-size: var(--fs-xs); color: var(--muted); margin-top: var(--sp-2); }
 .tr-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-4); }
 .tr-grid > .panel { min-width: 0; }
@@ -687,7 +698,7 @@
   KD.views.perancangan = {
     async render(el, params, query) {
       const tab = (query && query.t) || 'ringkasan';
-      const T = { ringkasan: 'Ringkasan', pelan: 'Pelan penggantian 5 tahun', makmal: 'Indeks kesihatan makmal', trend: 'Trend & tindakan KEWPA' };
+      const T = { ringkasan: 'Ringkasan', pelan: 'Pelan penggantian 5 tahun', pelajar: 'Unjuran pelajar & keperluan PC', makmal: 'Indeks kesihatan makmal', trend: 'Trend & tindakan KEWPA' };
       el.innerHTML = html`<div class="page-head"><div><h1>Perancangan aset IT</h1><p>Untuk Dekan, Timbalan Dekan, TDP dan Ketua Jabatan — gambaran aset IT FKM dan unjuran keperluan penggantian.</p></div>
           <div class="xo-toolbar no-print"><a class="btn btn-primary" href="#${pExec()}">${icon('pdf')}Laporan Eksekutif</a><a class="btn btn-outline" href="#${pLap()}">${icon('list')}Laporan aset</a></div></div>
         <nav class="lp-tabs">${Object.keys(T).map((k) => html`<a class="lp-tab ${k === tab ? 'is-active' : ''}" href="#${pBase()}?t=${k}">${T[k]}</a>`)}</nav>
@@ -708,6 +719,8 @@
               toast(ujian ? (r.dihantar ? 'Email ujian dihantar kepada anda.' : 'Email tidak dapat dihantar (kuota / akaun tiada email).') : 'Dihantar kepada ' + fmtNum(r.dihantar) + ' daripada ' + fmtNum(r.penerima) + ' penerima.');
             }).catch(toastError);
           });
+        } else if (tab === 'pelajar') {
+          await renderUnjuran(box);
         } else if (tab === 'makmal') {
           const h = await KD.api.call('aset.indeksMakmal', {});
           box.innerHTML = html`${h.items.length ? html`<div class="lp-cards">
@@ -744,6 +757,87 @@
       } catch (err) { box.innerHTML = errorState(err).s; }
     }
   };
+
+  /* ---------------------------------------------------------------- Unjuran pelajar → keperluan PC */
+  const ANDAIAN = [
+    ['pctUg', '% pelajar UG guna makmal komputer', '%'], ['jamUg', 'Jam makmal komputer / pelajar UG / minggu', 'jam'],
+    ['pctPg', '% pelajar PG guna makmal komputer', '%'], ['jamPg', 'Jam makmal komputer / pelajar PG / minggu', 'jam'],
+    ['jamOperasi', 'Jam operasi makmal / minggu', 'jam'], ['kadarGuna', 'Kadar penggunaan sasaran', '%'],
+    ['saizMakmal', 'Saiz satu makmal baharu (tempat PC)', 'PC'], ['harga', 'Harga seunit PC (RM)', 'RM']
+  ];
+
+  function unjuranForm(a, canSave, d) {
+    return html`<section class="panel no-print"><div class="panel-head"><h3>Unjuran bilangan pelajar</h3></div>
+      <p class="small muted">Isi unjuran enrolmen bagi setiap tahun (sumber: Pejabat TDA / HEMA / data program). Kosongkan tahun yang belum ada unjuran.</p>
+      <div class="im-scroll"><table class="xo-table uj-in" style="min-width:0"><thead><tr><th>Tahun</th><th class="num">Pelajar UG</th><th class="num">Pelajar PG</th></tr></thead>
+        <tbody>${a.tahun.map((t, i) => html`<tr><td>${i === 0 ? html`<input class="input uj-yr" type="number" min="2000" max="2100" data-y0 value="${t.tahun}" aria-label="Tahun mula">` : html`<span data-yl="${i}">${t.tahun}</span>`}</td>
+          <td class="num"><input class="input" type="number" min="0" step="1" inputmode="numeric" data-ug="${i}" value="${t.ug === null ? '' : t.ug}" aria-label="Pelajar UG ${t.tahun}"></td>
+          <td class="num"><input class="input" type="number" min="0" step="1" inputmode="numeric" data-pg="${i}" value="${t.pg === null ? '' : t.pg}" aria-label="Pelajar PG ${t.tahun}"></td></tr>`)}</tbody></table></div>
+      <details class="mt-4" ${d.adaUnjuran ? '' : raw('open')}><summary class="small"><b>Andaian pengiraan</b></summary>
+        <div class="uj-grid mt-2">${ANDAIAN.map((x) => html`<label class="small">${x[1]}<input class="input mt-1" type="number" min="0" step="any" data-a="${x[0]}" value="${a[x[0]]}"></label>`)}
+          <label class="small">Skop makmal<select class="select mt-1" data-a="skop"><option value="KOMPUTER" ${a.skop !== 'SEMUA' ? raw('selected') : ''}>Makmal komputer sahaja</option><option value="SEMUA" ${a.skop === 'SEMUA' ? raw('selected') : ''}>Semua makmal (termasuk kejuruteraan)</option></select></label></div>
+        <label class="small mt-2" style="display:block">Nota / sumber data<input class="input mt-1" maxlength="500" data-a="nota" value="${a.nota || ''}" placeholder="cth. Unjuran TDA, mesyuarat JKF Okt 2026"></label>
+        <p class="lp-note">PC diperlukan = (pelajar UG × % × jam + pelajar PG × % × jam) ÷ (jam operasi × kadar penggunaan). Contoh: 1,000 pelajar × 4 jam ÷ (40 jam × 80%) = 125 PC.</p></details>
+      <div class="row row-wrap mt-4"><button class="btn btn-primary" data-act="ujkira">${icon('chart')}Kira</button>${canSave ? html`<button class="btn btn-outline" data-act="ujsimpan">${icon('check')}Simpan untuk semua</button>` : ''}
+        ${a.dikemaskini ? html`<span class="xs muted">Disimpan ${fmtDate(a.dikemaskini)}${a.oleh ? ' oleh ' + a.oleh : ''}</span>` : ''}</div></section>`;
+  }
+
+  function unjuranView(d) {
+    const s = d.semasa, rows = d.rows, ada = rows.filter((r) => r.adaUnjuran);
+    const last = ada[ada.length - 1];
+    const max = Math.max(s.pc, ...ada.map((r) => r.pcDiperlukan || 0), 1);
+    const pct = (n) => Math.max(1, Math.round((n / max) * 100));
+    return html`<div class="lp-cards">
+        ${card('PC makmal sedia ada', fmtNum(s.pc), fmtNum(s.beroperasi) + ' beroperasi · ' + fmtNum(s.makmal) + ' makmal')}
+        ${card('Tempat PC makmal', fmtNum(s.tempat), d.skop === 'KOMPUTER' ? 'Makmal komputer' : 'Semua makmal')}
+        ${card('PC diperlukan (' + (last ? last.tahun : '—') + ')', last ? fmtNum(last.pcDiperlukan) : '—', last ? 'Nisbah ' + last.nisbahDiperlukan + ' pelajar : 1 PC' : 'Isi unjuran pelajar', last && last.tambahan ? 'is-warn' : '')}
+        ${card('Anggaran kos ' + rows.length + ' tahun', 'RM ' + rmx(d.jumlah.kos), fmtNum(d.jumlah.tambahan) + ' tambahan + ' + fmtNum(d.jumlah.penggantian) + ' penggantian', d.jumlah.kos ? 'is-danger' : '')}</div>
+      ${ada.length ? html`<section class="panel mt-4"><div class="panel-head"><h3>Sedia ada berbanding keperluan</h3></div>
+        <div class="uj-bars">${ada.map((r) => html`<div class="uj-bar"><span class="small"><b>${r.tahun}</b> · ${fmtNum((r.ug || 0) + (r.pg || 0))} pelajar</span>
+          <div class="uj-track"><i class="is-ada" style="width:${pct(s.pc)}%"></i></div><span class="xs muted">Sedia ada ${fmtNum(s.pc)}</span>
+          <div class="uj-track"><i class="${r.pcDiperlukan > s.pc ? 'is-kurang' : 'is-ok'}" style="width:${pct(r.pcDiperlukan)}%"></i></div><span class="xs ${r.pcDiperlukan > s.pc ? 'uj-red' : 'muted'}">Diperlukan ${fmtNum(r.pcDiperlukan)}${r.tambahan ? ' · kurang ' + fmtNum(r.tambahan) : ''}</span></div>`)}</div></section>` : ''}
+      <section class="panel mt-4"><div class="panel-head"><h3>Jadual unjuran</h3><button class="btn btn-outline btn-sm no-print" data-act="ujcsv">${icon('download')}CSV</button></div>
+        <div class="im-scroll"><table class="xo-table" style="min-width:820px"><thead><tr><th>Tahun</th><th class="num">UG</th><th class="num">PG</th><th class="num">PC diperlukan</th><th class="num">PC sedia ada</th><th class="num">Kurang (kumulatif)</th><th class="num">Beli tambahan</th><th class="num">Penggantian (umur/rosak)</th><th class="num">Tempat makmal kurang</th><th class="num">Kos (RM)</th></tr></thead>
+        <tbody>${rows.map((r) => html`<tr><td><b>${r.tahun}</b></td><td class="num">${r.ug === null ? '—' : fmtNum(r.ug)}</td><td class="num">${r.pg === null ? '—' : fmtNum(r.pg)}</td>
+          <td class="num"><b>${r.pcDiperlukan === null ? '—' : fmtNum(r.pcDiperlukan)}</b></td><td class="num">${fmtNum(s.pc)}</td><td class="num">${r.adaUnjuran ? fmtNum(r.tambahan) : '—'}</td><td class="num">${fmtNum(r.tambahanBaru)}</td>
+          <td class="num">${fmtNum(r.penggantian)}</td><td class="num">${r.tempatKurang ? html`${fmtNum(r.tempatKurang)} <span class="xs muted">(${r.makmalTambahan} makmal)</span>` : (r.adaUnjuran ? '0' : '—')}</td><td class="num">${rmx(r.kos)}</td></tr>`)}</tbody>
+        <tfoot><tr><td colspan="6"><b>Jumlah</b></td><td class="num"><b>${fmtNum(d.jumlah.tambahan)}</b></td><td class="num"><b>${fmtNum(d.jumlah.penggantian)}</b></td><td></td><td class="num"><b>${rmx(d.jumlah.kos)}</b></td></tr></tfoot></table></div>
+        <p class="lp-note">"Kurang" dibanding jumlah PC makmal sedia ada (PC rosak dikira dalam penggantian, bukan tambahan). Penggantian tahun pertama termasuk tunggakan (PC melepasi had umur atau rosak). "Tempat makmal kurang" = PC diperlukan melebihi tempat komputer dalam makmal sedia ada, iaitu keperluan ruang makmal tambahan.${d.andaian.nota ? ' Sumber: ' + d.andaian.nota + '.' : ''}</p></section>
+      <section class="panel mt-4"><div class="panel-head"><h3>Kedudukan semasa ikut makmal</h3></div>
+        <div class="im-scroll"><table class="xo-table" style="min-width:520px"><thead><tr><th>Makmal</th><th class="num">Tempat PC</th><th class="num">PC</th><th class="num">Beroperasi</th><th class="num">Perlu ganti (≤ tahun depan)</th></tr></thead>
+        <tbody>${d.byMakmal.map((m) => html`<tr><td>${m.label}</td><td class="num">${m.tempat ? fmtNum(m.tempat) : html`<span class="muted">—</span>`}</td><td class="num">${fmtNum(m.pc)}</td><td class="num">${fmtNum(m.beroperasi)}</td><td class="num">${fmtNum(m.perluGanti)}</td></tr>`)}</tbody></table></div></section>`;
+  }
+
+  async function renderUnjuran(box) {
+    const canSave = KD.auth.isManagement();
+    const collect = () => {
+      const p = { tahun: [] };
+      const y0 = Number(qs('[data-y0]', box).value) || new Date().getFullYear();
+      box.querySelectorAll('[data-ug]').forEach((inp, i) => {
+        const ug = inp.value, pg = qs('[data-pg="' + i + '"]', box).value;
+        p.tahun.push({ tahun: y0 + i, ug: ug === '' ? null : Number(ug), pg: pg === '' ? null : Number(pg) });
+      });
+      box.querySelectorAll('[data-a]').forEach((x) => { p[x.getAttribute('data-a')] = x.value; });
+      return p;
+    };
+    let d = await KD.api.call('aset.unjuranPelajar', {});
+    const draw = () => {
+      box.innerHTML = html`${unjuranForm(d.andaian, canSave, { adaUnjuran: d.rows.some((r) => r.adaUnjuran) })}<div data-uj class="mt-4">${unjuranView(d)}</div>`.s;
+    };
+    draw();
+    on(box, 'input', '[data-y0]', (e) => { const y = Number(e.target.value) || 0; box.querySelectorAll('[data-yl]').forEach((s2) => { s2.textContent = y ? y + Number(s2.getAttribute('data-yl')) : ''; }); });
+    on(box, 'click', '[data-act="ujkira"]', (e, b) => busy(b, async () => {
+      try { d = await KD.api.call('aset.unjuranPelajar', collect()); qs('[data-uj]', box).innerHTML = unjuranView(d).s; } catch (err) { toastError(err); }
+    }));
+    on(box, 'click', '[data-act="ujsimpan"]', (e, b) => busy(b, async () => {
+      try { d = await KD.api.call('aset.unjuranSimpan', collect()); draw(); toast('Unjuran disimpan. Pengurusan lain akan melihat angka yang sama.'); } catch (err) { toastError(err); }
+    }));
+    on(box, 'click', '[data-act="ujcsv"]', () => {
+      const out = [['Tahun', 'Pelajar UG', 'Pelajar PG', 'PC diperlukan', 'PC sedia ada', 'Kurang (kumulatif)', 'Beli tambahan', 'Penggantian', 'Tempat makmal kurang', 'Makmal tambahan', 'Kos (RM)']]
+        .concat(d.rows.map((r) => [r.tahun, r.ug === null ? '' : r.ug, r.pg === null ? '' : r.pg, r.pcDiperlukan === null ? '' : r.pcDiperlukan, d.semasa.pc, r.tambahan, r.tambahanBaru, r.penggantian, r.tempatKurang, r.makmalTambahan, r.kos]));
+      KD.utils.downloadText(KD.utils.toCsv(out), 'text/csv', 'unjuran-pelajar-keperluan-pc.csv');
+    });
+  }
 
   function viewRingkasan(e) {
     const r = e.ringkasan;

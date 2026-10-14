@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 1.19.0 — 2026-10-15 · Unjuran pelajar & keperluan PC makmal
+### Ditambah
+- Tab **Unjuran pelajar & keperluan PC** dalam Perancangan aset IT (Pengurusan / Admin)
+  - Isi unjuran pelajar UG dan PG untuk 5 tahun.
+  - Andaian boleh diubah: % pelajar yang guna makmal, jam makmal seminggu, jam operasi makmal, kadar penggunaan sasaran, saiz makmal baharu, harga PC dan skop makmal (makmal komputer sahaja atau semua makmal).
+  - PC diperlukan = jam makmal diperlukan ÷ (jam operasi × kadar penggunaan).
+  - Dibandingkan dengan PC makmal sedia ada dalam daftar aset. Keputusan: kekurangan kumulatif, PC tambahan yang perlu dibeli setiap tahun, penggantian (umur atau rosak), kekurangan tempat makmal (bilangan makmal tambahan), nisbah pelajar : PC dan anggaran kos.
+  - Jadual kedudukan semasa ikut makmal, carta sedia ada berbanding keperluan, dan eksport CSV.
+  - **Simpan untuk semua**: andaian disimpan (tetapan tersembunyi `UNJURAN_PELAJAR`) supaya Dekan dan Pengurusan melihat angka yang sama.
+
 ## 1.18.0 — 2026-10-14 · Peralatan ICT lain dalam Penilaian Keperluan ICT Makmal
 ### Ditambah
 - Seksyen 5 **Peralatan ICT lain** dalam borang banci makmal (`#/banci-makmal`)

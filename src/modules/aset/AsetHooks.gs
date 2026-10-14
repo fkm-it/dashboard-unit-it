@@ -55,6 +55,8 @@ const AsetHooks = {
     'aset.label': { role: 'PUBLIC', fn: function (payload, ctx) { return AsetLink.labelInfo(payload || {}, ctx); } },
     'aset.sejarah': { role: 'ADMIN', fn: function (payload) { return AsetLink.history(payload || {}); } },
     'aset.kitarHayat': { role: 'PENGURUSAN', fn: function () { return AsetCache.get('aset.kitarHayat', {}, function () { return AsetLink.summary(); }); } },
+    'aset.unjuranPelajar': { role: 'PENGURUSAN', fn: function (payload) { return AsetUnjuran.compute(payload || {}); } },
+    'aset.unjuranSimpan': { role: 'PENGURUSAN', fn: function (payload, ctx) { return AsetUnjuran.save(payload || {}, ctx); } },
     'aset.hantarRingkasan': { role: 'ADMIN', fn: function (payload, ctx) { return AsetTrend.sendNow(payload || {}, ctx); } }
   },
 

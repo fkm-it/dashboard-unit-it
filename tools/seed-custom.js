@@ -138,5 +138,7 @@ module.exports = function ({ api, ok, sup, user, ctx }) {
   /* Sesi stock-take contoh (Makmal CAD): 3 aset diimbas */
   const stk = A('crud.create', { module: 'stoktake', nama: 'Stock-take Makmal CAD (contoh)', makmal: labs[0].id, tarikh: day(0), pemeriksa: 'Pegawai Teknologi Maklumat A' });
   ['DEMO/FKM/1000', 'DEMO/FKM/1006', 'DEMO/FKM/1013'].forEach((no) => A('stoktake.imbas', { sesi: stk.id, kod: no }));
+  const yy = new Date().getFullYear();
+  A('aset.unjuranSimpan', { tahun: [0, 1, 2, 3, 4].map((i) => ({ tahun: yy + i, ug: 900 + i * 60, pg: 300 + i * 25 })), nota: 'Data contoh (bukan unjuran sebenar)' });
   console.log('Data contoh Dashboard Unit IT dimasukkan (6 makmal, 4 pegawai, 72 aset, 5 keperluan, 10 tiket, kitar hayat aset, kit Raspberry Pi, stock-take).');
 };

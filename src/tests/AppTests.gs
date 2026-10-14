@@ -1332,6 +1332,40 @@ const TestSuiteKitarHayat = {
       t.eq(tr.aset, as1.id); t.eq(tr.no_aset, 'KH-T1');
       t.ok(lab2.id, 'makmal kedua');
     }],
+    ['Unjuran pelajar → keperluan PC makmal: formula jam-tempat, bekalan daripada daftar aset, kekurangan tempat, simpan andaian', function (t) {
+      AppFx.real();
+      const a = KhFx.admin();
+      const base = { pctUg: 100, jamUg: 4, pctPg: 50, jamPg: 6, jamOperasi: 40, kadarGuna: 80 };
+      t.eq(AsetUnjuran.needPc(base, 1000, 0).pc, 125, '1000 × 4 ÷ 32 = 125');
+      t.eq(AsetUnjuran.needPc(base, 1000, 200).pc, 144, '+ 200 × 50% × 6 = 600 jam → 4600 ÷ 32 = 143.75 → 144');
+      t.eq(AsetUnjuran.needPc(base, 0, 0).pc, 0);
+      TestAssert.apiOk(TestHelpers.call(a.token, 'crud.create', { module: 'makmal', kod: 'UJ-K1', nama: 'Makmal Komputer Unjuran', jenisMakmal: 'KOMPUTER', tempatKomputer: 4 }));
+      const tua = Number(DateUtils.format(new Date(), 'yyyy')) - 20;
+      KhFx.assets(a, [
+        { noAset: 'UJ-1', jenis: 'DESKTOP', makmal: 'UJ-K1', tahunPerolehan: tua }, { noAset: 'UJ-2', jenis: 'DESKTOP', makmal: 'UJ-K1', tahunPerolehan: tua + 19 },
+        { noAset: 'UJ-3', jenis: 'DESKTOP', makmal: 'UJ-K1', tahunPerolehan: tua + 19, status: 'Tidak boleh digunakan' }, { noAset: 'UJ-4', jenis: 'PENCETAK', makmal: 'UJ-K1' }
+      ]);
+      const y0 = Number(DateUtils.format(new Date(), 'yyyy'));
+      const p = Object.assign({ tahun: [{ tahun: y0, ug: 100, pg: 0 }, { tahun: y0 + 1, ug: 200, pg: 0 }], skop: 'KOMPUTER', saizMakmal: 40, harga: 4000 }, base);
+      const r = TestAssert.apiOk(TestHelpers.call(a.token, 'aset.unjuranPelajar', p));
+      const lab = r.byMakmal.filter(function (m) { return /Makmal Komputer Unjuran/.test(m.label); })[0];
+      t.ok(lab, 'makmal komputer dalam skop'); t.eq(lab.pc, 3, 'pencetak tidak dikira'); t.eq(lab.beroperasi, 2); t.ok(lab.perluGanti >= 2, 'tua + rosak perlu ganti');
+      t.eq(r.rows.length, 5); t.eq(r.rows[0].pcDiperlukan, 13, '100 × 4 ÷ 32 = 12.5 → 13'); t.eq(r.rows[1].pcDiperlukan, 25);
+      t.eq(r.rows[0].tambahan, Math.max(0, 13 - r.semasa.pc)); t.eq(r.rows[2].pcDiperlukan, null, 'tahun tanpa unjuran');
+      t.eq(r.rows[1].tambahanBaru, Math.max(0, 25 - r.semasa.pc) - Math.max(0, 13 - r.semasa.pc), 'beli tambahan tidak dikira dua kali');
+      t.ok(r.rows[0].penggantian >= 2, 'tunggakan penggantian tahun pertama');
+      t.eq(r.rows[1].tempatKurang, Math.max(0, 25 - r.semasa.tempat));
+      t.eq(r.rows[0].kos, (r.rows[0].tambahanBaru + r.rows[0].penggantian) * 4000);
+      TestAssert.apiFail(TestHelpers.call(a.token, 'aset.unjuranPelajar', Object.assign({}, p, { kadarGuna: 500 })), ERROR_CODES.VALIDATION_ERROR);
+      /* Simpan → dibaca semula tanpa input */
+      TestAssert.apiOk(TestHelpers.call(a.token, 'aset.unjuranSimpan', Object.assign({}, p, { nota: 'Unjuran contoh' })));
+      const sv = TestAssert.apiOk(TestHelpers.call(a.token, 'aset.unjuranPelajar', {}));
+      t.eq(sv.andaian.tahun[1].ug, 200); t.eq(sv.andaian.nota, 'Unjuran contoh'); t.eq(sv.rows[1].pcDiperlukan, 25);
+      const u = KhFx.user();
+      TestAssert.apiFail(TestHelpers.call(u.token, 'aset.unjuranPelajar', {}), ERROR_CODES.FORBIDDEN);
+      TestAssert.apiFail(TestHelpers.call(u.token, 'aset.unjuranSimpan', p), ERROR_CODES.FORBIDDEN);
+    }],
+
     ['Sejarah aset merentas modul (admin sahaja); ringkasan kitar hayat untuk Pengurusan tanpa data peribadi', function (t) {
       AppFx.real();
       const a = KhFx.admin();
