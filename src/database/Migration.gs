@@ -41,7 +41,7 @@ const Migration = {
     { id: 'MODULE_PENILAIAN_897D24D1', description: 'Modul Penilaian Aset: sheet PENILAIAN & lajur', up: function () { return SheetManager.ensure('PENILAIAN'); } },
     { id: 'MODULE_PELUPUSAN_EFC5D954', description: 'Modul Pelupusan Aset: sheet PELUPUSAN & lajur', up: function () { return SheetManager.ensure('PELUPUSAN'); } },
     { id: 'MODULE_KEHILANGAN_EDA99332', description: 'Modul Kehilangan Aset: sheet KEHILANGAN & lajur', up: function () { return SheetManager.ensure('KEHILANGAN'); } },
-    { id: 'MODULE_KEPERLUAN_522932E2', description: 'Modul Keperluan Komputer Makmal: sheet KEPERLUAN & lajur', up: function () { return SheetManager.ensure('KEPERLUAN'); } },
+    { id: 'MODULE_KEPERLUAN_3BE03266', description: 'Modul Keperluan Komputer Makmal: sheet KEPERLUAN & lajur', up: function () { return SheetManager.ensure('KEPERLUAN'); } },
     { id: 'MODULE_MAKMAL_6C756663', description: 'Modul Makmal: sheet MAKMAL & lajur', up: function () { return SheetManager.ensure('MAKMAL'); } },
     { id: 'MODULE_PERISIAN_89847E0B', description: 'Modul Perisian & Lesen: sheet PERISIAN & lajur', up: function () { return SheetManager.ensure('PERISIAN'); } },
     { id: 'MODULE_STAF_E03295A9', description: 'Modul Staf Makmal: sheet STAF & lajur', up: function () { return SheetManager.ensure('STAF'); } },

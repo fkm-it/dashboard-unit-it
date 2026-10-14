@@ -65,6 +65,30 @@ const TestSuiteDashboardIT = {
       /* Selepas disahkan, penyelaras tidak boleh sunting */
       TestAssert.apiOk(TestHelpers.call(a.token, 'crud.setStatus', { module: 'keperluan', id: d.id, status: 'DISAHKAN' }));
       TestAssert.apiFail(TestHelpers.call(u.token, 'crud.update', { module: 'keperluan', id: d.id, sasaranJumlah: 60 }), ERROR_CODES.FORBIDDEN);
+
+      /* Peralatan ICT lain (projektor, TV): dihurai, disahkan, dikira dalam kos & rumusan */
+      const P = KeperluanHooks.parsePeralatan;
+      const ok = P('Projektor LCD | 1 | 2 | Tambah | RM3,500 | Bilik kuliah\n\nTV / paparan interaktif | 2 | 2 | ganti | 6000');
+      t.eq(ok.errors.length, 0); t.eq(ok.items.length, 2); t.eq(ok.items[0].harga, 3500); t.eq(ok.items[0].kos, 7000); t.eq(ok.items[1].jenis, 'GANTI'); t.eq(ok.items[1].kos, 12000);
+      t.eq(P('Projektor | 0 | 1').items[0].jenis, 'TAMBAH', 'jenis lalai Tambah');
+      t.ok(P(' | 1 | 1 | Tambah').errors.length, 'nama kosong');
+      t.ok(P('TV | 1 | 0 | Tambah').errors.length, 'kuantiti 0');
+      t.ok(P('TV | 1 | 3 | Ganti').errors.length, 'ganti melebihi sedia ada');
+      t.ok(P('TV | 1 | 1 | Beli').errors.length, 'jenis tidak sah');
+      const labP = AppFx.lab(a);
+      TestAssert.apiFail(AppFx.need(u, labP, { peralatanLain: 'Projektor LCD | 0 | 0 | Tambah | 3500' }), ERROR_CODES.VALIDATION_ERROR, 'baris tidak sah ditolak');
+      const dp = TestAssert.apiOk(AppFx.need(u, labP, { peralatanLain: 'Projektor LCD | 1 | 2 | tambah | 3500 | Bilik kuliah\nTV / paparan interaktif | 2 | 2 | Ganti | 6000' }));
+      t.eq(dp.values.bilanganPeralatan, 4); t.eq(dp.values.anggaranKosPeralatan, 19000);
+      t.eq(dp.values.anggaranKos, 67500 + 19000, 'jumlah = komputer + peralatan');
+      t.eq(dp.computed.peralatan.length, 2);
+      t.eq(Repo.of('KEPERLUAN').findById(dp.id).peralatan_lain.split('\n')[0], 'Projektor LCD | 1 | 2 | Tambah | 3500 | Bilik kuliah', 'disimpan dalam bentuk piawai');
+      const e2 = TestAssert.apiOk(TestHelpers.call(a.token, 'crud.update', { module: 'keperluan', id: dp.id, peralatanLain: '' }));
+      t.eq(e2.values.anggaranKosPeralatan, 0); t.eq(e2.values.anggaranKos, 67500);
+      TestAssert.apiOk(TestHelpers.call(a.token, 'crud.update', { module: 'keperluan', id: dp.id, peralatanLain: 'Projektor LCD | 0 | 3 | Tambah | 3000' }));
+      const rs = TestAssert.apiOk(TestHelpers.call(a.token, 'keperluan.rumusan', { tahun: 2026 }));
+      const pj = rs.ikutPeralatan.filter(function (x) { return x.item === 'Projektor LCD'; })[0];
+      t.ok(pj && pj.tambahan >= 3, 'rumusan ikut peralatan');
+      t.ok(rs.jumlah.semua.kosPeralatan >= 9000 && rs.jumlah.semua.kos === Math.round((rs.jumlah.semua.kosKomputer + rs.jumlah.semua.kosPeralatan) * 100) / 100, 'jumlah kos fakulti termasuk peralatan');
     }],
 
     ['Tiket: SLA ikut keutamaan, penugasan → Ditugaskan + email pegawai, cap masa selesai', function (t) {

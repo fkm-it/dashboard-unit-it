@@ -63,6 +63,56 @@ const KeperluanHooks = {
     return c.gantiCalon > 0 && c.tambahCalon > 0 ? 'GANTI_TAMBAH' : c.gantiCalon > 0 ? 'GANTI' : c.tambahCalon > 0 ? 'TAMBAH' : 'TIADA';
   },
 
+  // ---------------------------------------------------------------- Peralatan ICT lain (projektor, TV, audio…)
+
+  /** Senarai cadangan (borang); nama lain dibenarkan. */
+  PERALATAN: ['Projektor LCD', 'Skrin projektor', 'TV / paparan interaktif', 'Sistem audio / PA', 'Kamera dokumen (visualizer)', 'Pencetak', 'Pengimbas', 'Access point / rangkaian', 'UPS'],
+  MAX_PERALATAN: 30,
+
+  /**
+   * Hurai medan peralatanLain: satu baris = "Peralatan | Sedia ada | Dipohon | Ganti/Tambah | Harga seunit | Catatan".
+   * @return {{items:Array<{item:string,sediaAda:number,kuantiti:number,jenis:string,harga:number,catatan:string,kos:number}>, errors:Array<string>}}
+   */
+  parsePeralatan: function (text) {
+    const items = [], errors = [];
+    const numOf = function (v) {
+      const t = String(v === undefined || v === null ? '' : v).replace(/rm/ig, '').replace(/,/g, '').trim();
+      if (t === '') return 0;
+      const n = Number(t);
+      return isFinite(n) ? n : NaN;
+    };
+    const r2 = function (x) { return Math.round(x * 100) / 100; };
+    String(text || '').split(/\r?\n/).forEach(function (line, i) {
+      if (!line.trim()) return;
+      const c = line.split('|').map(function (x) { return x.trim(); });
+      const no = 'Baris ' + (i + 1) + ': ';
+      const item = (c[0] || '').slice(0, 80);
+      const sedia = numOf(c[1]), qty = numOf(c[2]), harga = numOf(c[4]);
+      const j = String(c[3] || '').toUpperCase();
+      const jenis = /^G|PENGGANTIAN/.test(j) ? 'GANTI' : (!j || /^T|PENAMBAHAN/.test(j)) ? 'TAMBAH' : '';
+      if (!item) { errors.push(no + 'nama peralatan kosong.'); return; }
+      if (!(sedia >= 0) || Math.floor(sedia) !== sedia || sedia > 1000) { errors.push(no + 'bilangan sedia ada tidak sah.'); return; }
+      if (!(qty >= 1) || Math.floor(qty) !== qty || qty > 500) { errors.push(no + 'bilangan dipohon mesti 1–500.'); return; }
+      if (!jenis) { errors.push(no + 'jenis mesti "Ganti" atau "Tambah".'); return; }
+      if (jenis === 'GANTI' && qty > sedia) { errors.push(no + 'penggantian (' + qty + ') melebihi bilangan sedia ada (' + sedia + ').'); return; }
+      if (!(harga >= 0) || harga > 1000000) { errors.push(no + 'harga seunit tidak sah.'); return; }
+      items.push({ item: item, sediaAda: sedia, kuantiti: qty, jenis: jenis, harga: r2(harga), catatan: c.slice(5).join(' ').slice(0, 200), kos: r2(qty * harga) });
+    });
+    if (items.length > KeperluanHooks.MAX_PERALATAN) errors.push('Maksimum ' + KeperluanHooks.MAX_PERALATAN + ' baris peralatan.');
+    return { items: items, errors: errors };
+  },
+
+  /** Bentuk piawai (disimpan): mudah dibaca dalam Sheets dan disunting semula. */
+  formatPeralatan: function (items) {
+    return items.map(function (x) {
+      return [x.item.replace(/\|/g, '/'), x.sediaAda, x.kuantiti, x.jenis === 'GANTI' ? 'Ganti' : 'Tambah', x.harga, String(x.catatan || '').replace(/\|/g, '/')].join(' | ').replace(/ \| $/, '');
+    }).join('\n');
+  },
+
+  peralatanTotal: function (items) {
+    return items.reduce(function (a, x) { a.unit += x.kuantiti; a.kos = Math.round((a.kos + x.kos) * 100) / 100; return a; }, { unit: 0, kos: 0 });
+  },
+
   JENIS_LABEL: { GANTI: 'Penggantian sahaja', TAMBAH: 'Penambahan sahaja', GANTI_TAMBAH: 'Penggantian dan penambahan', TIADA: 'Tiada permohonan' },
 
   EDITABLE: ['DIHANTAR', 'DIKEMBALIKAN'],
@@ -90,7 +140,8 @@ const KeperluanHooks = {
   summary: function (payload) {
     const tahun = KeperluanHooks.year_(payload);
     const rows = KeperluanHooks.repo_().all().filter(function (r) { return r.state === 'ACTIVE' && Number(r.tahun) === tahun && r.status !== 'DITOLAK'; });
-    const blank = function () { return { makmal: 0, ganti: 0, tambahan: 0, kosGanti: 0, kosTambahan: 0 }; };
+    const blank = function () { return { makmal: 0, ganti: 0, tambahan: 0, kosGanti: 0, kosTambahan: 0, peralatan: 0, kosPeralatan: 0 }; };
+    const byAlat = {};
     const tot = { semua: blank(), disahkan: blank() };
     const byJenis = {};
     Object.keys(KeperluanHooks.JENIS_LABEL).forEach(function (k) { byJenis[k] = { jenis: k, label: KeperluanHooks.JENIS_LABEL[k], makmal: 0, ganti: 0, tambahan: 0, kos: 0 }; });
@@ -99,17 +150,27 @@ const KeperluanHooks = {
       const j = r.jenis_permohonan || 'GANTI_TAMBAH';
       const g = Number(r.bilangan_ganti) || 0, t = Number(r.bilangan_tambahan) || 0;
       const kg = Number(r.anggaran_kos_ganti) || 0, kt = Number(r.anggaran_kos_tambahan) || 0;
+      const alat = KeperluanHooks.parsePeralatan(r.peralatan_lain).items;
+      const pt = KeperluanHooks.peralatanTotal(alat);
       [tot.semua].concat(r.status === 'DISAHKAN' ? [tot.disahkan] : []).forEach(function (b) {
-        b.makmal++; b.ganti += g; b.tambahan += t; b.kosGanti += kg; b.kosTambahan += kt;
+        b.makmal++; b.ganti += g; b.tambahan += t; b.kosGanti += kg; b.kosTambahan += kt; b.peralatan += pt.unit; b.kosPeralatan += pt.kos;
+      });
+      alat.forEach(function (x) {
+        const k = KeperluanHooks.norm_(x.item);
+        const b = byAlat[k] || (byAlat[k] = { item: x.item, makmal: 0, ganti: 0, tambahan: 0, kos: 0, disahkan: 0 });
+        b.makmal++; b[x.jenis === 'GANTI' ? 'ganti' : 'tambahan'] += x.kuantiti; b.kos += x.kos;
+        if (r.status === 'DISAHKAN') b.disahkan += x.kuantiti;
       });
       const bj = byJenis[j] || byJenis.GANTI_TAMBAH;
       bj.makmal++; bj.ganti += g; bj.tambahan += t; bj.kos += kg + kt;
       return { id: r.id, refNo: r.ref_no, makmal: r.nama_makmal || '', jenis: j, jenisLabel: KeperluanHooks.JENIS_LABEL[j] || j, ganti: g, tambahan: t,
-        kosGanti: r2(kg), kosTambahan: r2(kt), keutamaan: r.keutamaan, status: r.status };
+        kosGanti: r2(kg), kosTambahan: r2(kt), peralatan: pt.unit, kosPeralatan: pt.kos,
+        peralatanRingkas: alat.map(function (x) { return x.item + ' × ' + x.kuantiti; }).join(', '), keutamaan: r.keutamaan, status: r.status };
     }).sort(function (a, b) { return a.makmal < b.makmal ? -1 : 1; });
-    [tot.semua, tot.disahkan].forEach(function (b) { b.kosGanti = r2(b.kosGanti); b.kosTambahan = r2(b.kosTambahan); b.kos = r2(b.kosGanti + b.kosTambahan); });
+    [tot.semua, tot.disahkan].forEach(function (b) { b.kosGanti = r2(b.kosGanti); b.kosTambahan = r2(b.kosTambahan); b.kosPeralatan = r2(b.kosPeralatan); b.kosKomputer = r2(b.kosGanti + b.kosTambahan); b.kos = r2(b.kosKomputer + b.kosPeralatan); });
     return {
       generatedAt: DateUtils.nowIso(), tahun: tahun, jumlah: tot,
+      ikutPeralatan: Object.keys(byAlat).map(function (k) { const b = byAlat[k]; b.kos = r2(b.kos); b.unit = b.ganti + b.tambahan; return b; }).sort(function (a, b) { return b.unit - a.unit; }),
       ikutJenis: Object.keys(byJenis).map(function (k) { const b = byJenis[k]; b.kos = r2(b.kos); return b; }),
       items: items
     };
@@ -231,6 +292,10 @@ const KeperluanHooks = {
       try { cfg = SettingsService.get('KEPERLUAN_DOMAIN_EMAIL') || cfg; } catch (e) { /* lalai */ }
       throw Errors.validation('Gunakan email rasmi (' + cfg + ').', { emailPemohon: 'Gunakan email rasmi (' + cfg + ').' });
     }
+    if (data.peralatanLain !== undefined && data.peralatanLain !== null) {
+      const pr = KeperluanHooks.parsePeralatan(data.peralatanLain);
+      if (pr.errors.length) throw Errors.validation('Peralatan ICT lain: ' + pr.errors[0], { peralatanLain: pr.errors.slice(0, 3).join(' ') });
+    }
     const makmalId = data.makmal !== undefined ? data.makmal : cur.makmal;
     const baru = String((data.namaMakmalBaru !== undefined ? data.namaMakmalBaru : cur.nama_makmal_baru) || '').trim();
     if (!makmalId && !baru) {
@@ -305,7 +370,11 @@ const KeperluanHooks = {
     row.bilangan_tambahan = c.tambahan;
     row.anggaran_kos_ganti = c.kosGanti;
     row.anggaran_kos_tambahan = c.kosTambahan;
-    row.anggaran_kos = c.kos;
+    if (row.peralatan_lain !== undefined) row.peralatan_lain = KeperluanHooks.formatPeralatan(KeperluanHooks.parsePeralatan(row.peralatan_lain).items);
+    const pt = KeperluanHooks.peralatanTotal(KeperluanHooks.parsePeralatan(row.peralatan_lain !== undefined ? row.peralatan_lain : cur.peralatan_lain).items);
+    row.bilangan_peralatan = pt.unit;
+    row.anggaran_kos_peralatan = pt.kos;
+    row.anggaran_kos = Math.round((c.kos + pt.kos) * 100) / 100;
   },
 
   afterCreate: function (row) {
@@ -415,7 +484,8 @@ const KeperluanHooks = {
       refNo: row.ref_no, status: row.status, statusLabel: CrudEngine.statusLabel(def, row.status), statusNote: row.status_note || '',
       catatanIt: row.catatan_it || '', canEdit: KeperluanHooks.EDITABLE.indexOf(row.status) >= 0, namaMakmal: row.nama_makmal,
       values: values, computed: { ganti: Number(row.bilangan_ganti) || 0, tambahan: Number(row.bilangan_tambahan) || 0, kos: Number(row.anggaran_kos) || 0,
-        kosGanti: Number(row.anggaran_kos_ganti) || 0, kosTambahan: Number(row.anggaran_kos_tambahan) || 0, jenis: row.jenis_permohonan || 'GANTI_TAMBAH' },
+        kosGanti: Number(row.anggaran_kos_ganti) || 0, kosTambahan: Number(row.anggaran_kos_tambahan) || 0, jenis: row.jenis_permohonan || 'GANTI_TAMBAH',
+        peralatan: KeperluanHooks.parsePeralatan(row.peralatan_lain).items, kosPeralatan: Number(row.anggaran_kos_peralatan) || 0 },
       updatedAt: row.updated_at
     };
   },
@@ -470,7 +540,8 @@ const KeperluanHooks = {
       jumlahCadangan: (Number(row.bilangan_ganti) || 0) + (Number(row.bilangan_tambahan) || 0),
       anggaranKos: Number(row.anggaran_kos) || 0,
       ganti: Number(row.bilangan_ganti) || 0, tambahan: Number(row.bilangan_tambahan) || 0,
-      kosGanti: Number(row.anggaran_kos_ganti) || 0, kosTambahan: Number(row.anggaran_kos_tambahan) || 0
+      kosGanti: Number(row.anggaran_kos_ganti) || 0, kosTambahan: Number(row.anggaran_kos_tambahan) || 0,
+      peralatan: KeperluanHooks.parsePeralatan(row.peralatan_lain).items, kosPeralatan: Number(row.anggaran_kos_peralatan) || 0
     };
     return dto;
   }

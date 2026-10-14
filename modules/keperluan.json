@@ -5,7 +5,7 @@
   "icon": "briefcase",
   "prefix": "KP",
   "refFormat": "KPM-{YYYY}-{SEQ3}",
-  "description": "Banci komputer makmal dan permohonan penggantian/tambahan (makmal sedia ada atau baharu). Satu rekod bagi setiap makmal bagi setiap tahun.",
+  "description": "Banci komputer makmal dan permohonan penggantian/tambahan (makmal sedia ada atau baharu). Satu rekod bagi setiap makmal bagi setiap tahun. Termasuk keperluan peralatan ICT lain (cth. projektor LCD, TV / paparan interaktif, sistem audio).",
   "access": {
     "create": "PUBLIC",
     "list": "OWN",
@@ -323,7 +323,7 @@
     },
     {
       "key": "anggaranKos",
-      "label": "Anggaran kos (RM, dikira)",
+      "label": "Jumlah anggaran kos (komputer + peralatan, RM, dikira)",
       "type": "number",
       "readonly": true
     },
@@ -337,6 +337,27 @@
     {
       "key": "anggaranKosTambahan",
       "label": "Anggaran kos penambahan (RM, dikira)",
+      "type": "number",
+      "decimals": 2,
+      "readonly": true
+    },
+    {
+      "key": "peralatanLain",
+      "label": "Peralatan ICT lain",
+      "type": "text",
+      "max": 4000,
+      "search": true,
+      "hint": "Satu peralatan setiap baris: Peralatan | Sedia ada | Dipohon | Ganti/Tambah | Harga seunit (RM) | Catatan. Cth: Projektor LCD | 1 | 2 | Tambah | 3500 | Untuk kuliah serentak."
+    },
+    {
+      "key": "bilanganPeralatan",
+      "label": "Peralatan lain dipohon (unit, dikira)",
+      "type": "int",
+      "readonly": true
+    },
+    {
+      "key": "anggaranKosPeralatan",
+      "label": "Anggaran kos peralatan lain (RM, dikira)",
       "type": "number",
       "decimals": 2,
       "readonly": true

@@ -16,7 +16,16 @@
 .bm-ro { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3); }
 .bm-ro dt { font-size: var(--fs-xs); color: var(--muted); }
 .bm-ro dd { margin: 0; font-weight: 600; }
+.bm-ro .field-wide { grid-column: 1 / -1; }
 .bm-share { display: flex; gap: var(--sp-2); }
+.alat-row { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, .8fr) minmax(0, .8fr) minmax(0, 1.1fr) minmax(0, 1.2fr); gap: var(--sp-3); align-items: end; padding: var(--sp-3); border: 1px solid var(--line); border-radius: var(--r-md); margin-bottom: var(--sp-3); background: var(--canvas-200); }
+.alat-row .field { margin: 0; min-width: 0; }
+.alat-row .alat-note { grid-column: 1 / -2; }
+.alat-row .alat-rm { justify-self: end; }
+.bm-calc.bm-calc-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.bm-grand { display: grid; gap: 2px; background: var(--brand); color: #fff; border-radius: var(--r-md); padding: 14px 16px; }
+.bm-grand b { font-size: var(--fs-2xl); font-variant-numeric: tabular-nums; }
+.bm-grand .muted { color: rgba(255,255,255,.85); }
 .bm-share .input { flex: 1; min-width: 0; font-size: var(--fs-sm); }
 @media (max-width: 640px) {
   .bm-wrap { padding: var(--sp-4) var(--sp-3) var(--sp-8); }
@@ -25,6 +34,9 @@
   .bm-calc div:last-child { grid-column: 1 / -1; }
   .bm-ro { grid-template-columns: minmax(0, 1fr); }
   .bm-share { flex-direction: column; }
+  .alat-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .alat-row .alat-item, .alat-row .alat-note { grid-column: 1 / -1; }
+  .bm-calc.bm-calc-2 { grid-template-columns: minmax(0, 1fr); }
 }
 </style>
 <script>
@@ -45,8 +57,58 @@
     { n: 1, title: 'Maklumat pemohon', note: 'Pemilik, ketua atau pengurus makmal.', keys: ['namaPemohon', 'noStaf', 'emailPemohon', 'peranan', 'telefonPemohon'] },
     { n: 2, title: 'Makmal', note: 'Satu borang bagi setiap makmal bagi setiap tahun.', keys: ['tahun', 'makmal', 'namaMakmalBaru', 'bangunanMakmalBaru', 'bilikMakmalBaru', 'jabatanMakmalBaru'] },
     { n: 3, title: 'Banci komputer sedia ada', note: 'Berfungsi + rosak (boleh dibaiki) + rosak (tidak ekonomi) mesti sama dengan jumlah sedia ada. Makmal baharu: isi 0.', keys: ['jumlahSediaAda', 'berfungsi', 'tidakSesuai', 'rosakBolehBaiki', 'rosakLupus'] },
-    { n: 4, title: 'Permohonan penggantian / penambahan', note: 'Pilih jenis permohonan. Bilangan penggantian, penambahan dan anggaran kos dikira automatik dan direkod berasingan.', keys: ['jenisPermohonan', 'sasaranJumlah', 'keutamaan', 'hargaSeunit', 'sumberHarga', 'spesifikasi', 'perisian', 'justifikasi'] }
+    { n: 4, title: 'Permohonan komputer: penggantian / penambahan', note: 'Pilih jenis permohonan. Bilangan penggantian, penambahan dan anggaran kos dikira automatik dan direkod berasingan.', keys: ['jenisPermohonan', 'sasaranJumlah', 'keutamaan', 'hargaSeunit', 'sumberHarga', 'spesifikasi', 'perisian', 'justifikasi'] },
+    { n: 5, title: 'Peralatan ICT lain (jika ada)', note: 'Contoh: projektor LCD, TV / paparan interaktif, sistem audio, kamera dokumen. Tambah satu baris bagi setiap jenis peralatan. Kosongkan jika tiada.', keys: [], alat: true }
   ];
+  const ALAT = ['Projektor LCD', 'Skrin projektor', 'TV / paparan interaktif', 'Sistem audio / PA', 'Kamera dokumen (visualizer)', 'Pencetak', 'Pengimbas', 'Access point / rangkaian', 'UPS'];
+  const LAIN = '__lain';
+
+  /* Format simpanan: "Peralatan | Sedia ada | Dipohon | Ganti/Tambah | Harga seunit | Catatan" (satu baris setiap peralatan) */
+  const parseAlat = (text) => String(text || '').split(/\r?\n/).filter((l) => l.trim()).map((l) => {
+    const c = l.split('|').map((x) => x.trim());
+    const n = (v) => { const x = Number(String(v || '').replace(/rm|,/gi, '')); return isFinite(x) ? x : 0; };
+    return { item: c[0] || '', sediaAda: n(c[1]), kuantiti: n(c[2]) || 1, jenis: /^g/i.test(c[3] || '') ? 'GANTI' : 'TAMBAH', harga: n(c[4]), catatan: c.slice(5).join(' ') };
+  });
+  const clean = (v) => String(v || '').replace(/[|\r\n]+/g, ' ').trim();
+
+  function alatRow(x) {
+    const preset = ALAT.indexOf(x.item) >= 0;
+    const other = !!x.item && !preset;
+    return html`<div class="alat-row" data-alat-row>
+      <div class="field alat-item"><label class="label">Peralatan</label><select class="select" data-a="pilih"><option value="">— Pilih —</option>${ALAT.map((a) => html`<option ${a === x.item ? raw('selected') : ''}>${a}</option>`)}<option value="${LAIN}" ${other ? raw('selected') : ''}>Lain-lain (nyatakan)</option></select>
+        <input class="input mt-2" data-a="nama" maxlength="80" placeholder="Nama peralatan" value="${other ? x.item : ''}" ${other ? '' : raw('hidden')}></div>
+      <div class="field"><label class="label">Sedia ada</label><input class="input" data-a="sedia" type="number" min="0" step="1" inputmode="numeric" value="${x.sediaAda || 0}"></div>
+      <div class="field"><label class="label">Dipohon</label><input class="input" data-a="qty" type="number" min="1" step="1" inputmode="numeric" value="${x.kuantiti || 1}"></div>
+      <div class="field"><label class="label">Jenis</label><select class="select" data-a="jenis"><option value="TAMBAH" ${x.jenis !== 'GANTI' ? raw('selected') : ''}>Tambah</option><option value="GANTI" ${x.jenis === 'GANTI' ? raw('selected') : ''}>Ganti</option></select></div>
+      <div class="field"><label class="label">Harga/unit (RM)</label><input class="input" data-a="harga" type="number" min="0" step="any" inputmode="decimal" value="${x.harga || ''}"></div>
+      <div class="field alat-note"><label class="label">Catatan / spesifikasi</label><input class="input" data-a="catatan" maxlength="200" value="${x.catatan || ''}" placeholder="cth. 4000 lumens, bilik kuliah"></div>
+      <button type="button" class="btn btn-ghost btn-sm alat-rm" data-alat-rm aria-label="Buang baris">${icon('x', 'i-sm')}Buang</button></div>`;
+  }
+
+  function alatBox(value) {
+    return html`<input type="hidden" name="peralatanLain" value="${value || ''}"><div data-alat-list>${parseAlat(value).map(alatRow)}</div>
+      <button type="button" class="btn btn-outline btn-sm" data-alat-add>${icon('plus', 'i-sm')}Tambah peralatan</button><div data-alat-sum class="mt-4"></div>`;
+  }
+
+  /** Baris → nilai tersembunyi peralatanLain + jumlah. @return {{unit:number,kos:number}} */
+  function syncAlat(form) {
+    const rows = Array.from(form.querySelectorAll('[data-alat-row]'));
+    const tot = { unit: 0, kos: 0 };
+    const lines = rows.map((r) => {
+      const g = (k) => qs('[data-a="' + k + '"]', r);
+      const pick = g('pilih').value;
+      g('nama').hidden = pick !== LAIN;
+      const item = clean(pick === LAIN ? g('nama').value : pick);
+      if (!item) return '';
+      const qty = Math.max(0, Math.round(Number(g('qty').value) || 0)), harga = Number(g('harga').value) || 0;
+      tot.unit += qty; tot.kos += qty * harga;
+      return [item, Math.max(0, Math.round(Number(g('sedia').value) || 0)), qty, g('jenis').value === 'GANTI' ? 'Ganti' : 'Tambah', harga, clean(g('catatan').value)].join(' | ');
+    }).filter(Boolean);
+    form.elements.peralatanLain.value = lines.join('\n');
+    const sum = qs('[data-alat-sum]', form);
+    if (sum) sum.innerHTML = rows.length ? html`<div class="bm-calc bm-calc-2"><div><span class="xs muted">Peralatan dipohon</span><b>${fmtNum(tot.unit)} unit</b></div><div><span class="xs muted">Anggaran kos peralatan</span><b>${tot.kos ? rm(tot.kos) : '—'}</b></div></div>`.s : '';
+    return tot;
+  }
   const NEW_KEYS = ['namaMakmalBaru', 'bangunanMakmalBaru', 'bilikMakmalBaru', 'jabatanMakmalBaru'];
   const PUB_REQ = ['namaPemohon', 'noStaf', 'emailPemohon', 'peranan', 'jenisPermohonan'];
 
@@ -105,8 +167,9 @@
     return html`${SECTIONS.map((s) => html`<section class="bm-sec"><h2><span class="bm-num">${s.n}</span>${s.title}</h2><p class="small muted">${s.note}</p>
         ${mode === 'edit' && s.n === 2 ? html`<dl class="bm-ro mb-4"><div><dt>Makmal</dt><dd>${meta.namaMakmal}</dd></div><div><dt>Tahun</dt><dd>${v.tahun}</dd></div></dl>` : ''}
         ${mode === 'edit' && s.n === 1 ? html`<dl class="bm-ro mb-4"><div><dt>Email (link dihantar ke sini)</dt><dd>${v.emailPemohon}</dd></div></dl>` : ''}
-        <div class="form-grid">${s.keys.map(field)}</div>
-        ${s.n === 4 ? html`<div data-calc></div>` : ''}</section>`)}`;
+        ${s.alat ? alatBox(mode === 'edit' ? v.peralatanLain : '') : html`<div class="form-grid">${s.keys.map(field)}</div>`}
+        ${s.n === 4 ? html`<div data-calc></div>` : ''}</section>`)}
+      <section class="bm-sec"><div class="bm-grand" data-grand></div></section>`;
   }
 
   function bindCalc(form) {
@@ -114,11 +177,21 @@
     const draw = () => {
       const c = compute(form);
       qs('[data-calc]', form).innerHTML = calcBox(c).s;
+      const a = syncAlat(form);
+      const g = qs('[data-grand]', form);
+      if (g) g.innerHTML = html`<span>Jumlah anggaran kos keseluruhan</span><b>${rm(c.kosGanti + c.kosTambahan + a.kos)}</b><span class="xs muted">Komputer ${rm(c.kosGanti + c.kosTambahan)} · peralatan lain ${rm(a.kos)}</span>`.s;
       /* Jumlah diperlukan hanya relevan untuk penambahan */
       if (sas) sas.style.display = c.j === 'TAMBAH' || c.j === 'GANTI_TAMBAH' ? '' : 'none';
     };
     on(form, 'input', 'input', draw);
     on(form, 'change', 'select', draw);
+    on(form, 'click', '[data-alat-add]', () => {
+      qs('[data-alat-list]', form).insertAdjacentHTML('beforeend', alatRow({ jenis: 'TAMBAH', kuantiti: 1 }).s);
+      draw();
+      const rows = form.querySelectorAll('[data-alat-row]');
+      qs('[data-a="pilih"]', rows[rows.length - 1]).focus();
+    });
+    on(form, 'click', '[data-alat-rm]', (e, b) => { b.closest('[data-alat-row]').remove(); draw(); });
     draw();
     const sel = form.elements.makmal;
     if (sel && sel.tagName === 'SELECT') {
@@ -210,6 +283,7 @@
           <div><dt>Jumlah sedia ada</dt><dd>${fmtNum(v.jumlahSediaAda)}</dd></div><div><dt>Jumlah diperlukan</dt><dd>${fmtNum(v.sasaranJumlah)}</dd></div>
           <div><dt>Jenis permohonan</dt><dd>${JENIS[d.computed.jenis] || '—'}</dd></div><div></div>
           <div><dt>Penggantian</dt><dd>${fmtNum(d.computed.ganti)} · ${rm(d.computed.kosGanti)}</dd></div><div><dt>Penambahan</dt><dd>${fmtNum(d.computed.tambahan)} · ${rm(d.computed.kosTambahan)}</dd></div>
+          ${d.computed.peralatan && d.computed.peralatan.length ? html`<div class="field-wide"><dt>Peralatan ICT lain</dt><dd>${alatTable(d.computed.peralatan)}</dd></div>` : ''}
           <div><dt>Jumlah anggaran kos</dt><dd>${rm(d.computed.kos)}</dd></div></dl>
           <p class="small muted mt-4">Borang ini telah diproses dan tidak boleh dikemas kini lagi. Hubungi Unit IT FKM untuk sebarang pindaan.</p></section></div>`);
       return;
@@ -233,6 +307,16 @@
       });
     });
   }
+
+  function alatTable(items) {
+    return html`<div class="im-scroll"><table class="xo-table" style="min-width:0"><thead><tr><th>Peralatan</th><th class="num">Sedia ada</th><th class="num">Dipohon</th><th>Jenis</th><th class="num">Kos (RM)</th></tr></thead>
+      <tbody>${items.map((x) => html`<tr><td>${x.item}${x.catatan ? html`<div class="xs muted">${x.catatan}</div>` : ''}</td><td class="num">${fmtNum(x.sediaAda)}</td><td class="num"><b>${fmtNum(x.kuantiti)}</b></td><td>${x.jenis === 'GANTI' ? 'Ganti' : 'Tambah'}</td><td class="num">${fmtNum(x.kos)}</td></tr>`)}</tbody></table></div>`;
+  }
+
+  /* Butiran rekod (admin / pemilik): jadual peralatan lain */
+  KD.detailSide = KD.detailSide || {};
+  KD.detailSide.keperluan = (d) => d.computed && d.computed.peralatan && d.computed.peralatan.length
+    ? html`<div class="status-note"><strong>Peralatan ICT lain · ${fmtNum(d.values.bilanganPeralatan || 0)} unit · ${rm(d.computed.kosPeralatan)}</strong><div class="mt-2">${alatTable(d.computed.peralatan)}</div></div>` : '';
 
   /* Admin: kongsi link borang dari senarai Keperluan Makmal */
   KD.listActions.keperluan = {
@@ -261,9 +345,13 @@
   /* Rumusan keperluan seluruh fakulti — penggantian & penambahan berasingan */
   function summaryTable(r) {
     const s = r.jumlah.semua, d = r.jumlah.disahkan;
-    return html`<div class="im-scroll"><table class="xo-table" style="min-width:0"><thead><tr><th></th><th class="num">Makmal</th><th class="num">Penggantian</th><th class="num">Kos ganti</th><th class="num">Penambahan</th><th class="num">Kos tambah</th><th class="num">Jumlah kos</th></tr></thead><tbody>
-      <tr><td>Semua permohonan</td><td class="num">${fmtNum(s.makmal)}</td><td class="num"><b>${fmtNum(s.ganti)}</b></td><td class="num">${rm(s.kosGanti)}</td><td class="num"><b>${fmtNum(s.tambahan)}</b></td><td class="num">${rm(s.kosTambahan)}</td><td class="num">${rm(s.kos)}</td></tr>
-      <tr><td>Disahkan Unit IT</td><td class="num">${fmtNum(d.makmal)}</td><td class="num">${fmtNum(d.ganti)}</td><td class="num">${rm(d.kosGanti)}</td><td class="num">${fmtNum(d.tambahan)}</td><td class="num">${rm(d.kosTambahan)}</td><td class="num">${rm(d.kos)}</td></tr></tbody></table></div>`;
+    const cell = (n, unit, kos) => html`<td class="num"><b>${fmtNum(n || 0)}</b> ${unit}<div class="xs muted">${rm(kos || 0)}</div></td>`;
+    return html`<div class="im-scroll"><table class="xo-table" style="min-width:0"><thead><tr><th></th><th class="num">Semua</th><th class="num">Disahkan</th></tr></thead><tbody>
+      <tr><td>Makmal</td><td class="num">${fmtNum(s.makmal)}</td><td class="num">${fmtNum(d.makmal)}</td></tr>
+      <tr><td>PC ganti</td>${cell(s.ganti, 'PC', s.kosGanti)}${cell(d.ganti, 'PC', d.kosGanti)}</tr>
+      <tr><td>PC tambah</td>${cell(s.tambahan, 'PC', s.kosTambahan)}${cell(d.tambahan, 'PC', d.kosTambahan)}</tr>
+      <tr><td>Peralatan ICT lain</td>${cell(s.peralatan, 'unit', s.kosPeralatan)}${cell(d.peralatan, 'unit', d.kosPeralatan)}</tr>
+      <tr><td><b>Jumlah kos</b></td><td class="num"><b>${rm(s.kos)}</b></td><td class="num"><b>${rm(d.kos)}</b></td></tr></tbody></table></div>`;
   }
 
   async function summaryModal(btn) {
@@ -276,15 +364,18 @@
         <div class="label mt-4">Ikut jenis permohonan</div>
         <div class="im-scroll mt-2"><table class="xo-table" style="min-width:0"><thead><tr><th>Jenis</th><th class="num">Makmal</th><th class="num">Ganti</th><th class="num">Tambah</th></tr></thead>
         <tbody>${r.ikutJenis.map((j) => html`<tr><td>${j.label}</td><td class="num">${fmtNum(j.makmal)}</td><td class="num">${fmtNum(j.ganti)}</td><td class="num">${fmtNum(j.tambahan)}</td></tr>`)}</tbody></table></div>
+        ${r.ikutPeralatan && r.ikutPeralatan.length ? html`<div class="label mt-4">Peralatan ICT lain ikut jenis</div>
+        <div class="im-scroll mt-2"><table class="xo-table" style="min-width:0"><thead><tr><th>Peralatan</th><th class="num">Makmal</th><th class="num">Ganti</th><th class="num">Tambah</th><th class="num">Kos (RM)</th></tr></thead>
+        <tbody>${r.ikutPeralatan.map((x) => html`<tr><td>${x.item}</td><td class="num">${fmtNum(x.makmal)}</td><td class="num">${fmtNum(x.ganti)}</td><td class="num">${fmtNum(x.tambahan)}</td><td class="num">${fmtNum(x.kos)}</td></tr>`)}</tbody></table></div>` : ''}
         <div class="label mt-4">Ikut makmal</div>
-        <div class="im-scroll mt-2" style="max-height:38vh;overflow:auto"><table class="xo-table" style="min-width:560px"><thead><tr><th>Makmal</th><th>Jenis</th><th class="num">Ganti</th><th class="num">Tambah</th><th class="num">Kos (RM)</th></tr></thead>
-        <tbody>${r.items.map((i) => html`<tr><td>${i.makmal}<div class="xs muted">${i.refNo}</div></td><td class="small">${i.jenisLabel}</td><td class="num">${fmtNum(i.ganti)}</td><td class="num">${fmtNum(i.tambahan)}</td><td class="num">${fmtNum(i.kosGanti + i.kosTambahan)}</td></tr>`)}</tbody></table></div>
-        <p class="xs muted mt-2">Permohonan Ditolak tidak dikira. Kos ikut anggaran harga seunit yang diisi pemohon.</p>`,
+        <div class="im-scroll mt-2" style="max-height:38vh;overflow:auto"><table class="xo-table" style="min-width:560px"><thead><tr><th>Makmal</th><th>Jenis</th><th class="num">Ganti</th><th class="num">Tambah</th><th class="num">Peralatan</th><th class="num">Kos (RM)</th></tr></thead>
+        <tbody>${r.items.map((i) => html`<tr><td>${i.makmal}<div class="xs muted">${i.refNo}</div>${i.peralatanRingkas ? html`<div class="xs muted">${i.peralatanRingkas}</div>` : ''}</td><td class="small">${i.jenisLabel}</td><td class="num">${fmtNum(i.ganti)}</td><td class="num">${fmtNum(i.tambahan)}</td><td class="num">${fmtNum(i.peralatan || 0)}</td><td class="num">${fmtNum(i.kosGanti + i.kosTambahan + (i.kosPeralatan || 0))}</td></tr>`)}</tbody></table></div>
+        <p class="xs muted mt-2">Permohonan Ditolak tidak dikira. Kos ikut anggaran harga seunit yang diisi pemohon. Jumlah kos = komputer + peralatan ICT lain.</p>`,
       foot: html`<button class="btn btn-outline" data-csv>${icon('download')}Eksport CSV</button><button class="btn btn-ghost" data-close>Tutup</button>`
     });
     on(md.el, 'click', '[data-csv]', () => {
-      const rows = [['No. rujukan', 'Makmal', 'Jenis permohonan', 'Penggantian', 'Kos penggantian (RM)', 'Penambahan', 'Kos penambahan (RM)', 'Keutamaan', 'Status']]
-        .concat(r.items.map((i) => [i.refNo, i.makmal, i.jenisLabel, i.ganti, i.kosGanti, i.tambahan, i.kosTambahan, i.keutamaan, i.status]));
+      const rows = [['No. rujukan', 'Makmal', 'Jenis permohonan', 'Penggantian', 'Kos penggantian (RM)', 'Penambahan', 'Kos penambahan (RM)', 'Peralatan lain (unit)', 'Kos peralatan (RM)', 'Senarai peralatan', 'Keutamaan', 'Status']]
+        .concat(r.items.map((i) => [i.refNo, i.makmal, i.jenisLabel, i.ganti, i.kosGanti, i.tambahan, i.kosTambahan, i.peralatan || 0, i.kosPeralatan || 0, i.peralatanRingkas || '', i.keutamaan, i.status]));
       KD.utils.downloadText(KD.utils.toCsv(rows), 'text/csv', 'rumusan-keperluan-ict-makmal-' + r.tahun + '.csv');
     });
   }

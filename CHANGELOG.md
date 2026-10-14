@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 1.18.0 — 2026-10-14 · Peralatan ICT lain dalam Penilaian Keperluan ICT Makmal
+### Ditambah
+- Seksyen 5 **Peralatan ICT lain** dalam borang banci makmal (`#/banci-makmal`)
+  - Satu baris bagi setiap peralatan: pilih daripada senarai (projektor LCD, skrin, TV / paparan interaktif, sistem audio, kamera dokumen, pencetak, pengimbas, access point, UPS) atau "Lain-lain".
+  - Isi sedia ada, bilangan dipohon, Ganti/Tambah, harga seunit dan catatan. Jumlah unit dan kos dikira serta-merta.
+  - Jumlah anggaran kos keseluruhan = komputer + peralatan lain.
+- Pelayan mengesahkan setiap baris (bilangan 1–500; penggantian tidak melebihi sedia ada; maks. 30 baris) dan menyimpannya dalam bentuk piawai yang mudah dibaca dalam Sheets.
+- Medan dikira baharu: `bilanganPeralatan`, `anggaranKosPeralatan`.
+- **Rumusan fakulti**: baris peralatan ICT lain, jadual ikut jenis peralatan, dan lajur peralatan dalam CSV. Bajet keperluan di Executive Overview kini termasuk peralatan.
+- Butiran rekod keperluan memaparkan jadual peralatan.
+
 ## 1.17.0 — 2026-10-14 · Daftar pantas aset semasa stock-take
 ### Ditambah
 - **Daftar aset ini** pada imbasan merah "Tiada dalam daftar"

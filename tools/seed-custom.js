@@ -44,11 +44,17 @@ module.exports = function ({ api, ok, sup, user, ctx }) {
     [3, 32, 28, 0, 2, 2, 34, 'SEDERHANA', 'DIKEMBALIKAN'],
     [4, 25, 23, 1, 1, 1, 26, 'RENDAH', 'DIHANTAR']
   ];
+  const ALAT = [
+    'Projektor LCD | 1 | 1 | Ganti | 3500 | Projektor sedia ada malap\nTV / paparan interaktif | 0 | 1 | Tambah | 9000 | Paparan demo pensyarah',
+    'Sistem audio / PA | 0 | 1 | Tambah | 4500',
+    'Projektor LCD | 0 | 2 | Tambah | 3500 | Bilik tutorial bersebelahan'
+  ];
   needs.forEach(([li, total, ok2, unfit, fix, dead, target, pri, status]) => {
     const d = U('crud.create', {
       module: 'keperluan', makmal: labs[li].id, tahun: y, jumlahSediaAda: total, berfungsi: ok2, tidakSesuai: unfit, rosakBolehBaiki: fix, rosakLupus: dead,
       sasaranJumlah: target, keutamaan: pri, hargaSeunit: 4500, sumberHarga: 'Anggaran contoh', spesifikasi: 'Core i7, 32GB RAM, GPU 8GB',
-      perisian: 'SolidWorks, ANSYS', justifikasi: 'Data contoh: komputer sedia ada tidak mampu menjalankan perisian kursus terkini.'
+      perisian: 'SolidWorks, ANSYS', justifikasi: 'Data contoh: komputer sedia ada tidak mampu menjalankan perisian kursus terkini.',
+      peralatanLain: ALAT[li] || ''
     });
     if (status !== 'DIHANTAR') A('crud.setStatus', { module: 'keperluan', id: d.id, status, note: status === 'DIKEMBALIKAN' ? 'Sila sahkan bilangan rosak.' : '' });
   });
