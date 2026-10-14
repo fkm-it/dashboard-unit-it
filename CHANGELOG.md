@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 1.17.0 — 2026-10-14 · Daftar pantas aset semasa stock-take
+### Ditambah
+- **Daftar aset ini** pada imbasan merah "Tiada dalam daftar"
+  - Isi data asas sahaja: no. aset (daripada imbasan), nama alat, jenis dan no. siri (pilihan).
+  - Aset terus didaftarkan di makmal/lokasi sesi dan direkod sebagai dijumpai; kiraan sesi dikemas kini.
+  - Tersedia di halaman imbasan, ringkasan sesi (butang "Daftar" bagi setiap no. tidak berdaftar) dan halaman label `/qr` (aliran iPhone).
+- Medan aset **Perlu dilengkapkan** (boleh ditapis dalam Aset IT). Tanda hilang sendiri apabila jenama dan model diisi.
+- Kotak **Cara guna** di halaman Imbas aset (maksud hijau / kuning / merah dan aliran sesi).
+
 ## 1.16.0 — 2026-10-14 · Fasa 2b: label QR aset, stock-take & pautan tiket–aset
 ### Ditambah
 - **Label QR aset** (Admin → Label QR aset)

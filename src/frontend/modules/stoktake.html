@@ -12,6 +12,12 @@
   .scan-log li { display: flex; gap: 8px; align-items: flex-start; padding: 8px 10px; border-radius: var(--r-md); background: var(--white); border: 1px solid var(--line); min-width: 0; overflow-wrap: anywhere; }
   .scan-log li.is-ok { border-color: #BBF7D0; background: #F0FDF4; } .scan-log li.is-warn { border-color: #FDE68A; background: #FFFBEB; }
   .scan-log li.is-bad { border-color: #FECACA; background: #FFF7F7; }
+  .scan-help { margin-bottom: var(--sp-4); }
+  .scan-help summary { cursor: pointer; }
+  .scan-help ol { margin: var(--sp-2) 0 0; padding-left: 1.2em; display: grid; gap: 6px; }
+  .scan-help .tag-ok, .scan-help .tag-warn, .scan-help .tag-bad { padding: 0 6px; border-radius: 6px; font-weight: 600; }
+  .scan-help .tag-ok { background: #DCFCE7; color: #166534; } .scan-help .tag-warn { background: #FEF3C7; color: #92400E; } .scan-help .tag-bad { background: #FEE2E2; color: #991B1B; }
+  .scan-log .grow { min-width: 0; flex: 1; }
   .qrl-card { max-width: 440px; margin: 0 auto; }
   .qrl-card .qrl-no { font-size: var(--fs-xl); font-weight: 700; overflow-wrap: anywhere; }
   .qrl-actions { display: grid; gap: 8px; margin-top: var(--sp-4); }
@@ -44,6 +50,37 @@
   const setSess = (v) => { try { if (v) localStorage.setItem(STORE, JSON.stringify(v)); else localStorage.removeItem(STORE); } catch (e) { /* storan tidak tersedia */ } };
   const base = () => location.href.split('#')[0];
   const labelUrl = (no) => base() + '#/qr?a=' + encodeURIComponent(no);
+  const JENIS = [['LAIN', 'Lain-lain'], ['DESKTOP', 'Komputer meja'], ['LAPTOP', 'Komputer riba'], ['WORKSTATION', 'Workstation'], ['PENCETAK', 'Pencetak / pengimbas'],
+    ['PROJEKTOR', 'Projektor / AV'], ['PELAYAN', 'Pelayan (server)'], ['SWITCH', 'Switch / router'], ['AP', 'Access point']];
+
+  /* Daftar pantas aset yang tiada dalam daftar: data asas sahaja, kemudian terus direkod dijumpai dalam sesi. */
+  const daftarPantas = (sesiId, no, keadaan, onDone) => {
+    const md = modal({
+      title: 'Daftar aset baharu',
+      body: html`<p class="small muted">No. aset ini belum ada dalam daftar. Isi data asas sahaja; butiran lain boleh dilengkapkan kemudian (aset akan ditanda <b>Perlu dilengkapkan</b>).</p>
+        <form data-dp autocomplete="off">
+          <div class="field"><label class="label" for="dp-no">No. aset / bar code</label><input class="input" id="dp-no" name="kod" value="${no}" maxlength="40" required></div>
+          <div class="field"><label class="label" for="dp-nama">Nama alat <span class="req">*</span></label><input class="input" id="dp-nama" name="namaAlat" maxlength="120" placeholder="cth. Komputer Dell OptiPlex, Raspberry Pi 4" required></div>
+          <div class="field"><label class="label" for="dp-jenis">Jenis</label><select class="select" id="dp-jenis" name="jenis">${JENIS.map((j) => html`<option value="${j[0]}">${j[1]}</option>`)}</select></div>
+          <div class="field"><label class="label" for="dp-siri">No. siri (jika ada)</label><input class="input" id="dp-siri" name="noSiri" maxlength="60"></div>
+        </form>`,
+      foot: html`<button class="btn btn-outline" data-close>Batal</button><button class="btn btn-primary" data-dp-go>${icon('check')}Daftar & rekod dijumpai</button>`
+    });
+    const f = qs('[data-dp]', md.el);
+    setTimeout(() => { const n = qs('#dp-nama', md.el); if (n) n.focus(); }, 50);
+    const go = (b) => busy(b, async () => {
+      if (!f.reportValidity()) return;
+      try {
+        const r = await KD.api.call('stoktake.daftar', { sesi: sesiId, kod: f.kod.value, namaAlat: f.namaAlat.value, jenis: f.jenis.value, noSiri: f.noSiri.value, keadaan: keadaan || 'BAIK' });
+        md.close();
+        toast('Aset ' + r.noAset + ' didaftarkan dan direkod dijumpai.');
+        if (onDone) onDone(r);
+      } catch (err) { toastError(err); }
+    });
+    qs('[data-dp-go]', md.el).addEventListener('click', (e) => go(e.currentTarget));
+    f.addEventListener('submit', (e) => { e.preventDefault(); go(qs('[data-dp-go]', md.el)); });
+  };
+
   const statusTone = (s) => ({ BERFUNGSI: 'success', PERLAHAN: 'brand', PERLU_BAIKI: 'warn', MENUNGGU_ALAT_GANTI: 'warn', TIDAK_BOLEH_GUNA: 'danger', HILANG: 'danger' }[s] || 'muted');
 
   // ================================================================ Halaman imbasan label QR (awam)
@@ -53,7 +90,17 @@
       const shell = (inner) => { el.innerHTML = html`${KD.views.publicTop ? KD.views.publicTop() : ''}<div class="bm-wrap"><div class="bm-card qrl-card">${inner}</div></div>`.s; };
       shell(skeletonList(2));
       let d;
-      try { d = await KD.api.call('aset.label', { a: no }); } catch (err) { shell(errorState(err)); return; }
+      try { d = await KD.api.call('aset.label', { a: no }); } catch (err) {
+        const ss = KD.auth.isAdmin() ? getSess() : null;
+        if (ss && no && err && err.code === 'NOT_FOUND') {
+          shell(html`<div class="xs muted">Stock-take: ${ss.nama}</div><div class="qrl-no mt-2">${no}</div>
+            <p class="small mt-2">No. aset ini <b>tiada dalam daftar aset</b>. Daftarkan dengan data asas dan rekod sebagai dijumpai?</p>
+            <div class="qrl-actions"><button class="btn btn-primary btn-block" data-qr-daftar>${icon('plus')}Daftar aset ini</button></div><div data-qr-res class="small mt-2"></div>`);
+          on(el, 'click', '[data-qr-daftar]', () => daftarPantas(ss.id, no, 'BAIK', (r) => { KD.router.go('/qr?a=' + encodeURIComponent(r.noAset)); }));
+          return;
+        }
+        shell(errorState(err)); return;
+      }
       const q = '?noAset=' + encodeURIComponent(d.noAset);
       const sess = KD.auth.isAdmin() ? getSess() : null;
       shell(html`<div class="xs muted">Aset ICT · Unit IT FKM</div><div class="qrl-no mt-2">${d.noAset}</div>
@@ -86,7 +133,13 @@
     async render(el, params, query) {
       let sesiId = (query && query.sesi) || (getSess() || {}).id || '';
       el.innerHTML = html`<div class="page-head"><div><a class="back-link" href="#/admin/stoktake">${icon('chev-left', 'i-sm')}Stock-take</a><h1 class="mt-2">Imbas aset</h1>
-        <p>Imbas label QR atau barcode dengan kamera, pengimbas USB/Bluetooth, atau taip no. aset.</p></div></div><div data-box>${skeletonList(2)}</div>`.s;
+        <p>Imbas label QR atau barcode dengan kamera, pengimbas USB/Bluetooth, atau taip no. aset.</p></div></div>
+        <details class="panel scan-help"><summary><b>Cara guna</b></summary><ol class="small">
+          <li>Pilih sesi (cth. satu makmal). <b>Dijangka</b> = bilangan aset yang didaftarkan di situ.</li>
+          <li>Imbas tag setiap aset. <span class="tag-ok">Hijau</span> = dijumpai &amp; direkod. <span class="tag-warn">Kuning</span> = aset didaftarkan di lokasi lain (buat Pergerakan Aset kemudian).</li>
+          <li><span class="tag-bad">Merah</span> "Tiada dalam daftar" = barcode dibaca tetapi aset belum ada dalam sistem. Tekan <b>Daftar aset ini</b> dan isi nama alat sahaja; butiran lain boleh dilengkapkan kemudian (tapis <i>Perlu dilengkapkan</i> dalam Aset IT).</li>
+          <li>Selesai, buka <b>Ringkasan &amp; tutup sesi</b> untuk melihat aset yang belum dijumpai, kemudian tutup sesi.</li></ol></details>
+        <div data-box>${skeletonList(2)}</div>`.s;
       const box = qs('[data-box]', el);
       let sessions;
       try { sessions = (await KD.api.list('stoktake', { status: 'BERJALAN', pageSize: 50 })).items || []; } catch (err) { box.innerHTML = errorState(err).s; return; }
@@ -111,6 +164,9 @@
           <div class="row row-wrap mt-4"><a class="btn btn-outline btn-sm" data-sum href="#/admin/stoktake/${sesiId}">Ringkasan & tutup sesi</a></div>
           <ul class="scan-log mt-4" data-log><li class="xs muted">Belum ada imbasan dalam paparan ini.</li></ul></section></div>`.s;
       const log = qs('[data-log]', box);
+      const logItem = (r, cls, msg) => html`<li class="${cls}">${icon(r.status === 'DIREKOD' ? 'check' : 'alert', 'i-sm')}<div class="grow"><b class="small">${r.noAset}</b> <span class="xs">${msg}</span>${r.label ? html`<div class="xs muted">${r.label}</div>` : ''}
+        ${r.status === 'TIDAK_BERDAFTAR' ? html`<div class="mt-2"><button class="btn btn-primary btn-sm" data-daftar="${r.noAset}">${icon('plus', 'i-sm')}Daftar aset ini</button></div>` : ''}</div></li>`.s;
+      const counts = (r) => Object.keys(r.kiraan || {}).forEach((key) => { const n = qs('[data-c="' + key + '"]', box); if (n) n.textContent = fmtNum(r.kiraan[key]); });
       let first = true;
       const recent = {};
       const record = async (kod) => {
@@ -124,11 +180,19 @@
           const cls = r.status === 'DIREKOD' ? (r.luarSkop ? 'is-warn' : 'is-ok') : r.status === 'ULANG' ? '' : 'is-bad';
           const msg = { DIREKOD: r.luarSkop ? 'Dijumpai — didaftarkan di lokasi lain' : 'Dijumpai', ULANG: 'Sudah direkod', TIDAK_BERDAFTAR: 'Tiada dalam daftar aset', DILUPUS: 'Aset tidak aktif (' + (r.statusAset || '') + ')' }[r.status];
           if (first) { log.innerHTML = ''; first = false; }
-          log.insertAdjacentHTML('afterbegin', html`<li class="${cls}">${icon(r.status === 'DIREKOD' ? 'check' : 'alert', 'i-sm')}<div><b class="small">${r.noAset}</b> <span class="xs">${msg}</span>${r.label ? html`<div class="xs muted">${r.label}</div>` : ''}</div></li>`.s);
-          Object.keys(r.kiraan || {}).forEach((key) => { const n = qs('[data-c="' + key + '"]', box); if (n) n.textContent = fmtNum(r.kiraan[key]); });
+          log.insertAdjacentHTML('afterbegin', logItem(r, cls, msg));
+          counts(r);
           if (r.status === 'DIREKOD' && navigator.vibrate) navigator.vibrate(60);
+          if (r.status === 'TIDAK_BERDAFTAR' && navigator.vibrate) navigator.vibrate([80, 60, 80]);
         } catch (err) { toastError(err); }
       };
+      on(box, 'click', '[data-daftar]', (e, b) => {
+        const li = b.closest('li');
+        daftarPantas(sesiId, b.getAttribute('data-daftar'), qs('#sc-keadaan', box).value, (r) => {
+          if (li) li.outerHTML = logItem(r, 'is-ok', 'Didaftarkan & dijumpai');
+          counts(r);
+        });
+      });
       on(box, 'change', '#sc-sesi', (e) => { KD.router.go('/admin/imbas?sesi=' + encodeURIComponent(e.target.value)); });
       qs('[data-manual]', box).addEventListener('submit', (e) => {
         e.preventDefault();
@@ -173,7 +237,7 @@
           <div><dt>Liputan</dt><dd><b>${s.peratus === null ? '—' : s.peratus + '%'}</b></dd></div><div><dt>Dijumpai</dt><dd>${fmtNum(s.dijumpai)} / ${fmtNum(s.dijangka)}</dd></div></dl>
         ${s.belumJumlah ? html`<div class="label mt-4">Belum dijumpai (${fmtNum(s.belumJumlah)})</div>${list(s.belum, (a) => html`<li><a href="#/admin/aset/${a.id}"><b class="small">${a.noAset}</b></a><div class="xs muted">${a.label}</div></li>`)}` : ''}
         ${s.luarSkop.length ? html`<div class="label mt-4">Dijumpai, didaftarkan di lokasi lain (${s.luarSkop.length})</div>${list(s.luarSkop, (a) => html`<li><a href="#/admin/aset/${a.id}"><b class="small">${a.noAset}</b></a><div class="xs muted">Daftar: ${a.daftar}</div></li>`)}<p class="xs muted">Buat permohonan Pergerakan Aset untuk mengemas kini makmal.</p>` : ''}
-        ${s.tidakBerdaftar.length ? html`<div class="label mt-4">Diimbas tetapi tiada dalam daftar (${s.tidakBerdaftar.length})</div><p class="small">${s.tidakBerdaftar.join(', ')}</p>` : ''}
+        ${s.tidakBerdaftar.length ? html`<div class="label mt-4">Diimbas tetapi tiada dalam daftar (${s.tidakBerdaftar.length})</div>${list(s.tidakBerdaftar, (no) => html`<li class="row spread"><b class="small">${no}</b>${s.sesi.status === 'BERJALAN' ? html`<button class="btn btn-outline btn-sm" data-stk-daftar="${no}" data-sesi="${s.sesi.id}">Daftar</button>` : ''}</li>`)}` : ''}
         ${s.sesi.status === 'BERJALAN' ? html`<div class="row row-wrap mt-4"><a class="btn btn-primary btn-sm" href="#/admin/imbas?sesi=${s.sesi.id}">${icon('grid')}Sambung imbas</a><button class="btn btn-outline btn-sm" data-stk-close="${s.sesi.id}" data-missing="${s.belumJumlah}">Tutup sesi</button></div>` : ''}`.s;
     } catch (err) { box.innerHTML = html`<p class="xs muted">Ringkasan tidak dapat dimuat.</p>`.s; }
   };
@@ -181,6 +245,12 @@
   KD.detailActions.stoktake = (d) => d.status === 'BERJALAN' ? html`<a class="btn btn-primary" href="#/admin/imbas?sesi=${d.id}">${icon('grid')}Mula imbas</a>` : '';
   KD.detailSide = KD.detailSide || {};
   KD.detailSide.stoktake = (d) => { setTimeout(() => loadSum(d.id), 0); return html`<div class="status-note"><strong>Ringkasan stock-take</strong><div data-stk-sum="${d.id}"><p class="xs muted">Memuatkan…</p></div></div>`; };
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest && e.target.closest('[data-stk-daftar]');
+    if (!b) return;
+    const id = b.getAttribute('data-sesi');
+    daftarPantas(id, b.getAttribute('data-stk-daftar'), 'BAIK', () => loadSum(id));
+  });
   document.addEventListener('click', async (e) => {
     const b = e.target.closest && e.target.closest('[data-stk-close]');
     if (!b) return;

@@ -12,7 +12,39 @@ const StoktakeHooks = {
   routes: {
     'stoktake.imbas': { role: 'ADMIN', fn: function (payload, ctx) { return StoktakeHooks.scan(payload || {}, ctx); } },
     'stoktake.ringkasan': { role: 'ADMIN', fn: function (payload) { return StoktakeHooks.summary(payload || {}); } },
-    'stoktake.tutup': { role: 'ADMIN', fn: function (payload, ctx) { return StoktakeHooks.close(payload || {}, ctx); } }
+    'stoktake.tutup': { role: 'ADMIN', fn: function (payload, ctx) { return StoktakeHooks.close(payload || {}, ctx); } },
+    'stoktake.daftar': { role: 'ADMIN', fn: function (payload, ctx) { return StoktakeHooks.register(payload || {}, ctx); } }
+  },
+
+  JENIS: ['DESKTOP', 'LAPTOP', 'WORKSTATION', 'PENCETAK', 'PROJEKTOR', 'PELAYAN', 'SWITCH', 'AP', 'LAIN'],
+
+  /**
+   * Daftar pantas aset yang diimbas tetapi tiada dalam daftar (data asas sahaja), kemudian
+   * terus rekod sebagai dijumpai dalam sesi. Aset ditanda "perlu dilengkapkan".
+   * @param {{sesi:string, kod:string, namaAlat:string, jenis?:string, noSiri?:string, keadaan?:string}} p
+   */
+  register: function (p, ctx) {
+    const s = StoktakeHooks.session_(p.sesi, true);
+    const no = StoktakeHooks.noFromScan(p.kod).slice(0, 40);
+    const nama = String(p.namaAlat || '').trim().slice(0, 120);
+    const errs = {};
+    if (!no) errs.kod = 'Wajib diisi.';
+    if (!nama) errs.namaAlat = 'Wajib diisi.';
+    if (Object.keys(errs).length) throw Errors.validation('Lengkapkan no. aset dan nama alat.', errs);
+    if (AsetLink.find(no)) throw Errors.conflict('No. aset ' + no + ' telah wujud dalam daftar.');
+    const jenis = StoktakeHooks.JENIS.indexOf(p.jenis) >= 0 ? p.jenis : 'LAIN';
+    const a = AsetLink.insert('aset', {
+      no_aset: no, nama_alat: nama, jenis: jenis, no_siri: String(p.noSiri || '').trim().slice(0, 60),
+      makmal: s.makmal || '', lokasi_fizikal: s.lokasi || '', status: 'BERFUNGSI', perlu_dilengkapkan: true,
+      catatan: 'Didaftarkan secara pantas semasa stock-take ' + s.ref_no + '. Lengkapkan butiran aset.'
+    }, ctx);
+    try { AuditService.log(ctx, AUDIT_ACTIONS.RECORD_CREATED, 'ASET', a.id, 'Daftar pantas (stock-take ' + s.ref_no + '): ' + no); } catch (e) { /* audit tidak kritikal */ }
+    const list = KitHooks.parseList(s.tidak_berdaftar).filter(function (x) { return AsetLink.norm(x) !== AsetLink.norm(no); });
+    StoktakeHooks.repo_().update(s.id, { tidak_berdaftar: list.join('\n'), updated_at: DateUtils.nowIso() });
+    const r = StoktakeHooks.scan({ sesi: s.id, kod: no, keadaan: p.keadaan }, ctx);
+    r.asetId = a.id;
+    r.didaftar = true;
+    return r;
   },
 
   repo_: function () { return CrudEngine.repo(CrudEngine.get('stoktake')); },

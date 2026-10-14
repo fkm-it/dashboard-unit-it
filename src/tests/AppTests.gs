@@ -1281,13 +1281,26 @@ const TestSuiteKitarHayat = {
       t.eq(sm.dijangka, 3); t.eq(sm.dijumpai, 3); t.eq(sm.belumJumlah, 1); t.eq(sm.belum[0].noAset, 'KH-T3');
       t.eq(sm.luarSkop.length, 1); t.ok(/Makmal Ujian/.test(sm.luarSkop[0].daftar), 'makmal daftar');
       t.eq(sm.tidakBerdaftar.join(), 'TIADA-DAFTAR-9');
-      const c = TestAssert.apiOk(TestHelpers.call(a.token, 'stoktake.tutup', { sesi: s.id, tandaTidakDijumpai: true }));
+      /* Daftar pantas aset tidak berdaftar → terus dijumpai, ditanda perlu dilengkapkan */
+      TestAssert.apiFail(TestHelpers.call(a.token, 'stoktake.daftar', { sesi: s.id, kod: 'TIADA-DAFTAR-9', namaAlat: ' ' }), ERROR_CODES.VALIDATION_ERROR);
+      TestAssert.apiFail(TestHelpers.call(a.token, 'stoktake.daftar', { sesi: s.id, kod: 'kh-t1', namaAlat: 'Pendua' }), ERROR_CODES.CONFLICT);
+      const dp = TestAssert.apiOk(TestHelpers.call(a.token, 'stoktake.daftar', { sesi: s.id, kod: 'TIADA-DAFTAR-9', namaAlat: 'Raspberry Pi 4', jenis: 'BUKAN', noSiri: 'SN-1' }));
+      t.eq(dp.status, 'DIREKOD'); t.ok(dp.didaftar && dp.asetId, 'didaftar');
+      const na = KhFx.aset('TIADA-DAFTAR-9');
+      t.eq(na.nama_alat, 'Raspberry Pi 4'); t.eq(na.jenis, 'LAIN', 'jenis tidak sah → LAIN'); t.eq(na.makmal, lab.id); t.eq(na.lokasi_fizikal, 'C24-410');
+      t.ok(AsetLink.isTrue(na.perlu_dilengkapkan), 'perlu dilengkapkan'); t.ok(AsetLink.isTrue(na.disahkan_fizikal), 'disahkan fizikal');
+      const sm2 = TestAssert.apiOk(TestHelpers.call(a.token, 'stoktake.ringkasan', { sesi: s.id }));
+      t.eq(sm2.tidakBerdaftar.length, 0, 'dibuang daripada senarai tidak berdaftar'); t.eq(sm2.dijangka, 4); t.eq(sm2.dijumpai, 4);
+      TestAssert.apiOk(TestHelpers.call(a.token, 'crud.update', { module: 'aset', id: na.id, jenama: 'Raspberry', model: 'Pi 4 Model B' }));
+      t.ok(!AsetLink.isTrue(KhFx.aset('TIADA-DAFTAR-9').perlu_dilengkapkan), 'tanda hilang selepas jenama + model diisi');
+      const c =TestAssert.apiOk(TestHelpers.call(a.token, 'stoktake.tutup', { sesi: s.id, tandaTidakDijumpai: true }));
       t.eq(c.tidakDijumpai, 1);
       t.eq(KhFx.aset('KH-T3').status_pengesahan, 'TIDAK_DISAHKAN', 'tidak dijumpai → tidak dapat disahkan');
       t.eq(Repo.of('STOKTAKE').findById(s.id).status, 'SELESAI');
       TestAssert.apiFail(TestHelpers.call(a.token, 'stoktake.imbas', { sesi: s.id, kod: 'KH-T3' }), ERROR_CODES.VALIDATION_ERROR);
       const mgr = TestHelpers.admin(ROLES.PENGURUSAN);
       TestAssert.apiFail(TestHelpers.call(mgr.token, 'stoktake.imbas', { sesi: s.id, kod: 'KH-T3' }), ERROR_CODES.FORBIDDEN);
+      TestAssert.apiFail(TestHelpers.call(mgr.token, 'stoktake.daftar', { sesi: s.id, kod: 'BARU-1', namaAlat: 'X' }), ERROR_CODES.FORBIDDEN);
       /* Tiket ↔ aset */
       const u = KhFx.user();
       const tk = TestAssert.apiOk(TestHelpers.call(u.token, 'crud.create', { module: 'tiket', tajuk: 'Skrin gelap', kategori: AppFx.catId(), lokasi: 'C24', noAset: ' kh-t1 ', keterangan: 'Skrin tidak memaparkan apa-apa.' }));

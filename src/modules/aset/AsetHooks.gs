@@ -21,6 +21,11 @@ const AsetHooks = {
 
   beforeSave: function (row, info) {
     const cur = info.current || {};
+    /* Daftar pantas: tanda "perlu dilengkapkan" hilang apabila jenama + model diisi. */
+    if (info.mode === 'update' && AsetLink.isTrue(cur.perlu_dilengkapkan)) {
+      const pick = function (c) { return String(row[c] !== undefined ? row[c] : (cur[c] || '')).trim(); };
+      if (pick('jenama') && pick('model')) row.perlu_dilengkapkan = false;
+    }
     if (row.kod_lokasi === undefined && row.lokasi_fizikal === undefined) return;
     const kod = row.kod_lokasi !== undefined ? row.kod_lokasi : cur.kod_lokasi;
     const fiz = row.lokasi_fizikal !== undefined ? row.lokasi_fizikal : cur.lokasi_fizikal;

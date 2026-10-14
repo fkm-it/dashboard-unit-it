@@ -533,6 +533,14 @@ const AsetModule = Object.freeze(Object.assign(
         "column": "tarikh_semakan"
       },
       {
+        "key": "perluDilengkapkan",
+        "label": "Perlu dilengkapkan",
+        "type": "bool",
+        "filter": true,
+        "hint": "Didaftarkan secara pantas (cth. semasa stock-take). Lengkapkan butiran kemudian; tanda ini hilang sendiri apabila jenama dan model diisi.",
+        "column": "perlu_dilengkapkan"
+      },
+      {
         "key": "catatan",
         "label": "Catatan kerosakan / isu",
         "type": "text",

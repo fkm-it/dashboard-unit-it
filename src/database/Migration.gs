@@ -29,7 +29,7 @@ const Migration = {
     // Migrasi modul (cipta sheet / tambah lajur) — DIJANA oleh `npm run gen`. ID berubah apabila medan berubah.
     // @generator:migrations:start
     { id: 'MODULE_TIKET_1B38A9FF', description: 'Modul Tiket: sheet TIKET & lajur', up: function () { return SheetManager.ensure('TIKET'); } },
-    { id: 'MODULE_ASET_14F2EC4A', description: 'Modul Aset IT: sheet ASET & lajur', up: function () { return SheetManager.ensure('ASET'); } },
+    { id: 'MODULE_ASET_2D79741C', description: 'Modul Aset IT: sheet ASET & lajur', up: function () { return SheetManager.ensure('ASET'); } },
     { id: 'MODULE_TINDAKAN_F54CF4D8', description: 'Modul Tindakan KEWPA: sheet TINDAKAN & lajur', up: function () { return SheetManager.ensure('TINDAKAN'); } },
     { id: 'MODULE_PERGERAKAN_19797A07', description: 'Modul Pergerakan Aset: sheet PERGERAKAN & lajur', up: function () { return SheetManager.ensure('PERGERAKAN'); } },
     { id: 'MODULE_KIT_FE147DB4', description: 'Modul Kit Peralatan: sheet KIT & lajur', up: function () { return SheetManager.ensure('KIT'); } },
