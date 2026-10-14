@@ -10,7 +10,7 @@ const PinjamanModule = Object.freeze(Object.assign(
     "icon": "briefcase",
     "prefix": "PJ",
     "refFormat": "PJM-{YYYY}-{SEQ4}",
-    "description": "Permohonan pinjaman aset ICT oleh staf dan pelajar (KEW.PA-6). Aset ditanda dipinjam semasa diserahkan dan dibebaskan apabila dipulangkan.",
+    "description": "Permohonan pinjaman aset ICT oleh staf dan pelajar (KEW.PA-6): aset tertentu (no. aset) atau kit peralatan mengikut bilangan unit, termasuk untuk kelas. Unit ditanda dipinjam semasa diserahkan dan dibebaskan apabila dipulangkan.",
     "access": {
       "create": "PUBLIC",
       "list": "OWN",
@@ -53,7 +53,7 @@ const PinjamanModule = Object.freeze(Object.assign(
       }
     ],
     "titleField": "noAset",
-    "subtitleField": "tarikhPinjam",
+    "subtitleField": "butiranAset",
     "nav": {
       "user": true,
       "admin": true,
@@ -61,7 +61,7 @@ const PinjamanModule = Object.freeze(Object.assign(
     },
     "publicForm": {
       "title": "Permohonan Pinjaman Aset ICT",
-      "intro": "Untuk staf dan pelajar FKM. Gunakan email UTM anda. Keputusan dan peringatan tarikh pulang dihantar ke email ini.",
+      "intro": "Untuk staf dan pelajar FKM. Pilih kit peralatan dan bilangan unit, ATAU isi no. aset tertentu. Untuk kelas, isi maklumat kursus dan pensyarah. Gunakan email UTM; keputusan dan peringatan tarikh pulang dihantar ke email ini.",
       "successMessage": "Permohonan pinjaman diterima. Unit IT FKM akan memaklumkan keputusan melalui email.",
       "contactEmailField": "email",
       "nameField": "nama"
@@ -107,6 +107,10 @@ const PinjamanModule = Object.freeze(Object.assign(
             "label": "Pelajar pascasiswazah"
           },
           {
+            "value": "WAKIL_KELAS",
+            "label": "Wakil kelas / kursus"
+          },
+          {
             "value": "LAIN",
             "label": "Lain-lain"
           }
@@ -134,18 +138,18 @@ const PinjamanModule = Object.freeze(Object.assign(
         "label": "Penyelia / pensyarah (pelajar)",
         "type": "string",
         "max": 80,
-        "hint": "Wajib bagi pelajar.",
+        "hint": "Wajib bagi pelajar (kecuali wakil kelas: isi maklumat pensyarah di bawah).",
         "column": "penyelia"
       },
       {
         "key": "noAset",
-        "label": "No. aset",
+        "label": "No. aset (aset tertentu)",
         "type": "string",
-        "required": true,
+        "required": false,
         "max": 60,
         "list": true,
         "search": true,
-        "hint": "Seperti pada label / tag aset (cth. UTM/FKM/H/2019/00123).",
+        "hint": "Isi jika meminjam aset tertentu. Untuk kit peralatan, pilih kit di bawah.",
         "lockAfterCreate": true,
         "column": "no_aset"
       },
@@ -159,6 +163,25 @@ const PinjamanModule = Object.freeze(Object.assign(
         "column": "butiran_aset"
       },
       {
+        "key": "kit",
+        "label": "Kit peralatan",
+        "type": "ref",
+        "ref": "kit",
+        "list": true,
+        "filter": true,
+        "hint": "Pilih kit jika meminjam beberapa unit (cth. Raspberry Pi).",
+        "column": "kit"
+      },
+      {
+        "key": "kuantiti",
+        "label": "Bilangan unit",
+        "type": "int",
+        "min": 1,
+        "max": 200,
+        "default": 1,
+        "column": "kuantiti"
+      },
+      {
         "key": "aset",
         "label": "Rekod aset",
         "type": "ref",
@@ -166,6 +189,37 @@ const PinjamanModule = Object.freeze(Object.assign(
         "readonly": true,
         "adminOnly": true,
         "column": "aset"
+      },
+      {
+        "key": "kodKursus",
+        "label": "Kod & nama kursus (wakil kelas)",
+        "type": "string",
+        "max": 120,
+        "search": true,
+        "placeholder": "cth. SKMM 3023 Mekatronik",
+        "column": "kod_kursus"
+      },
+      {
+        "key": "namaPensyarah",
+        "label": "Nama pensyarah (wakil kelas)",
+        "type": "string",
+        "max": 80,
+        "column": "nama_pensyarah"
+      },
+      {
+        "key": "emailPensyarah",
+        "label": "Email pensyarah (wakil kelas)",
+        "type": "email",
+        "hint": "Pensyarah menerima salinan permohonan, keputusan dan peringatan pulang.",
+        "column": "email_pensyarah"
+      },
+      {
+        "key": "bilanganPelajar",
+        "label": "Bilangan pelajar (wakil kelas)",
+        "type": "int",
+        "min": 1,
+        "max": 500,
+        "column": "bilangan_pelajar"
       },
       {
         "key": "tujuan",
@@ -209,6 +263,16 @@ const PinjamanModule = Object.freeze(Object.assign(
         "column": "lampiran"
       },
       {
+        "key": "unitDiserahkan",
+        "label": "No. aset diserahkan",
+        "type": "text",
+        "max": 5000,
+        "adminOnly": true,
+        "visibleToOwner": true,
+        "hint": "Satu no. aset setiap baris. Kosongkan untuk dipilih automatik daripada kit semasa status 'Sedang dipinjam'.",
+        "column": "unit_diserahkan"
+      },
+      {
         "key": "tarikhDiserahkan",
         "label": "Tarikh diserahkan",
         "type": "date",
@@ -243,6 +307,16 @@ const PinjamanModule = Object.freeze(Object.assign(
           }
         ],
         "column": "keadaan_pulang"
+      },
+      {
+        "key": "unitTidakDipulang",
+        "label": "No. aset belum / tidak dipulangkan",
+        "type": "text",
+        "max": 2000,
+        "adminOnly": true,
+        "visibleToOwner": true,
+        "hint": "Kekal ditanda dipinjam. Buat laporan kehilangan jika perlu.",
+        "column": "unit_tidak_dipulang"
       },
       {
         "key": "catatanUnit",

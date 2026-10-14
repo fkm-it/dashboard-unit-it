@@ -995,7 +995,7 @@ const KhFx = {
     if (!KhFx.a_ || !AuthService.resolveSession(KhFx.a_.token)) {
       KhFx.a_ = TestHelpers.admin(ROLES.ADMIN);
       /* Ujian juga dijalankan dalam Apps Script sebenar: domain tidak wujud supaya tiada email sebenar dihantar */
-      TestAssert.apiOk(TestHelpers.call(KhFx.a_.token, 'admin.settings.update', { changes: { ASET_DOMAIN_EMAIL: 'test.local' } }));
+      TestAssert.apiOk(TestHelpers.call(KhFx.a_.token, 'admin.settings.update', { changes: { ASET_DOMAIN_EMAIL: 'test.local', NOTIFY_EMAIL_ENABLED: true } }));
     }
     return KhFx.a_;
   },
@@ -1185,6 +1185,64 @@ const TestSuiteKitarHayat = {
       t.eq(h2.status, 'HAPUS_KIRA'); t.eq(h2.status_pengesahan, 'LUPUS_REKOD_AKTIF');
       const ov = TestAssert.apiOk(TestHelpers.call(a.token, 'aset.overview', { tahun: 2026 }));
       t.ok(ov, 'overview masih berfungsi dengan status baharu');
+    }],
+    ['Kit peralatan & pinjaman berkumpulan / kelas: baki unit ikut tarikh, unit dipilih semasa serahan, pemulangan separa, salinan pensyarah', function (t) {
+      AppFx.real();
+      const a = KhFx.admin();
+      KhFx.assets(a, ['KH-RPI-1', 'KH-RPI-2', 'KH-RPI-3', 'KH-RPI-4', 'KH-RPI-5', 'KH-RPI-6'].map(function (no, i) {
+        return { noAset: no, jenis: 'LAIN', model: 'Raspberry Pi 4', status: i === 5 ? 'Perlu dibaiki' : 'Berfungsi' };
+      }));
+      TestAssert.apiFail(TestHelpers.call(a.token, 'crud.create', { module: 'kit', nama: 'Kit RPi', senaraiAset: 'KH-RPI-1\nTIADA-XYZ' }), ERROR_CODES.VALIDATION_ERROR);
+      const kit = TestAssert.apiOk(TestHelpers.call(a.token, 'crud.create', { module: 'kit', nama: 'Kit Raspberry Pi 4', senaraiAset: 'kh-rpi-1, KH-RPI-2\nKH-RPI-3\nKH-RPI-4\nKH-RPI-5\nKH-RPI-6\nKH-RPI-1', maksPinjam: 4 }));
+      t.eq(kit.values.jumlahUnit, 6, 'pendua dibuang');
+      t.ok(/^KH-RPI-1\n/.test(Repo.of('KIT').findById(kit.id).senarai_aset), 'no. aset dinormalkan');
+      t.eq(kit.unitBolehGuna, 5, 'unit rosak tidak dikira');
+      TestAssert.apiFail(TestHelpers.call(a.token, 'crud.create', { module: 'kit', nama: 'Kit lain', senaraiAset: 'KH-RPI-2' }), ERROR_CODES.CONFLICT);
+      const kpin = function (extra) {
+        return KhFx.pinjam('', Object.assign({ kit: kit.id, kuantiti: 3, kategoriPemohon: 'WAKIL_KELAS', penyelia: '', kodKursus: 'SKMM 3023 Mekatronik', namaPensyarah: 'Dr. Pensyarah Ujian',
+          emailPensyarah: 'pensyarah@test.local', bilanganPelajar: 30, tarikhPinjam: KhFx.day(2), tarikhPulang: KhFx.day(4) }, extra || {}));
+      };
+      TestAssert.apiFail(kpin({ noAset: 'KH-RPI-1' }), ERROR_CODES.VALIDATION_ERROR);
+      TestAssert.apiFail(KhFx.pinjam('', { tarikhPinjam: KhFx.day(2), tarikhPulang: KhFx.day(4) }), ERROR_CODES.VALIDATION_ERROR);
+      TestAssert.apiFail(kpin({ namaPensyarah: '' }), ERROR_CODES.VALIDATION_ERROR);
+      TestAssert.apiFail(kpin({ emailPensyarah: 'p@gmail.com' }), ERROR_CODES.VALIDATION_ERROR);
+      TestAssert.apiFail(kpin({ kuantiti: 5 }), ERROR_CODES.VALIDATION_ERROR);
+      const mock = typeof globalThis !== 'undefined' && globalThis.__mockState;
+      const m0 = mock ? mock.mails.length : 0;
+      const p1 = TestAssert.apiOk(kpin());
+      t.eq(p1.row.butiran_aset, 'Kit Raspberry Pi 4 × 3 unit');
+      t.ok(!p1.row.aset && !p1.row.no_aset, 'tiada aset tunggal');
+      if (mock) t.ok(mock.mails.slice(m0).some(function (x) { return x.to === 'pensyarah@test.local' && /Salinan permohonan/.test(x.subject); }), 'salinan kepada pensyarah');
+      TestAssert.apiOk(KhFx.st(a, 'pinjaman', p1.id, 'DILULUSKAN'));
+      TestAssert.apiFail(kpin({ email: 'lain1@pelajar.test.local' }), ERROR_CODES.CONFLICT);
+      const p2 = TestAssert.apiOk(kpin({ kuantiti: 2, email: 'lain2@pelajar.test.local' }));
+      t.eq(KitHooks.available(Repo.of('KIT').findById(kit.id), KhFx.day(2), KhFx.day(4)), 2, 'baki selepas satu kelulusan');
+      t.eq(KitHooks.available(Repo.of('KIT').findById(kit.id), KhFx.day(10), KhFx.day(12)), 5, 'tarikh lain: semua tersedia');
+      TestAssert.apiOk(KhFx.st(a, 'pinjaman', p2.id, 'DILULUSKAN'));
+      TestAssert.apiFail(KhFx.pinjam('KH-RPI-1', { tarikhPinjam: KhFx.day(3), tarikhPulang: KhFx.day(3) }), ERROR_CODES.VALIDATION_ERROR);
+      /* Serahan: dipilih automatik */
+      TestAssert.apiOk(KhFx.st(a, 'pinjaman', p1.id, 'DIPINJAM'));
+      const r1 = Repo.of('PINJAMAN').findById(p1.id);
+      const units1 = r1.unit_diserahkan.split('\n');
+      t.eq(units1.length, 3);
+      t.ok(units1.every(function (no) { return AsetLink.isTrue(KhFx.aset(no).dipinjam) && /SKMM 3023/.test(KhFx.aset(no).peminjam_semasa); }), 'unit ditanda dipinjam');
+      t.ok(units1.indexOf('KH-RPI-6') < 0, 'unit rosak tidak diserahkan');
+      /* Serahan: senarai manual (diimbas) */
+      TestAssert.apiOk(TestHelpers.call(a.token, 'crud.update', { module: 'pinjaman', id: p2.id, unitDiserahkan: units1[0] + '\nKH-RPI-5' }));
+      TestAssert.apiFail(KhFx.st(a, 'pinjaman', p2.id, 'DIPINJAM'), ERROR_CODES.CONFLICT);
+      const free = ['KH-RPI-1', 'KH-RPI-2', 'KH-RPI-3', 'KH-RPI-4', 'KH-RPI-5'].filter(function (no) { return units1.indexOf(no) < 0; });
+      TestAssert.apiOk(TestHelpers.call(a.token, 'crud.update', { module: 'pinjaman', id: p2.id, unitDiserahkan: free[0] }));
+      TestAssert.apiFail(KhFx.st(a, 'pinjaman', p2.id, 'DIPINJAM'), ERROR_CODES.VALIDATION_ERROR);
+      TestAssert.apiOk(TestHelpers.call(a.token, 'crud.update', { module: 'pinjaman', id: p2.id, unitDiserahkan: free.join('\n') }));
+      TestAssert.apiOk(KhFx.st(a, 'pinjaman', p2.id, 'DIPINJAM'));
+      t.eq(TestAssert.apiOk(TestHelpers.call(a.token, 'crud.get', { module: 'kit', id: kit.id })).unitTersedia, 0);
+      /* Pemulangan separa */
+      TestAssert.apiOk(TestHelpers.call(a.token, 'crud.update', { module: 'pinjaman', id: p1.id, keadaanPulang: 'TIDAK_LENGKAP', unitTidakDipulang: units1[2] }));
+      TestAssert.apiOk(KhFx.st(a, 'pinjaman', p1.id, 'DIPULANGKAN'));
+      t.ok(!AsetLink.isTrue(KhFx.aset(units1[0]).dipinjam) && !AsetLink.isTrue(KhFx.aset(units1[1]).dipinjam), 'unit dipulangkan dibebaskan');
+      t.ok(AsetLink.isTrue(KhFx.aset(units1[2]).dipinjam), 'unit belum dipulangkan kekal dipinjam');
+      const h = TestAssert.apiOk(TestHelpers.call(a.token, 'aset.sejarah', { id: KhFx.aset(units1[0]).id }));
+      t.eq(h.counts.pinjaman, 1, 'sejarah unit kit');
     }],
     ['Sejarah aset merentas modul (admin sahaja); ringkasan kitar hayat untuk Pengurusan tanpa data peribadi', function (t) {
       AppFx.real();

@@ -121,5 +121,13 @@ module.exports = function ({ api, ok, sup, user, ctx }) {
   A('crud.create', { module: 'pergerakan', noAset: 'DEMO/FKM/1011', jenisPergerakan: 'PINDAH_LOKASI', lokasiBaru: 'C24-410', tarikhPergerakan: day(1), sebab: 'Penyusunan semula makmal (data contoh).' });
   pub('kehilangan', { nama: 'Staf Contoh D', email: 'staf.d@utm.my', kategoriPelapor: 'STAF', telefon: '012-0000004', noAset: 'DEMO/FKM/1058', tarikhKehilangan: day(-2), tarikhDiketahui: day(-1),
     lokasiKehilangan: 'Dewan Kuliah (data contoh)', keadaanKehilangan: 'Tidak ditemui selepas digunakan dalam kuliah (data contoh).' });
-  console.log('Data contoh Dashboard Unit IT dimasukkan (6 makmal, 4 pegawai, 72 aset, 5 keperluan, 10 tiket, kitar hayat aset).');
+  /* Kit peralatan (rekaan): 12 unit Raspberry Pi + pinjaman kelas */
+  A('aset.import', { rows: Array.from({ length: 12 }, (x, i) => ({ noAset: 'DEMO/RPI/' + String(i + 1).padStart(2, '0'), jenis: 'LAIN', jenama: 'Raspberry Pi', model: 'Raspberry Pi 4 Model B 4GB', makmal: 'ME-05', status: i === 11 ? 'Perlu dibaiki' : 'Berfungsi' })) });
+  const kit = A('crud.create', { module: 'kit', nama: 'Kit Raspberry Pi 4 Model B', senaraiAset: Array.from({ length: 12 }, (x, i) => 'DEMO/RPI/' + String(i + 1).padStart(2, '0')).join('\n'), maksPinjam: 10,
+    kandungan: 'Raspberry Pi 4 (4GB), kad microSD 32GB, adaptor kuasa USB-C, kabel micro-HDMI, casing', lokasiSimpanan: 'Makmal Robotik (ME-05)', catatan: 'Pulangkan lengkap dengan semua aksesori.' });
+  const kp = pub('pinjaman', { nama: 'Wakil Kelas Contoh', email: 'wakil.kelas@graduate.utm.my', kategoriPemohon: 'WAKIL_KELAS', noPengenalan: 'A00KM0099', telefon: '012-0000099',
+    kit: kit.id, kuantiti: 8, kodKursus: 'SKMM 3023 Mekatronik (contoh)', namaPensyarah: 'Dr. Pensyarah Contoh', emailPensyarah: 'pensyarah.contoh@utm.my', bilanganPelajar: 32,
+    tujuan: 'Amali kelas (data contoh)', lokasiPenggunaan: 'Makmal Robotik', tarikhPinjam: day(1), tarikhPulang: day(3) });
+  A('crud.setStatus', { module: 'pinjaman', id: findRef('pinjaman', kp.refNo).id, status: 'DILULUSKAN' });
+  console.log('Data contoh Dashboard Unit IT dimasukkan (6 makmal, 4 pegawai, 72 aset, 5 keperluan, 10 tiket, kitar hayat aset, kit Raspberry Pi).');
 };

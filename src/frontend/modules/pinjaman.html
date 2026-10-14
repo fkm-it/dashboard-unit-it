@@ -1,0 +1,264 @@
+<style>
+  .qr-card { display: grid; justify-items: center; gap: var(--sp-3); text-align: center; }
+  .qr-card svg { width: min(260px, 70vw); height: auto; background: #fff; border-radius: var(--r-md); }
+  .qr-card .qr-url { font-size: var(--fs-xs); color: var(--muted, #64748B); overflow-wrap: anywhere; max-width: 100%; }
+  .qr-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+  @media print {
+    body * { visibility: hidden !important; }
+    .qr-print, .qr-print * { visibility: visible !important; }
+    .qr-print { position: fixed; inset: 0; display: grid; place-content: center; text-align: center; gap: 12px; background: #fff; }
+    .qr-print svg { width: 9cm; height: 9cm; }
+    .qr-print h2 { font-size: 20pt; margin: 0; } .qr-print p { font-size: 12pt; margin: 0; }
+  }
+</style>
+<script>
+(function (KD) {
+  'use strict';
+  const { html, raw, qs, on } = KD.utils;
+  const { icon, toast, toastError, modal, busy } = KD.ui;
+
+  /*
+   * Penjana kod QR (ISO/IEC 18004) tanpa pustaka luar: mod bait (UTF-8), pembetulan ralat aras M, versi 1–10
+   * (sehingga 213 bait). Diuji dengan penyahkod OpenCV dalam tools/test-qr.mjs.
+   */
+  const QR = (function () {
+    /* versi → [kod ralat setiap blok, [[bilangan blok, kod data setiap blok], …]] (aras M) */
+    const EC = {
+      1: [10, [[1, 16]]], 2: [16, [[1, 28]]], 3: [26, [[1, 44]]], 4: [18, [[2, 32]]], 5: [24, [[2, 43]]],
+      6: [16, [[4, 27]]], 7: [18, [[4, 31]]], 8: [22, [[2, 38], [2, 39]]], 9: [22, [[3, 36], [2, 37]]], 10: [26, [[4, 43], [1, 44]]]
+    };
+    const ALIGN = { 1: [], 2: [6, 18], 3: [6, 22], 4: [6, 26], 5: [6, 30], 6: [6, 34], 7: [6, 22, 38], 8: [6, 24, 42], 9: [6, 26, 46], 10: [6, 28, 50] };
+    const EXP = new Array(512);
+    const LOG = new Array(256);
+    let x = 1;
+    for (let i = 0; i < 255; i++) { EXP[i] = x; LOG[x] = i; x <<= 1; if (x & 0x100) x ^= 0x11d; }
+    for (let i = 255; i < 512; i++) EXP[i] = EXP[i - 255];
+    const mul = (a, b) => (a && b ? EXP[LOG[a] + LOG[b]] : 0);
+    const genPoly = (n) => {
+      let p = [1];
+      for (let i = 0; i < n; i++) {
+        const q = new Array(p.length + 1).fill(0);
+        for (let j = 0; j < p.length; j++) { q[j] ^= p[j]; q[j + 1] ^= mul(p[j], EXP[i]); }
+        p = q;
+      }
+      return p;
+    };
+    const rs = (data, n) => {
+      const g = genPoly(n);
+      const res = data.concat(new Array(n).fill(0));
+      for (let i = 0; i < data.length; i++) {
+        const c = res[i];
+        if (c) for (let j = 0; j < g.length; j++) res[i + j] ^= mul(g[j], c);
+      }
+      return res.slice(data.length);
+    };
+    const dataCap = (v) => EC[v][1].reduce((s, g) => s + g[0] * g[1], 0);
+
+    function codewords(bytes) {
+      let ver = 0;
+      for (let v = 1; v <= 10; v++) {
+        if (4 + (v < 10 ? 8 : 16) + 8 * bytes.length <= dataCap(v) * 8) { ver = v; break; }
+      }
+      if (!ver) throw new Error('Teks terlalu panjang untuk kod QR.');
+      const cap = dataCap(ver) * 8;
+      const bits = [];
+      const push = (val, n) => { for (let i = n - 1; i >= 0; i--) bits.push((val >>> i) & 1); };
+      push(4, 4);
+      push(bytes.length, ver < 10 ? 8 : 16);
+      bytes.forEach((b) => push(b, 8));
+      push(0, Math.min(4, cap - bits.length));
+      while (bits.length % 8) bits.push(0);
+      for (let pad = 0xEC; bits.length < cap; pad ^= 0xEC ^ 0x11) push(pad, 8);
+      const data = [];
+      for (let i = 0; i < bits.length; i += 8) data.push(parseInt(bits.slice(i, i + 8).join(''), 2));
+      const blocks = [];
+      let k = 0;
+      EC[ver][1].forEach((g) => { for (let b = 0; b < g[0]; b++) { const d = data.slice(k, k + g[1]); k += g[1]; blocks.push({ d, e: rs(d, EC[ver][0]) }); } });
+      const out = [];
+      const maxD = Math.max.apply(null, blocks.map((b) => b.d.length));
+      for (let i = 0; i < maxD; i++) blocks.forEach((b) => { if (i < b.d.length) out.push(b.d[i]); });
+      for (let i = 0; i < EC[ver][0]; i++) blocks.forEach((b) => out.push(b.e[i]));
+      return { ver, out };
+    }
+
+    const MASKS = [
+      (c, r) => (c + r) % 2 === 0, (c, r) => r % 2 === 0, (c) => c % 3 === 0, (c, r) => (c + r) % 3 === 0,
+      (c, r) => (Math.floor(c / 3) + Math.floor(r / 2)) % 2 === 0, (c, r) => (c * r) % 2 + (c * r) % 3 === 0,
+      (c, r) => ((c * r) % 2 + (c * r) % 3) % 2 === 0, (c, r) => ((c + r) % 2 + (c * r) % 3) % 2 === 0
+    ];
+
+    function build(ver, cw, mask) {
+      const size = 17 + 4 * ver;
+      const m = Array.from({ length: size }, () => new Array(size).fill(false));
+      const fn = Array.from({ length: size }, () => new Array(size).fill(false));
+      const set = (c, r, v) => { m[r][c] = !!v; fn[r][c] = true; };
+      const finder = (cx, cy) => {
+        for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) {
+          const c = cx + dx, r = cy + dy;
+          if (c < 0 || r < 0 || c >= size || r >= size) continue;
+          const d = Math.max(Math.abs(dx), Math.abs(dy));
+          set(c, r, d !== 2 && d !== 4);
+        }
+      };
+      for (let i = 0; i < size; i++) { set(6, i, i % 2 === 0); set(i, 6, i % 2 === 0); }
+      finder(3, 3); finder(size - 4, 3); finder(3, size - 4);
+      const al = ALIGN[ver];
+      al.forEach((ay, i) => al.forEach((ax, j) => {
+        if ((i === 0 && j === 0) || (i === 0 && j === al.length - 1) || (i === al.length - 1 && j === 0)) return;
+        for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) set(ax + dx, ay + dy, Math.max(Math.abs(dx), Math.abs(dy)) !== 1);
+      }));
+      const format = (mk) => {
+        const d = mk; /* aras M = 00 */
+        let rem = d;
+        for (let i = 0; i < 10; i++) rem = (rem << 1) ^ ((rem >>> 9) * 0x537);
+        const bits = ((d << 10) | rem) ^ 0x5412;
+        const b = (i) => ((bits >>> i) & 1) === 1;
+        for (let i = 0; i <= 5; i++) set(8, i, b(i));
+        set(8, 7, b(6)); set(8, 8, b(7)); set(7, 8, b(8));
+        for (let i = 9; i < 15; i++) set(14 - i, 8, b(i));
+        for (let i = 0; i < 8; i++) set(size - 1 - i, 8, b(i));
+        for (let i = 8; i < 15; i++) set(8, size - 15 + i, b(i));
+        set(8, size - 8, true);
+      };
+      format(mask);
+      if (ver >= 7) {
+        let rem = ver;
+        for (let i = 0; i < 12; i++) rem = (rem << 1) ^ ((rem >>> 11) * 0x1F25);
+        const bits = (ver << 12) | rem;
+        for (let i = 0; i < 18; i++) {
+          const bit = ((bits >>> i) & 1) === 1;
+          const a = size - 11 + (i % 3), b = Math.floor(i / 3);
+          set(a, b, bit); set(b, a, bit);
+        }
+      }
+      let i = 0;
+      for (let right = size - 1; right >= 1; right -= 2) {
+        if (right === 6) right = 5;
+        for (let vert = 0; vert < size; vert++) {
+          for (let j = 0; j < 2; j++) {
+            const c = right - j;
+            const up = ((right + 1) & 2) === 0;
+            const r = up ? size - 1 - vert : vert;
+            if (fn[r][c]) continue;
+            let v = false;
+            if (i < cw.length * 8) { v = ((cw[i >>> 3] >>> (7 - (i & 7))) & 1) === 1; i++; }
+            m[r][c] = v !== MASKS[mask](c, r);
+          }
+        }
+      }
+      return m;
+    }
+
+    /** Penalti ringkas (peraturan 1, 2 & 4) untuk memilih topeng terbaik. */
+    function penalty(m) {
+      const n = m.length;
+      let p = 0;
+      let dark = 0;
+      for (let r = 0; r < n; r++) {
+        let runR = 1, runC = 1;
+        for (let c = 0; c < n; c++) {
+          if (m[r][c]) dark++;
+          if (c > 0) {
+            if (m[r][c] === m[r][c - 1]) { runR++; if (runR === 5) p += 3; else if (runR > 5) p++; } else runR = 1;
+            if (m[c][r] === m[c - 1][r]) { runC++; if (runC === 5) p += 3; else if (runC > 5) p++; } else runC = 1;
+          }
+          if (r > 0 && c > 0 && m[r][c] === m[r - 1][c] && m[r][c] === m[r][c - 1] && m[r][c] === m[r - 1][c - 1]) p += 3;
+        }
+      }
+      p += Math.floor(Math.abs(dark * 20 - n * n * 10) / (n * n)) * 10;
+      return p;
+    }
+
+    function matrix(text) {
+      const bytes = Array.from(new TextEncoder().encode(String(text)));
+      const { ver, out } = codewords(bytes);
+      let best = null, bestP = Infinity;
+      for (let mk = 0; mk < 8; mk++) {
+        const m = build(ver, out, mk);
+        const p = penalty(m);
+        if (p < bestP) { best = m; bestP = p; }
+      }
+      return best;
+    }
+
+    /** SVG (rentetan) dengan zon senyap 4 modul. */
+    function svg(text, opts) {
+      const o = opts || {};
+      const m = matrix(text);
+      const q = 4, n = m.length + q * 2;
+      let d = '';
+      m.forEach((row, r) => row.forEach((v, c) => { if (v) d += 'M' + (c + q) + ' ' + (r + q) + 'h1v1h-1z'; }));
+      return '<svg xmlns="http:' + '\/\/www.w3.org/2000/svg" viewBox="0 0 ' + n + ' ' + n + '" shape-rendering="crispEdges"' + (o.label ? ' role="img" aria-label="' + String(o.label).replace(/["<>&]/g, '') + '"' : '') +
+        '><rect width="' + n + '" height="' + n + '" fill="#fff"/><path d="' + d + '" fill="#0B1F3A"/></svg>';
+    }
+    return { matrix, svg };
+  })();
+  KD.qr = QR;
+
+  /** URL penuh borang awam pinjaman (dengan kit dipilih jika ada). */
+  const formUrl = (kitId) => {
+    const base = location.href.split('#')[0];
+    return base + '#/borang/pinjaman' + (kitId ? '?kit=' + encodeURIComponent(kitId) : '');
+  };
+
+  /** Modal QR: papar, salin pautan, muat turun SVG, cetak poster. */
+  function showQr(title, sub, url) {
+    const svg = QR.svg(url, { label: 'Kod QR ' + title });
+    const md = modal({
+      title: 'Kod QR borang pinjaman',
+      body: html`<div class="qr-card qr-print"><h2 style="margin:0">${title}</h2>${sub ? html`<p class="small muted" style="margin:0">${sub}</p>` : ''}
+        ${raw(svg)}<p class="small" style="margin:0">Imbas untuk memohon pinjaman · Unit IT FKM</p><div class="qr-url">${url}</div></div>`,
+      foot: html`<div class="qr-actions"><button class="btn btn-outline" data-qr="copy">${icon('link')}Salin pautan</button>
+        <button class="btn btn-outline" data-qr="svg">${icon('download')}Muat turun</button><button class="btn btn-primary" data-qr="print">${icon('pdf')}Cetak</button></div>`
+    });
+    on(md.el, 'click', '[data-qr]', async (e, b) => {
+      const act = b.getAttribute('data-qr');
+      if (act === 'copy') {
+        try { await navigator.clipboard.writeText(url); toast('Pautan disalin.'); } catch (err) { toast(url); }
+      } else if (act === 'svg') {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
+        a.download = 'QR-pinjaman-' + title.replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '') + '.svg';
+        document.body.appendChild(a); a.click(); a.remove();
+      } else if (act === 'print') window.print();
+    });
+  }
+
+  /* Halaman senarai Pinjaman (admin): QR borang umum atau ikut kit */
+  KD.listActions = KD.listActions || {};
+  KD.listActions.pinjaman = {
+    render: () => html`<button class="btn btn-outline" data-list-act="qr">${icon('grid')}Kod QR borang</button>`,
+    run: (act, b) => busy(b, async () => {
+      let kits = [];
+      try { kits = (await KD.api.list('kit', { pageSize: 100, status: 'AKTIF' })).items || []; } catch (err) { kits = []; }
+      const md = modal({
+        title: 'Kod QR borang pinjaman',
+        body: html`<p class="small muted">Pilih kit supaya borang terus memilih kit itu, atau gunakan borang umum (aset tertentu).</p>
+          <div class="field"><label class="label" for="qr-kit">Borang</label><select class="select" id="qr-kit"><option value="">Borang umum (semua pinjaman)</option>${kits.map((k) => html`<option value="${k.id}">${k.title}${k.subtitle ? ' · ' + k.subtitle : ''}</option>`)}</select></div>`,
+        foot: html`<button class="btn btn-outline" data-close>Batal</button><button class="btn btn-primary" data-go>Papar kod QR</button>`
+      });
+      qs('[data-go]', md.el).addEventListener('click', () => {
+        const id = qs('#qr-kit', md.el).value;
+        const k = kits.filter((x) => x.id === id)[0];
+        md.close();
+        showQr(k ? k.title : 'Pinjaman Aset ICT FKM', k ? k.subtitle : 'Borang permohonan pinjaman', formUrl(id));
+      });
+    })
+  };
+
+  /* Halaman butiran Kit: baki unit + butang QR */
+  KD.detailActions = KD.detailActions || {};
+  KD.detailActions.kit = (d) => html`<button class="btn btn-outline" data-kit-qr="${d.id}">${icon('grid')}Kod QR</button>`;
+  KD.detailSide = KD.detailSide || {};
+  KD.detailSide.kit = (d) => html`<div class="status-note"><strong>Unit sekarang</strong>
+    <dl class="rec-detail__meta" style="grid-template-columns:1fr 1fr 1fr;margin-top:var(--sp-2)">
+      <div><dt>Boleh guna</dt><dd>${d.unitBolehGuna}</dd></div><div><dt>Dipinjam</dt><dd>${d.unitDipinjam}</dd></div><div><dt>Tersedia</dt><dd><b>${d.unitTersedia}</b></dd></div></dl>
+    <p class="xs muted mt-2">Unit rosak, hilang atau dilupus tidak dikira. Baki bagi tarikh tertentu disemak semasa permohonan.</p></div>`;
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest && e.target.closest('[data-kit-qr]');
+    if (!b) return;
+    const h1 = document.querySelector('.page-head h1');
+    showQr(h1 ? h1.textContent : 'Kit peralatan', 'Pinjaman kit peralatan', formUrl(b.getAttribute('data-kit-qr')));
+  });
+})(window.KD);
+</script>

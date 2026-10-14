@@ -36,6 +36,8 @@ jobs:
         run: node tools/test-webpush.mjs
       - name: Penyulitan data Supabase (AES-256-GCM)
         run: node tools/test-crypto-store.mjs
+      - name: Penjana kod QR (dinyahkod semula jika OpenCV tersedia)
+        run: node tools/test-qr.mjs
 
   edge:
     name: Runtime Supabase + Postgres

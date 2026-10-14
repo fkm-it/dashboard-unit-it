@@ -110,10 +110,15 @@ const SCHEMA = Object.freeze({
     columns: ['id', 'ref_no', 'owner_user_id', 'owner_name', 'no_aset', 'butiran_aset', 'aset', 'jenis_pergerakan', 'lokasi_asal', 'makmal_baru', 'lokasi_baru', 'penjaga_baru', 'email_penjaga_baru', 'ptj_baru', 'tarikh_pergerakan', 'sebab', 'lampiran', 'catatan_unit', 'status', 'status_note', 'status_changed_at', 'status_changed_by', 'state', 'created_at', 'updated_at', 'deleted_at'],
     types: {'lampiran': 'int'}
   },
+  KIT: {
+    sheet: 'KIT', id: 'id', prefix: 'KT', module: 'kit',
+    columns: ['id', 'ref_no', 'owner_user_id', 'owner_name', 'nama', 'ringkasan', 'kandungan', 'senarai_aset', 'jumlah_unit', 'maks_pinjam', 'lokasi_simpanan', 'catatan', 'gambar', 'status', 'status_note', 'status_changed_at', 'status_changed_by', 'state', 'created_at', 'updated_at', 'deleted_at'],
+    types: {'jumlah_unit': 'intOrNull', 'maks_pinjam': 'intOrNull', 'gambar': 'int'}
+  },
   PINJAMAN: {
     sheet: 'PINJAMAN', id: 'id', prefix: 'PJ', module: 'pinjaman',
-    columns: ['id', 'ref_no', 'owner_user_id', 'owner_name', 'nama', 'email', 'kategori_pemohon', 'no_pengenalan', 'telefon', 'penyelia', 'no_aset', 'butiran_aset', 'aset', 'tujuan', 'lokasi_penggunaan', 'tarikh_pinjam', 'tarikh_pulang', 'lampiran', 'tarikh_diserahkan', 'tarikh_dipulangkan', 'keadaan_pulang', 'catatan_unit', 'status', 'status_note', 'status_changed_at', 'status_changed_by', 'state', 'created_at', 'updated_at', 'deleted_at'],
-    types: {'lampiran': 'int'}
+    columns: ['id', 'ref_no', 'owner_user_id', 'owner_name', 'nama', 'email', 'kategori_pemohon', 'no_pengenalan', 'telefon', 'penyelia', 'no_aset', 'butiran_aset', 'kit', 'kuantiti', 'aset', 'kod_kursus', 'nama_pensyarah', 'email_pensyarah', 'bilangan_pelajar', 'tujuan', 'lokasi_penggunaan', 'tarikh_pinjam', 'tarikh_pulang', 'lampiran', 'unit_diserahkan', 'tarikh_diserahkan', 'tarikh_dipulangkan', 'keadaan_pulang', 'unit_tidak_dipulang', 'catatan_unit', 'status', 'status_note', 'status_changed_at', 'status_changed_by', 'state', 'created_at', 'updated_at', 'deleted_at'],
+    types: {'kuantiti': 'intOrNull', 'bilangan_pelajar': 'intOrNull', 'lampiran': 'int'}
   },
   ADUANASET: {
     sheet: 'ADUANASET', id: 'id', prefix: 'AD', module: 'aduanaset',

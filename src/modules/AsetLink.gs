@@ -220,7 +220,8 @@ const AsetLink = {
       const n = AsetLink.norm(a.no_aset);
       CrudEngine.repo(def).all().forEach(function (r) {
         if (r.state !== 'ACTIVE') return;
-        if (key === 'tiket' ? AsetLink.norm(r.no_aset) !== n || !n : r.aset !== a.id) return;
+        const unitKit = key === 'pinjaman' && r.unit_diserahkan && String(r.unit_diserahkan).split(/[\n,;]+/).some(function (x) { return AsetLink.norm(x) === n; });
+        if (!unitKit && (key === 'tiket' ? AsetLink.norm(r.no_aset) !== n || !n : r.aset !== a.id)) return;
         counts[key] = (counts[key] || 0) + 1;
         const tarikh = String(r[AsetLink.DATE_COL[key]] || r.created_at || '').slice(0, 10);
         items.push({

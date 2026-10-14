@@ -1,0 +1,105 @@
+{
+  "key": "kit",
+  "label": "Kit Peralatan",
+  "labelPlural": "Kit Peralatan",
+  "icon": "grid",
+  "prefix": "KT",
+  "refFormat": "KIT-{SEQ3}",
+  "description": "Set peralatan yang dipinjam mengikut bilangan unit (cth. Raspberry Pi, Arduino, kamera). Peminjam memilih kit dan bilangan; Unit IT memilih unit sebenar semasa serahan.",
+  "access": {
+    "create": "ADMIN",
+    "list": "ALL",
+    "edit": "ADMIN",
+    "delete": "ADMIN"
+  },
+  "statuses": [
+    {
+      "value": "AKTIF",
+      "label": "Dibuka untuk pinjaman",
+      "tone": "success"
+    },
+    {
+      "value": "DITUTUP",
+      "label": "Ditutup",
+      "tone": "muted"
+    }
+  ],
+  "notify": {
+    "adminsOnCreate": false,
+    "ownerOnStatus": false
+  },
+  "titleField": "nama",
+  "subtitleField": "ringkasan",
+  "nav": {
+    "user": false,
+    "admin": true,
+    "order": 24
+  },
+  "fields": [
+    {
+      "key": "nama",
+      "label": "Nama kit",
+      "type": "string",
+      "required": true,
+      "max": 80,
+      "list": true,
+      "search": true,
+      "placeholder": "cth. Kit Raspberry Pi 4 Model B"
+    },
+    {
+      "key": "ringkasan",
+      "label": "Unit",
+      "type": "string",
+      "readonly": true,
+      "list": true
+    },
+    {
+      "key": "kandungan",
+      "label": "Kandungan setiap unit",
+      "type": "text",
+      "max": 1000,
+      "placeholder": "cth. Raspberry Pi 4 (4GB), kad microSD 32GB, adaptor kuasa, kabel HDMI mikro, casing"
+    },
+    {
+      "key": "senaraiAset",
+      "label": "No. aset dalam kit",
+      "type": "text",
+      "required": true,
+      "max": 5000,
+      "hint": "Satu no. aset setiap baris (atau dipisah koma). Setiap aset hanya boleh berada dalam satu kit."
+    },
+    {
+      "key": "jumlahUnit",
+      "label": "Jumlah unit",
+      "type": "int",
+      "readonly": true
+    },
+    {
+      "key": "maksPinjam",
+      "label": "Maksimum unit setiap permohonan",
+      "type": "int",
+      "min": 1,
+      "max": 200,
+      "hint": "Kosongkan = tiada had (selain jumlah unit tersedia)."
+    },
+    {
+      "key": "lokasiSimpanan",
+      "label": "Lokasi simpanan / ambil",
+      "type": "string",
+      "max": 120
+    },
+    {
+      "key": "catatan",
+      "label": "Syarat / catatan untuk peminjam",
+      "type": "text",
+      "max": 1000
+    },
+    {
+      "key": "gambar",
+      "label": "Gambar",
+      "type": "files",
+      "maxFiles": 2,
+      "public": false
+    }
+  ]
+}

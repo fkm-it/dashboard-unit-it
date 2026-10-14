@@ -1,8 +1,8 @@
 {
   "name": "dashboard-unit-itfkm",
-  "version": "1.14.0",
+  "version": "1.15.0",
   "private": true,
-  "description": "Dashboard Unit IT FKM — Aset, makmal dan aduan IT FKM dalam satu paparan",
+  "description": "Dashboard Unit IT FKM \u2014 Aset, makmal dan aduan IT FKM dalam satu paparan",
   "engines": {
     "node": ">=18"
   },
@@ -24,7 +24,7 @@
     "deployments": "clasp list-deployments",
     "logs": "clasp tail-logs",
     "build:edge": "node tools/build-edge.js",
-    "test:edge": "node tools/test-crypto-store.mjs && node tools/test-webpush.mjs && node tools/test-edge-bundle.mjs && node tools/test-edge-pg.mjs"
+    "test:edge": "node tools/test-qr.mjs && node tools/test-crypto-store.mjs && node tools/test-webpush.mjs && node tools/test-edge-bundle.mjs && node tools/test-edge-pg.mjs"
   },
   "devDependencies": {
     "@google/clasp": "^3.0.0"

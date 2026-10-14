@@ -1,5 +1,25 @@
 # CHANGELOG
 
+## 1.15.0 — 2026-10-14 · Kit peralatan, pinjaman kelas & kod QR
+### Ditambah
+- **Kit Peralatan** (modul baharu)
+  - Satu set alat yang sama, contohnya 12 unit Raspberry Pi, didaftarkan melalui senarai no. aset. Setiap aset hanya boleh berada dalam satu kit.
+  - Halaman kit memaparkan unit boleh guna, unit dipinjam dan unit tersedia.
+  - Unit rosak, hilang atau dilupus tidak dikira.
+  - Had maksimum unit bagi setiap permohonan boleh ditetapkan.
+- **Pinjaman berkumpulan**
+  - Peminjam memilih kit dan bilangan unit. Sistem menyemak baki unit tersedia mengikut tarikh, dan menyemaknya semula semasa permohonan diluluskan.
+  - Semasa serahan, Unit IT memilih atau mengimbas no. aset sebenar. Jika dibiarkan kosong, sistem memilih unit secara automatik.
+  - Pemulangan separa disokong: unit yang belum dipulangkan kekal ditanda dipinjam.
+  - Pinjaman kit juga dipaparkan dalam sejarah setiap unit.
+- **Pinjaman untuk kelas**
+  - Kategori baharu "Wakil kelas / kursus" dengan maklumat kod kursus, pensyarah dan bilangan pelajar.
+  - Pensyarah (email UTM) menerima salinan permohonan, keputusan dan peringatan pulang.
+- **Kod QR borang pinjaman**
+  - Kod QR boleh dijana untuk borang umum atau untuk kit tertentu. Borang yang dibuka melalui kod QR kit akan memilih kit itu secara automatik.
+  - Pautan boleh disalin, kod QR dimuat turun sebagai SVG, atau dicetak sebagai poster.
+  - Penjana QR dibina sendiri tanpa pustaka luar, dan setiap versi 1–10 telah disahkan dengan penyahkod OpenCV.
+
 ## 1.14.0 — 2026-10-14 · Kitar hayat aset (KEWPA)
 ### Ditambah
 Lapan modul baharu, semuanya dipautkan kepada daftar Aset IT melalui **No. aset**. Daftar aset dikemas kini secara automatik.
