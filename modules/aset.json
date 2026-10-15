@@ -133,14 +133,17 @@
           "value": "LAIN",
           "label": "Lain-lain"
         }
-      ]
+      ],
+      "filterOrder": 1
     },
     {
       "key": "jenama",
       "label": "Jenama",
       "type": "string",
       "max": 60,
-      "search": true
+      "search": true,
+      "filter": true,
+      "filterOrder": 10
     },
     {
       "key": "model",
@@ -172,7 +175,8 @@
       "ref": "makmal",
       "list": true,
       "filter": true,
-      "hint": "Kosongkan jika bukan aset makmal."
+      "hint": "Kosongkan jika bukan aset makmal.",
+      "filterOrder": 2
     },
     {
       "key": "lokasi",
@@ -195,7 +199,9 @@
       "type": "string",
       "max": 40,
       "search": true,
-      "placeholder": "cth. C24.411"
+      "placeholder": "cth. C24.411",
+      "filter": true,
+      "filterOrder": 17
     },
     {
       "key": "lokasiBerbeza",
@@ -203,7 +209,8 @@
       "type": "bool",
       "filter": true,
       "readonly": true,
-      "hint": "Ditanda automatik semasa import; rekod pergerakan aset (KEWPA) mungkin perlu dikemas kini."
+      "hint": "Ditanda automatik semasa import; rekod pergerakan aset (KEWPA) mungkin perlu dikemas kini.",
+      "filterOrder": 21
     },
     {
       "key": "picMakmal",
@@ -279,7 +286,8 @@
           "value": "BUKAN_KOMPUTER",
           "label": "Bukan aset komputer"
         }
-      ]
+      ],
+      "filterOrder": 4
     },
     {
       "key": "disemakOleh",
@@ -293,7 +301,9 @@
       "label": "Tahun perolehan",
       "type": "int",
       "min": 1990,
-      "max": 2100
+      "max": 2100,
+      "filter": true,
+      "filterOrder": 3
     },
     {
       "key": "tarikhAset",
@@ -324,7 +334,9 @@
       "label": "RAM (GB)",
       "type": "int",
       "min": 0,
-      "max": 4096
+      "max": 4096,
+      "filter": true,
+      "filterOrder": 12
     },
     {
       "key": "storan",
@@ -344,7 +356,9 @@
       "label": "Sistem operasi",
       "type": "string",
       "max": 60,
-      "placeholder": "cth. Windows 11 Pro"
+      "placeholder": "cth. Windows 11 Pro",
+      "filter": true,
+      "filterOrder": 11
     },
     {
       "key": "lesenOs",
@@ -364,7 +378,9 @@
           "value": "TIDAK_PASTI",
           "label": "Tidak pasti"
         }
-      ]
+      ],
+      "filter": true,
+      "filterOrder": 13
     },
     {
       "key": "perisian",
@@ -392,7 +408,8 @@
           "value": "USANG",
           "label": "Usang"
         }
-      ]
+      ],
+      "filterOrder": 14
     },
     {
       "key": "cadangan",
@@ -422,7 +439,8 @@
           "value": "LUPUS",
           "label": "Lupus"
         }
-      ]
+      ],
+      "filterOrder": 15
     },
     {
       "key": "kategoriAset",
@@ -438,7 +456,8 @@
           "value": "INVENTORI",
           "label": "Inventori"
         }
-      ]
+      ],
+      "filterOrder": 16
     },
     {
       "key": "borangKewpa",
@@ -478,7 +497,8 @@
       "key": "disahkanFizikal",
       "label": "Disahkan secara fizikal",
       "type": "bool",
-      "filter": true
+      "filter": true,
+      "filterOrder": 20
     },
     {
       "key": "tarikhSemakan",
@@ -490,7 +510,8 @@
       "label": "Perlu dilengkapkan",
       "type": "bool",
       "filter": true,
-      "hint": "Didaftarkan secara pantas (cth. semasa stock-take). Lengkapkan butiran kemudian; tanda ini hilang sendiri apabila jenama dan model diisi."
+      "hint": "Didaftarkan secara pantas (cth. semasa stock-take). Lengkapkan butiran kemudian; tanda ini hilang sendiri apabila jenama dan model diisi.",
+      "filterOrder": 22
     },
     {
       "key": "catatan",
@@ -554,13 +575,16 @@
       "label": "Boleh dipinjam",
       "type": "bool",
       "filter": true,
-      "hint": "Aset boleh dimohon melalui modul Pinjaman Aset."
+      "hint": "Aset boleh dimohon melalui modul Pinjaman Aset.",
+      "filterOrder": 23
     },
     {
       "key": "dipinjam",
       "label": "Sedang dipinjam",
       "type": "bool",
-      "readonly": true
+      "readonly": true,
+      "filter": true,
+      "filterOrder": 24
     },
     {
       "key": "peminjamSemasa",

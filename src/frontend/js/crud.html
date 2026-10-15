@@ -94,17 +94,55 @@
       const m = moduleFor(r);
       const admin = !!r.admin;
       const state = { q: query.q || '', status: query.status || '', page: Number(query.page) || 1, filters: {}, scope: query.scope || '', deleted: query.deleted === '1' };
-      const filterFields = m.fields.filter((f) => f.filter && (!f.adminOnly || isAdmin()));
+      const filterFields = m.fields.filter((f) => f.filter && (!f.adminOnly || isAdmin()))
+        .map((f, i) => [f, i]).sort((a, b) => ((a[0].filterOrder || 100) - (b[0].filterOrder || 100)) || (a[1] - b[1])).map((x) => x[0]);
+      const dyn = (f) => f.type === 'int' || f.type === 'string';
+      const PRIMARY = 4;
       filterFields.forEach((f) => { if (query['f_' + f.key]) state.filters[f.key] = query['f_' + f.key]; });
       const cats = filterFields.some((f) => f.type === 'category') ? await categories().catch(() => []) : [];
       const refs = await refOptionsFor(m, filterFields);
 
       const filterSelect = (f) => {
-        const opts = f.type === 'enum' ? f.options.map((o) => [o.value, o.label])
+        const cur = String(state.filters[f.key] || '');
+        const opts = dyn(f) ? (cur ? [[cur, cur === '__kosong' ? '(Tiada)' : cur]] : [])
+          : f.type === 'enum' ? f.options.map((o) => [o.value, o.label])
           : f.type === 'category' ? cats.map((c) => [c.id, c.nameMs])
           : f.type === 'ref' ? (refs[f.key] || []).map((o) => [o.value, o.label]) : [['true', 'Ya'], ['false', 'Tidak']];
         if (f.type === 'category' && opts.length < 2) return '';
-        return html`<select class="select" data-filter="${f.key}" aria-label="${f.label}"><option value="">${f.label}: semua</option>${opts.map((o) => html`<option value="${o[0]}" ${String(state.filters[f.key] || '') === o[0] ? raw('selected') : ''}>${o[1]}</option>`)}</select>`;
+        return html`<select class="select" data-filter="${f.key}" aria-label="${f.label}"><option value="">${f.label}: semua</option>${opts.map((o) => html`<option value="${o[0]}" ${cur === o[0] ? raw('selected') : ''}>${o[1]}</option>`)}</select>`;
+      };
+      const mainF = filterFields.length > PRIMARY + 1 ? filterFields.slice(0, PRIMARY) : filterFields;
+      const moreF = filterFields.length > PRIMARY + 1 ? filterFields.slice(PRIMARY) : [];
+      const moreActive = () => moreF.filter((f) => state.filters[f.key]).length;
+      /* Pilihan penapis int / string daripada data sebenar (meta.filterValues) */
+      const fillDyn = (vals) => {
+        filterFields.filter(dyn).forEach((f) => {
+          const sel = qs('[data-filter="' + f.key + '"]', el);
+          if (!sel) return;
+          const cur = String(state.filters[f.key] || '');
+          const list = (vals && vals[f.key]) || [];
+          const has = list.some((o) => o.value === cur);
+          sel.innerHTML = html`<option value="">${f.label}: semua</option>${cur && !has ? html`<option value="${cur}" selected>${cur === '__kosong' ? '(Tiada)' : cur}</option>` : ''}${list.map((o) => html`<option value="${o.value}" ${cur === o.value ? raw('selected') : ''}>${o.label} (${fmtNum(o.count)})</option>`)}`.s;
+        });
+      };
+      const resetBtn = () => {
+        const n = Object.keys(state.filters).length;
+        const b = qs('[data-act="reset-f"]', el);
+        if (b) { b.hidden = !n && !state.q; b.lastChild.textContent = n ? 'Reset penapis (' + n + ')' : 'Reset'; }
+        const sum = qs('[data-more-n]', el);
+        if (sum) sum.textContent = moreActive() ? ' · ' + moreActive() + ' aktif' : '';
+        /* Cip penapis aktif: "Tahun perolehan: 2024 ×" */
+        const box = qs('[data-fchips]', el);
+        if (!box) return;
+        const act = filterFields.filter((f) => state.filters[f.key]);
+        box.innerHTML = act.length ? html`<div class="fchips">${act.map((f) => {
+          const sel = qs('[data-filter="' + f.key + '"]', el);
+          const opt = sel && sel.selectedOptions && sel.selectedOptions[0];
+          const txt = opt ? opt.textContent.replace(/\s*\(\d[\d,.]*\)$/, '') : state.filters[f.key];
+          if (sel) sel.classList.add('is-active');
+          return html`<button type="button" class="fchip" data-fchip="${f.key}" title="Buang penapis">${f.label}: <b>${txt}</b>${icon('x', 'i-sm')}</button>`;
+        })}</div>`.s : '';
+        el.querySelectorAll('[data-filter]').forEach((s2) => { if (!state.filters[s2.getAttribute('data-filter')]) s2.classList.remove('is-active'); });
       };
 
       el.innerHTML = html`<div class="page-head"><div><h1>${m.labelPlural}</h1>${m.description ? html`<p>${m.description}</p>` : ''}</div>
@@ -112,10 +150,14 @@
         ${canCreate(m) ? html`<a class="btn btn-primary" href="#${basePath(m, r)}/baru">${icon('plus')}${m.label} baharu</a>` : ''}</div></div>
         <div class="toolbar">
           <input class="input search" type="search" placeholder="Cari…" value="${state.q}" data-q aria-label="Cari">
-          ${filterFields.map(filterSelect)}
+          ${mainF.map(filterSelect)}
           ${admin ? html`<select class="select" data-scope aria-label="Skop"><option value="">Semua rekod</option><option value="MINE" ${state.scope === 'MINE' ? raw('selected') : ''}>Rekod saya</option></select>
             <label class="check" style="flex:0 0 auto"><input type="checkbox" data-deleted ${state.deleted ? raw('checked') : ''}>Dipadam</label>` : ''}
+          <button class="btn btn-ghost btn-sm" data-act="reset-f" hidden>${icon('x', 'i-sm')}<span>Reset</span></button>
         </div>
+        ${moreF.length ? html`<details class="filter-more" ${moreActive() ? raw('open') : ''}><summary class="small">Lagi penapis (${moreF.length})<span data-more-n></span></summary>
+          <div class="filter-more__grid">${moreF.map(filterSelect)}</div></details>` : ''}
+        <div data-fchips></div>
         <div data-chips></div>
         <section class="panel panel-flush" data-box>${skeletonList(4)}</section>`.s;
 
@@ -134,6 +176,8 @@
         const box = qs('[data-box]', el);
         try {
           const res = await api.list(m.key, payload());
+          fillDyn(res.meta.filterValues);
+          resetBtn();
           const counts = res.meta.statusCounts || {};
           qs('[data-chips]', el).innerHTML = m.statuses.length ? html`<div class="chips">
             <button class="chip ${!state.status ? 'is-on' : ''}" data-status="">Semua <b>${fmtNum(res.meta.totalAll)}</b></button>
@@ -147,6 +191,18 @@
 
       on(el, 'input', '[data-q]', debounce((e, inp) => { state.q = e.target.value.trim(); state.page = 1; sync(); load(); }, 350));
       on(el, 'change', '[data-filter]', (e, s) => { const k = s.getAttribute('data-filter'); if (s.value) state.filters[k] = s.value; else delete state.filters[k]; state.page = 1; sync(); load(); });
+      on(el, 'click', '[data-fchip]', (e, b) => {
+        const k = b.getAttribute('data-fchip');
+        delete state.filters[k];
+        const sel = qs('[data-filter="' + k + '"]', el); if (sel) sel.value = '';
+        state.page = 1; sync(); load();
+      });
+      on(el, 'click', '[data-act="reset-f"]', () => {
+        state.filters = {}; state.q = ''; state.page = 1;
+        el.querySelectorAll('[data-filter]').forEach((s2) => { s2.value = ''; });
+        const qi = qs('[data-q]', el); if (qi) qi.value = '';
+        sync(); load();
+      });
       on(el, 'change', '[data-scope]', (e, s) => { state.scope = s.value; state.page = 1; sync(); load(); });
       on(el, 'change', '[data-deleted]', (e, c) => { state.deleted = c.checked; state.page = 1; sync(); load(); });
       on(el, 'click', '[data-status]', (e, b) => { state.status = b.getAttribute('data-status'); state.page = 1; sync(); load(); });

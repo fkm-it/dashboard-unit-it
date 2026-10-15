@@ -319,6 +319,46 @@ const CrudEngine = {
     return h.toDTO ? (h.toDTO(dto, row, ctx) || dto) : dto;
   },
 
+  /** Nilai khas penapis: rekod dengan medan kosong. */
+  EMPTY: '__kosong',
+  MAX_FILTER_VALUES: 200,
+
+  filterKey_: function (v) { return v === null || v === undefined ? '' : String(v).trim().toLowerCase(); },
+
+  /**
+   * Pilihan penapis bagi medan int / string (filter:true): nilai berbeza dalam rekod yang boleh dilihat
+   * (tanpa penapis medan itu sendiri) + bilangan. Int disusun menurun (cth. tahun terkini dahulu).
+   * @return {Object<string, Array<{value:string,label:string,count:number}>>}
+   */
+  filterValues_: function (def, ctx, payload) {
+    const admin = CrudEngine.isAdmin(ctx);
+    const fds = def.fields.filter(function (f) { return f.filter && (f.type === 'int' || f.type === 'string') && (!f.adminOnly || admin); });
+    if (!fds.length) return {};
+    const p = payload || {};
+    const cur = (p.filters && typeof p.filters === 'object') ? p.filters : {};
+    const out = {};
+    fds.forEach(function (fd) {
+      const others = Object.assign({}, cur);
+      delete others[fd.key];
+      const rows = CrudEngine.query(def, ctx, Object.assign({}, p, { status: p.status || '', filters: others }));
+      const by = {};
+      let empty = 0;
+      rows.forEach(function (r) {
+        const v = r[fd.column];
+        if (v === '' || v === null || v === undefined) { empty++; return; }
+        const k = CrudEngine.filterKey_(v);
+        by[k] = by[k] || { value: String(v).trim(), label: String(v).trim(), count: 0 };
+        by[k].count++;
+      });
+      let list = Object.keys(by).map(function (k) { return by[k]; });
+      list.sort(fd.type === 'int' ? function (a, b) { return Number(b.value) - Number(a.value); } : function (a, b) { return b.count - a.count || (a.label < b.label ? -1 : 1); });
+      list = list.slice(0, CrudEngine.MAX_FILTER_VALUES);
+      if (empty) list.push({ value: CrudEngine.EMPTY, label: '(Tiada)', count: empty });
+      out[fd.key] = list;
+    });
+    return out;
+  },
+
   // ================================================================== Pertanyaan
 
   /** Rekod yang boleh dilihat + penapis. @return {Object[]} baris mentah tersusun */
@@ -334,13 +374,18 @@ const CrudEngine = {
       deleted: { type: 'boolean', default: false },
       sort: { type: 'enum', values: ['NEWEST', 'OLDEST'], default: 'NEWEST' }
     });
-    // Penapis medan (enum / kategori / bool yang ditanda filter:true)
+    // Penapis medan (filter:true). enum / kategori / bool / ref: padanan tepat.
+    // int / string: padanan nilai (string tidak sensitif huruf); CrudEngine.EMPTY = nilai kosong.
     const fieldFilters = [];
     const raw = (filters && filters.filters && typeof filters.filters === 'object') ? filters.filters : {};
     def.fields.forEach(function (fd) {
       if (!fd.filter || raw[fd.key] === undefined || raw[fd.key] === '') return;
       if (fd.adminOnly && !admin) return;
-      const v = Validator.coerce(raw[fd.key], CrudEngine.fieldRule(fd, false), fd.label);
+      if (raw[fd.key] === CrudEngine.EMPTY) { fieldFilters.push([fd.column, '', 'empty']); return; }
+      const rule = Object.assign({}, CrudEngine.fieldRule(fd, false), { min: undefined, max: fd.type === 'string' ? 200 : undefined });
+      let v;
+      try { v = Validator.coerce(raw[fd.key], rule, fd.label); } catch (e) { throw Errors.validation('Penapis ' + fd.label + ' tidak sah.'); }
+      if (fd.type === 'int' || fd.type === 'string') { fieldFilters.push([fd.column, CrudEngine.filterKey_(v), 'loose']); return; }
       fieldFilters.push([fd.column, v]);
     });
     const searchCols = def.fields.filter(function (fd) { return fd.search && (!fd.adminOnly || admin); }).map(function (fd) { return fd.column; });
@@ -352,7 +397,12 @@ const CrudEngine = {
       if (f.deleted && admin) { if (r.state !== RECORD_STATE.DELETED) return false; } else if (r.state !== RECORD_STATE.ACTIVE) return false;
       if (f.scope === 'MINE' || (!admin && def.access.list !== 'ALL')) { if (r.owner_user_id !== me) return false; }
       if (f.status && r.status !== f.status) return false;
-      for (let i = 0; i < fieldFilters.length; i++) if (r[fieldFilters[i][0]] !== fieldFilters[i][1]) return false;
+      for (let i = 0; i < fieldFilters.length; i++) {
+        const ff = fieldFilters[i], cell = r[ff[0]];
+        if (ff[2] === 'empty') { if (cell !== '' && cell !== null && cell !== undefined && cell !== false) return false; }
+        else if (ff[2] === 'loose') { if (CrudEngine.filterKey_(cell) !== ff[1]) return false; }
+        else if (cell !== ff[1]) return false;
+      }
       if ((f.from || f.to) && !DateUtils.inDayRange(r.created_at, f.from, f.to)) return false;
       if (q) {
         const hay = [r.ref_no, r.owner_name].concat(searchCols.map(function (c) { return r[c]; })).join(' ').toLowerCase();
@@ -380,6 +430,7 @@ const CrudEngine = {
     all.forEach(function (r) { counts[r.status] = (counts[r.status] || 0) + 1; });
     page.meta.statusCounts = counts;
     page.meta.totalAll = all.length;
+    page.meta.filterValues = CrudEngine.filterValues_(def, ctx, payload);
     return page;
   },
 

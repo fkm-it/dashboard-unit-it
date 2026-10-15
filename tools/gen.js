@@ -106,7 +106,7 @@ function normalize(raw, file) {
     }
     if (f.type === 'files') f.maxFiles = f.maxFiles || 3;
     if (f.type === 'files' && f.search) err(where + ': medan files tidak boleh "search"');
-    if (f.filter && ['enum', 'category', 'bool', 'ref'].indexOf(f.type) < 0) err(where + ': "filter" hanya untuk enum / category / bool / ref');
+    if (f.filter && ['enum', 'category', 'bool', 'ref', 'int', 'string'].indexOf(f.type) < 0) err(where + ': "filter" hanya untuk enum / category / bool / ref / int / string');
     if (f.type === 'ref' && !/^[a-z][a-z0-9]{1,19}$/.test(f.ref || '')) err(where + ': medan ref memerlukan "ref": "<key modul sasaran>"');
   });
   m.titleField = m.titleField || ((m.fields || []).find((f) => f.type === 'string') || {}).key || '';

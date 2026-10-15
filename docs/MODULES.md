@@ -80,7 +80,8 @@ Pilihan umum setiap medan:
 | `default` | Nilai lalai rekod baharu |
 | `list` | Papar dalam baris senarai |
 | `search` | Termasuk dalam carian teks |
-| `filter` | Penapis dropdown (enum / category / bool sahaja) |
+| `filter` | Penapis dropdown. enum / category / bool / ref: pilihan tetap. int / string: pilihan = nilai sebenar dalam rekod (dengan bilangan; int disusun menurun, cth. tahun) + "(Tiada)" |
+| `filterOrder` | Susunan penapis (kecil dahulu, lalai 100). Jika lebih 4 penapis, 4 pertama dipaparkan terus; selebihnya di bawah "Lagi penapis" |
 | `adminOnly` | Hanya admin boleh baca/tulis (cth. catatan dalaman). `visibleToOwner: true` membenarkan pemilik membaca sahaja |
 | `publicOnly` | Hanya dalam borang awam (cth. nama/email pemohon tanpa akaun). Pengguna log masuk sudah dikenali |
 | `public: false` | Tiada dalam borang awam (wajib untuk `files`) |

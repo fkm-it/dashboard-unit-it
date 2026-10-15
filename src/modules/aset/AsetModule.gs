@@ -142,6 +142,7 @@ const AsetModule = Object.freeze(Object.assign(
             "label": "Lain-lain"
           }
         ],
+        "filterOrder": 1,
         "column": "jenis"
       },
       {
@@ -150,6 +151,8 @@ const AsetModule = Object.freeze(Object.assign(
         "type": "string",
         "max": 60,
         "search": true,
+        "filter": true,
+        "filterOrder": 10,
         "column": "jenama"
       },
       {
@@ -186,6 +189,7 @@ const AsetModule = Object.freeze(Object.assign(
         "list": true,
         "filter": true,
         "hint": "Kosongkan jika bukan aset makmal.",
+        "filterOrder": 2,
         "column": "makmal"
       },
       {
@@ -212,6 +216,8 @@ const AsetModule = Object.freeze(Object.assign(
         "max": 40,
         "search": true,
         "placeholder": "cth. C24.411",
+        "filter": true,
+        "filterOrder": 17,
         "column": "lokasi_fizikal"
       },
       {
@@ -221,6 +227,7 @@ const AsetModule = Object.freeze(Object.assign(
         "filter": true,
         "readonly": true,
         "hint": "Ditanda automatik semasa import; rekod pergerakan aset (KEWPA) mungkin perlu dikemas kini.",
+        "filterOrder": 21,
         "column": "lokasi_berbeza"
       },
       {
@@ -303,6 +310,7 @@ const AsetModule = Object.freeze(Object.assign(
             "label": "Bukan aset komputer"
           }
         ],
+        "filterOrder": 4,
         "column": "status_pengesahan"
       },
       {
@@ -319,6 +327,8 @@ const AsetModule = Object.freeze(Object.assign(
         "type": "int",
         "min": 1990,
         "max": 2100,
+        "filter": true,
+        "filterOrder": 3,
         "column": "tahun_perolehan"
       },
       {
@@ -355,6 +365,8 @@ const AsetModule = Object.freeze(Object.assign(
         "type": "int",
         "min": 0,
         "max": 4096,
+        "filter": true,
+        "filterOrder": 12,
         "column": "ram_gb"
       },
       {
@@ -378,6 +390,8 @@ const AsetModule = Object.freeze(Object.assign(
         "type": "string",
         "max": 60,
         "placeholder": "cth. Windows 11 Pro",
+        "filter": true,
+        "filterOrder": 11,
         "column": "sistem_operasi"
       },
       {
@@ -399,6 +413,8 @@ const AsetModule = Object.freeze(Object.assign(
             "label": "Tidak pasti"
           }
         ],
+        "filter": true,
+        "filterOrder": 13,
         "column": "lesen_os"
       },
       {
@@ -429,6 +445,7 @@ const AsetModule = Object.freeze(Object.assign(
             "label": "Usang"
           }
         ],
+        "filterOrder": 14,
         "column": "keadaan_fizikal"
       },
       {
@@ -460,6 +477,7 @@ const AsetModule = Object.freeze(Object.assign(
             "label": "Lupus"
           }
         ],
+        "filterOrder": 15,
         "column": "cadangan"
       },
       {
@@ -477,6 +495,7 @@ const AsetModule = Object.freeze(Object.assign(
             "label": "Inventori"
           }
         ],
+        "filterOrder": 16,
         "column": "kategori_aset"
       },
       {
@@ -524,6 +543,7 @@ const AsetModule = Object.freeze(Object.assign(
         "label": "Disahkan secara fizikal",
         "type": "bool",
         "filter": true,
+        "filterOrder": 20,
         "column": "disahkan_fizikal"
       },
       {
@@ -538,6 +558,7 @@ const AsetModule = Object.freeze(Object.assign(
         "type": "bool",
         "filter": true,
         "hint": "Didaftarkan secara pantas (cth. semasa stock-take). Lengkapkan butiran kemudian; tanda ini hilang sendiri apabila jenama dan model diisi.",
+        "filterOrder": 22,
         "column": "perlu_dilengkapkan"
       },
       {
@@ -612,6 +633,7 @@ const AsetModule = Object.freeze(Object.assign(
         "type": "bool",
         "filter": true,
         "hint": "Aset boleh dimohon melalui modul Pinjaman Aset.",
+        "filterOrder": 23,
         "column": "boleh_dipinjam"
       },
       {
@@ -619,6 +641,8 @@ const AsetModule = Object.freeze(Object.assign(
         "label": "Sedang dipinjam",
         "type": "bool",
         "readonly": true,
+        "filter": true,
+        "filterOrder": 24,
         "column": "dipinjam"
       },
       {

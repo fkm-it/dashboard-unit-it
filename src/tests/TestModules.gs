@@ -21,11 +21,11 @@ const TestFixtures = {
       fields: [
         f('nama', 'nama', 'string', { publicOnly: true, max: 80 }),
         f('email', 'email', 'email', { publicOnly: true }),
-        f('tajuk', 'tajuk', 'string', { required: true, max: 60, list: true, search: true }),
+        f('tajuk', 'tajuk', 'string', { required: true, max: 60, list: true, search: true, filter: true }),
         f('kategori', 'kategori', 'category', { filter: true }),
         f('jenis', 'jenis', 'enum', { filter: true, default: 'A', options: [{ value: 'A', label: 'Jenis A' }, { value: 'B', label: 'Jenis B' }] }),
         f('jumlah', 'jumlah', 'number', { min: 0, max: 1000, decimals: 2 }),
-        f('kuantiti', 'kuantiti', 'int', { min: 1, max: 10 }),
+        f('kuantiti', 'kuantiti', 'int', { min: 1, max: 10, filter: true }),
         f('tarikh', 'tarikh', 'date'),
         f('masa', 'masa', 'time'),
         f('segera', 'segera', 'bool', { filter: true }),
@@ -114,6 +114,24 @@ const TestSuiteCrud = {
       const errs = TestAssert.apiFail(TestHelpers.call(u.token, 'crud.create', { module: 'tiket', tajuk: '', jumlah: 'abc', kuantiti: 99, tarikh: '2026-13-01', masa: '25:00', jenis: 'Z' }), ERROR_CODES.VALIDATION_ERROR).meta.fields;
       ['tajuk', 'jumlah', 'kuantiti', 'tarikh', 'masa', 'jenis'].forEach(function (k) { t.ok(errs[k], 'ralat medan ' + k); });
       TestAssert.apiFail(TestHelpers.call(u.token, 'crud.create', { module: 'tiada', tajuk: 'x' }), ERROR_CODES.BAD_REQUEST);
+      TestFixtures.uninstall();
+    }],
+    ['Penapis int / string: padanan nilai (tidak sensitif huruf), "(Tiada)", pilihan daripada data dengan bilangan', function (t) {
+      TestFixtures.install();
+      const u = KhFx.user(); /* akaun dikongsi (had kadar pendaftaran dalam ujian) */
+      const mk = function (x) { return TestAssert.apiOk(TestHelpers.call(u.token, 'crud.create', Object.assign({ module: 'tiket' }, x))); };
+      mk({ tajuk: 'Projektor', kuantiti: 3 }); mk({ tajuk: 'projektor ', kuantiti: 3 }); mk({ tajuk: 'Tetikus', kuantiti: 10 }); mk({ tajuk: 'Papan kekunci' });
+      const L = function (f) { return TestAssert.apiOk(TestHelpers.call(u.token, 'crud.list', { module: 'tiket', filters: f })); };
+      t.eq(L({ kuantiti: '3' }).items.length, 2, 'int sebagai teks');
+      t.eq(L({ tajuk: 'PROJEKTOR' }).items.length, 2, 'string tidak sensitif huruf');
+      t.eq(L({ kuantiti: CrudEngine.EMPTY }).items.length, 1, '(Tiada)');
+      t.eq(L({ kuantiti: 3, tajuk: 'tetikus' }).items.length, 0, 'gabungan penapis');
+      const fv = L({ tajuk: 'Projektor' }).meta.filterValues;
+      t.eq(fv.kuantiti.map(function (o) { return o.value + ':' + o.count; }).join(), '3:2', 'pilihan ikut penapis lain');
+      const all = L({}).meta.filterValues;
+      t.eq(all.kuantiti[0].value, '10', 'int menurun'); t.eq(all.kuantiti[all.kuantiti.length - 1].value, CrudEngine.EMPTY);
+      t.eq(all.tajuk[0].count, 2, 'nilai sama digabung'); t.eq(all.jenis, undefined, 'enum tiada pilihan dinamik');
+      TestAssert.apiFail(TestHelpers.call(u.token, 'crud.list', { module: 'tiket', filters: { kuantiti: 'abc' } }), ERROR_CODES.VALIDATION_ERROR);
       TestFixtures.uninstall();
     }],
     ['Mass assignment & XSS: lajur sistem/adminOnly diabaikan, tag HTML dibuang', function (t) {

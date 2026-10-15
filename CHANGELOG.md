@@ -1,5 +1,18 @@
 # CHANGELOG
 
+## 1.20.0 — 2026-10-15 · Penapis Aset IT
+### Ditambah
+- Penapis baharu dalam senarai Aset IT
+  - Penapis utama: **Tahun perolehan** (tahun terkini dahulu, dengan bilangan aset).
+  - Di bawah "Lagi penapis": jenama, sistem operasi, RAM, status lesen OS, lokasi fizikal dan sedang dipinjam.
+  - Penapis sedia ada kekal.
+- Enjin modul: `filter` kini menyokong medan **int / string**
+  - Pilihan diambil daripada data sebenar, dengan bilangan, dan dikira mengikut penapis lain yang aktif.
+  - Pilihan "(Tiada)" untuk rekod tanpa nilai.
+  - `filterOrder` menyusun penapis. Jika ada lebih 4 penapis, selebihnya dilipat di bawah "Lagi penapis".
+- Cip penapis aktif (cth. "Tahun perolehan: 2024 ×") dan butang **Reset penapis**.
+- Eksport CSV mengikut penapis yang dipilih.
+
 ## 1.19.0 — 2026-10-15 · Unjuran pelajar & keperluan PC makmal
 ### Ditambah
 - Tab **Unjuran pelajar & keperluan PC** dalam Perancangan aset IT (Pengurusan / Admin)
