@@ -202,14 +202,32 @@ const AiService = {
       contents: turns.map(function (t) { return { role: t.role === 'model' ? 'model' : 'user', parts: [{ text: t.text }] }; }),
       generationConfig: { temperature: (opts && opts.temperature) || 0.3, maxOutputTokens: (opts && opts.maxTokens) || 2048 }
     };
-    const url = AiService.HOST + encodeURIComponent(st.model) + ':generateContent';
-    let res;
-    try {
-      res = AiService.http_(url, { method: 'post', contentType: 'application/json', headers: { 'x-goog-api-key': AiService.key_() }, payload: JSON.stringify(body) });
-    } catch (e) {
-      if (e && e.name === 'NeedData') throw e;
-      AppLogger.warn('AI: sambungan gagal', { message: String(e && e.message) });
-      throw Errors.validation('Perkhidmatan AI tidak dapat dihubungi. Cuba lagi sebentar.');
+    /*
+     * Cubaan semula: 500/502/503/504 (model sesak) & ralat sambungan → cuba semula sekali, kemudian model sandaran.
+     * 429 (kuota model utama) → model sandaran (kuota berasingan). 404 pada model sandaran → abaikan.
+     */
+    const backup = String(AiService.setting_('AI_MODEL_SANDARAN', 'gemini-flash-lite-latest') || '').trim();
+    const models = [st.model].concat(backup && backup !== st.model ? [backup] : []);
+    const payload = JSON.stringify(body);
+    const busy = function (c) { return c === 0 || c === 500 || c === 502 || c === 503 || c === 504; };
+    let res = null, used = st.model, lastBusy = 0;
+    outer:
+    for (let mi = 0; mi < models.length; mi++) {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        used = models[mi];
+        try {
+          res = AiService.http_(AiService.HOST + encodeURIComponent(used) + ':generateContent',
+            { method: 'post', contentType: 'application/json', headers: { 'x-goog-api-key': AiService.key_() }, payload: payload });
+        } catch (e) {
+          if (e && e.name === 'NeedData') throw e;
+          AppLogger.warn('AI: sambungan gagal', { model: used, message: String(e && e.message) });
+          res = { code: 0, text: '' };
+        }
+        if (busy(res.code)) { lastBusy = res.code; if (attempt === 0) { try { Utilities.sleep(1500); } catch (e) { /* tiada */ } } continue; }
+        if (res.code === 429 && mi < models.length - 1) continue outer;
+        if (res.code === 404 && mi > 0) { res = { code: lastBusy || 503, text: '' }; break outer; }
+        break outer;
+      }
     }
     let data = null;
     try { data = JSON.parse(res.text || '{}'); } catch (e) { data = null; }
@@ -218,7 +236,11 @@ const AiService = {
       const why = AiService.googleReason_(res);
       throw Errors.validation('AI tidak dapat digunakan: ' + why + (/kunci/.test(why) ? ' Admin perlu menetapkan kunci baharu (AI Advisor → Urus kunci API).' : ''));
     }
-    if (res.code === 404) throw Errors.validation('Model AI "' + st.model + '" tidak ditemui. Tukar Tetapan AI_MODEL (cth. gemini-flash-latest).');
+    if (res.code === 404) throw Errors.validation('Model AI "' + used + '" tidak ditemui. Tukar Tetapan AI_MODEL (cth. gemini-flash-latest).');
+    if (busy(res.code)) {
+      AppLogger.warn('AI: model sesak', { code: res.code, models: models.join(',') });
+      throw Errors.validation('Pelayan AI Google sedang sesak (' + (res.code || 'tiada sambungan') + '), termasuk model sandaran. Ini biasa pada peringkat percuma waktu puncak — cuba lagi dalam 1–2 minit.');
+    }
     if (res.code !== 200 || !data) {
       AppLogger.warn('AI: ralat', { code: res.code });
       throw Errors.validation('Perkhidmatan AI sedang bermasalah (' + res.code + '). Cuba lagi sebentar.');
@@ -226,7 +248,7 @@ const AiService = {
     const cand = (data.candidates || [])[0];
     const text = cand && cand.content && cand.content.parts ? cand.content.parts.map(function (p) { return p.text || ''; }).join('').trim() : '';
     if (!text) throw Errors.validation(cand && cand.finishReason === 'SAFETY' ? 'Jawapan disekat oleh penapis keselamatan AI. Cuba ubah soalan.' : 'AI tidak memberi jawapan. Cuba ubah soalan.');
-    return { text: text.slice(0, 20000), model: st.model };
+    return { text: text.slice(0, 20000), model: used };
   },
 
   clean_: function (s, max) { return String(s === undefined || s === null ? '' : s).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '').trim().slice(0, max); },

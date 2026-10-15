@@ -15,7 +15,7 @@ const CONFIG = Object.freeze({
   APP_SLUG: 'DashboardUnitITFKM', // @init:slug
   /** Warna jenama (email, dsb.). */
   BRAND_COLOR: '#1D5FD1', // @init:brandColor
-  VERSION: '1.21.1',
+  VERSION: '1.21.2',
   TIMEZONE_FALLBACK: 'Asia/Kuala_Lumpur',
 
   DEFAULT_PAGE_SIZE: 20,

@@ -1400,7 +1400,7 @@ const TestSuiteAi = {
       const a = KhFx.admin();
       const sent = [];
       let reply = { code: 200, text: JSON.stringify({ candidates: [{ content: { parts: [{ text: '## Ringkasan\n- **3** makmal kritikal' }] } }] }) };
-      AiService.transport = function (url, params) { sent.push({ url: url, params: params }); return reply; };
+      AiService.transport = function (url, params) { sent.push({ url: url, params: params }); return typeof reply === 'function' ? reply(url, params) : reply; };
       /* Ujian juga dijalankan dalam Apps Script sebenar: simpan & pulihkan kunci sebenar */
       const realKey = PropertiesService.getScriptProperties().getProperty(AiService.KEY_PROP);
       try {
@@ -1438,6 +1438,19 @@ const TestSuiteAi = {
         t.ok(/DATA SISTEM/.test(parsed.systemInstruction.parts[0].text) && /ringkasan/.test(parsed.systemInstruction.parts[0].text), 'konteks agregat dihantar');
         const tk = TestAssert.apiOk(TestHelpers.call(a.token, 'ai.taklimat', { audiens: 'NC', fokus: 'keperluan komputer' }));
         t.ok(/Naib Canselor/.test(tk.audiens) && tk.taklimat, 'taklimat');
+        /* Model sesak (503): cuba semula, kemudian model sandaran */
+        const okBody = JSON.stringify({ candidates: [{ content: { parts: [{ text: 'Jawapan sandaran' }] } }] });
+        let n0 = sent.length;
+        reply = function (url) { return /flash-lite/.test(url) ? { code: 200, text: okBody } : { code: 503, text: '{}' }; };
+        const fb = TestAssert.apiOk(TestHelpers.call(a.token, 'ai.tanya', { soalan: 'Soalan semasa sesak' }));
+        t.eq(fb.jawapan, 'Jawapan sandaran'); t.ok(/lite/.test(fb.model), 'model sandaran: ' + fb.model);
+        t.eq(sent.length - n0, 3, 'utama ×2 + sandaran ×1');
+        reply = function () { return { code: 503, text: '{}' }; };
+        t.ok(/sesak/.test(TestAssert.apiFail(TestHelpers.call(a.token, 'ai.tanya', { soalan: 'Semua sesak' }), ERROR_CODES.VALIDATION_ERROR).message), 'semua sesak');
+        n0 = sent.length;
+        reply = function (url) { return /flash-lite/.test(url) ? { code: 200, text: okBody } : { code: 429, text: '{}' }; };
+        t.eq(TestAssert.apiOk(TestHelpers.call(a.token, 'ai.tanya', { soalan: 'Kuota utama habis' })).jawapan, 'Jawapan sandaran', '429 → sandaran');
+        t.eq(sent.length - n0, 2);
         /* Ralat penyedia */
         reply = { code: 429, text: '{}' };
         TestAssert.apiFail(TestHelpers.call(a.token, 'ai.tanya', { soalan: 'Soalan kuota' }), ERROR_CODES.RATE_LIMITED);

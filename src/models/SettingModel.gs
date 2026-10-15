@@ -39,6 +39,7 @@ const SETTINGS_DEFS = Object.freeze({
   PINJAMAN_MAX_HARI: { type: 'int', default: 30, min: 1, max: 365, minRole: 'ADMIN', public: true, description: 'Pinjaman aset: tempoh maksimum (hari)' },
   AI_AKTIF: { type: 'bool', default: true, minRole: 'ADMIN', public: false, description: 'AI Advisor (Gemini): hidupkan untuk Pengurusan & Unit IT (kunci API ditetapkan di Perancangan → AI Advisor)' },
   AI_MODEL: { type: 'string', default: 'gemini-flash-latest', max: 60, minRole: 'ADMIN', public: false, description: 'AI Advisor: nama model Gemini (cth. gemini-flash-latest, gemini-flash-lite-latest)' },
+  AI_MODEL_SANDARAN: { type: 'string', default: 'gemini-flash-lite-latest', max: 60, minRole: 'ADMIN', public: false, description: 'AI Advisor: model sandaran jika model utama sesak (503) atau kuotanya habis (kosongkan untuk matikan)' },
   AI_HAD_SEHARI: { type: 'int', default: 200, min: 1, max: 5000, minRole: 'ADMIN', public: false, description: 'AI Advisor: had soalan sehari untuk seluruh sistem (kekal dalam kuota percuma)' },
   UNJURAN_PELAJAR: { type: 'text', default: '', max: 6000, minRole: 'ADMIN', public: false, hidden: true, description: 'Andaian unjuran pelajar → keperluan PC (JSON; disunting melalui Perancangan → Unjuran pelajar)' },
   EMAIL_RINGKASAN_TAMBAHAN: { type: 'string', default: '', max: 400, minRole: 'ADMIN', public: false, description: 'Penerima tambahan email ringkasan bulanan (dipisah koma), cth. pejabat Dekan' }

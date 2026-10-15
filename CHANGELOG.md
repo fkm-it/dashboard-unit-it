@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 1.21.2 — 2026-10-15 · AI Advisor: tahan model sesak
+### Diperbaiki
+- Ralat 503 / 500 (model Gemini sesak) dan ralat sambungan: sistem cuba semula sekali, kemudian beralih kepada **model sandaran** (Tetapan `AI_MODEL_SANDARAN`, lalai `gemini-flash-lite-latest`).
+- Ralat 429 (kuota model utama habis) juga beralih ke model sandaran, kerana setiap model mempunyai kuota berasingan.
+- Mesej ralat lebih jelas jika semua model sesak.
+
 ## 1.21.1 — 2026-10-15 · AI Advisor: semakan kunci API
 ### Diperbaiki
 - Kunci API **diuji dengan Google sebelum disimpan** (models.get, tiada kuota token digunakan). Kunci yang ditolak tidak disimpan.
