@@ -150,9 +150,11 @@ await test('AI Advisor: HTTP keluar melalui EDGE_HTTP (hos senarai putih), kunci
   assert(st.adaKunci && st.kunciHujung === KEY.slice(-4) && JSON.stringify(st).indexOf(KEY) < 0, 'status tanpa kunci penuh');
   const r = ok(await call(rt, 'ai.tanya', { soalan: 'Makmal mana paling kritikal?' }, sup.token));
   assert(r.jawapan === 'Jawapan ujian AI', 'jawapan: ' + JSON.stringify(r));
-  assert(calls.length === 1 && calls[0].url.indexOf('https://generativelanguage.googleapis.com/') === 0, 'hos: ' + (calls[0] && calls[0].url));
-  assert(calls[0].init.headers['x-goog-api-key'] === KEY, 'kunci dalam pengepala');
-  assert(calls[0].init.body.indexOf(KEY) < 0 && calls[0].init.body.indexOf('unit.it.rahsia@utm.my') < 0, 'tiada kunci / email dalam badan');
+  assert(calls.length === 2 && calls[0].init.method === 'GET', 'kunci diuji dahulu (GET models): ' + calls.length);
+  const q = calls[1];
+  assert(q.url.indexOf('https://generativelanguage.googleapis.com/') === 0 && /:generateContent$/.test(q.url), 'hos: ' + q.url);
+  assert(q.init.headers['x-goog-api-key'] === KEY, 'kunci dalam pengepala');
+  assert(q.init.body.indexOf(KEY) < 0 && q.init.body.indexOf('unit.it.rahsia@utm.my') < 0, 'tiada kunci / email dalam badan');
   await assertNoPlain([KEY]);
   let blocked = '';
   try { await rt.execute((B2, ctx) => ctx.globals.EDGE_HTTP.fetch('https://contoh-jahat.example.com/x', {})); } catch (e) { blocked = e.message; }

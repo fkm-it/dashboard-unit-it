@@ -43,17 +43,54 @@ const AiService = {
 
   /** Admin: tetapkan / buang kunci API (tulis sahaja). */
   setKey: function (payload, ctx) {
-    const k = String((payload && payload.kunci) || '').trim();
+    const k = String((payload && payload.kunci) || '').replace(/\s+/g, '').replace(/^["'`]+|["'`]+$/g, '');
     const props = PropertiesService.getScriptProperties();
     if (payload && payload.buang === true) {
       props.deleteProperty(AiService.KEY_PROP);
       AuditService.log(ctx, AUDIT_ACTIONS.SETTINGS_UPDATED, 'SETTINGS', AiService.KEY_PROP, 'Kunci AI dibuang');
       return AiService.status(ctx);
     }
-    if (!/^[A-Za-z0-9_\-]{20,200}$/.test(k)) throw Errors.validation('Kunci API tidak sah.', { kunci: 'Tampal kunci API daripada Google AI Studio.' });
+    if (!/^[A-Za-z0-9._\-]{20,300}$/.test(k)) {
+      throw Errors.validation('Format kunci tidak dikenali. Salin semula kunci penuh daripada Google AI Studio (biasanya bermula "AIza", 39 aksara), tanpa teks lain.',
+        { kunci: 'Format kunci tidak dikenali (' + k.length + ' aksara).' });
+    }
+    /* Uji kunci dengan Google sebelum disimpan (models.get: tiada kuota token digunakan) */
+    const model = AiService.setting_('AI_MODEL', 'gemini-flash-latest');
+    let res = null;
+    try { res = AiService.http_(AiService.HOST + encodeURIComponent(model), { method: 'get', headers: { 'x-goog-api-key': k } }); } catch (e) {
+      if (e && e.name === 'NeedData') throw e;
+      res = { code: 0, text: '' };
+    }
+    let nota = '';
+    if (res.code === 404) nota = 'Kunci sah, tetapi model "' + model + '" tidak ditemui. Semak Tetapan AI_MODEL.';
+    else if (res.code === 0 || res.code >= 500) nota = 'Kunci disimpan tetapi tidak dapat diuji sekarang (Google tidak dapat dihubungi).';
+    else if (res.code !== 200) throw Errors.validation('Kunci tidak disimpan: ' + AiService.googleReason_(res), { kunci: 'Ditolak oleh Google.' });
     props.setProperty(AiService.KEY_PROP, k);
-    AuditService.log(ctx, AUDIT_ACTIONS.SETTINGS_UPDATED, 'SETTINGS', AiService.KEY_PROP, 'Kunci AI ditetapkan (…' + k.slice(-4) + ')');
-    return AiService.status(ctx);
+    AuditService.log(ctx, AUDIT_ACTIONS.SETTINGS_UPDATED, 'SETTINGS', AiService.KEY_PROP, 'Kunci AI ditetapkan (…' + k.slice(-4) + ')' + (nota ? ' · ' + nota : ''));
+    return Object.assign(AiService.status(ctx), { diuji: res.code === 200, nota: nota });
+  },
+
+  /**
+   * Jawapan ralat Google → sebab dalam BM (tanpa mendedahkan kunci).
+   * Sebab biasa: kunci salah/dipadam, Generative Language API tidak diaktifkan, sekatan kunci (referrer / IP / API),
+   * lokasi tidak disokong, kuota.
+   */
+  googleReason_: function (res) {
+    let err = null;
+    try { err = JSON.parse(res.text || '{}').error || null; } catch (e) { err = null; }
+    const msg = err && err.message ? String(err.message) : '';
+    const reasons = [];
+    ((err && err.details) || []).forEach(function (d) { if (d && d.reason) reasons.push(String(d.reason)); });
+    const has = function (r) { return reasons.indexOf(r) >= 0 || msg.indexOf(r) >= 0; };
+    AppLogger.warn('AI: ditolak', { code: res.code, status: err && err.status, reasons: reasons.join(','), message: msg.slice(0, 200) });
+    if (res.code === 429 || has('RESOURCE_EXHAUSTED')) return 'kuota percuma Gemini telah habis buat sementara. Cuba lagi selepas beberapa minit atau esok.';
+    if (has('API_KEY_INVALID') || /API key not valid|API key expired/i.test(msg)) return 'kunci API tidak sah, telah dipadam atau tamat tempoh. Jana kunci baharu di aistudio.google.com dan salin sepenuhnya.';
+    if (has('SERVICE_DISABLED') || /has not been used|is disabled/i.test(msg)) return '"Generative Language API" belum diaktifkan untuk projek Google kunci ini. Aktifkan di Google Cloud Console (APIs & Services), atau jana kunci melalui AI Studio.';
+    if (has('API_KEY_HTTP_REFERRER_BLOCKED') || has('API_KEY_IP_ADDRESS_BLOCKED') || has('API_KEY_ANDROID_APP_BLOCKED') || has('API_KEY_IOS_APP_BLOCKED')) return 'kunci ini mempunyai sekatan aplikasi (laman web / IP). Panggilan datang dari pelayan, jadi tetapkan "Application restrictions: None" pada kunci di Google Cloud Console.';
+    if (has('API_KEY_SERVICE_BLOCKED')) return 'kunci ini disekat daripada Generative Language API (sekatan API pada kunci). Benarkan "Generative Language API" pada kunci tersebut.';
+    if (/location is not supported/i.test(msg)) return 'lokasi pelayan tidak disokong oleh Gemini API.';
+    if (res.code === 403 || has('PERMISSION_DENIED')) return 'akses ditolak oleh Google (' + (err && err.status ? err.status : res.code) + '). Semak kunci dan projek Google.';
+    return 'Google menolak permintaan (' + res.code + (err && err.status ? ' ' + err.status : '') + ').';
   },
 
   // ================================================================== Konteks agregat (senarai putih)
@@ -178,9 +215,8 @@ const AiService = {
     try { data = JSON.parse(res.text || '{}'); } catch (e) { data = null; }
     if (res.code === 429) throw new AppError(ERROR_CODES.RATE_LIMITED, 'Kuota percuma Gemini telah habis buat sementara. Cuba lagi selepas beberapa minit atau esok.');
     if (res.code === 400 || res.code === 403) {
-      const msg = data && data.error && data.error.message ? String(data.error.message) : '';
-      AppLogger.warn('AI: ditolak', { code: res.code, message: msg.slice(0, 200) });
-      throw Errors.validation(/API key/i.test(msg) ? 'Kunci API Gemini tidak sah atau telah dibatalkan. Admin perlu menetapkan kunci baharu.' : 'Permintaan AI ditolak oleh Google (' + res.code + ').');
+      const why = AiService.googleReason_(res);
+      throw Errors.validation('AI tidak dapat digunakan: ' + why + (/kunci/.test(why) ? ' Admin perlu menetapkan kunci baharu (AI Advisor → Urus kunci API).' : ''));
     }
     if (res.code === 404) throw Errors.validation('Model AI "' + st.model + '" tidak ditemui. Tukar Tetapan AI_MODEL (cth. gemini-flash-latest).');
     if (res.code !== 200 || !data) {

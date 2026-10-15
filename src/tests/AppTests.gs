@@ -1408,7 +1408,20 @@ const TestSuiteAi = {
         TestAssert.apiFail(TestHelpers.call(a.token, 'ai.tanya', { soalan: 'Apa status aset?' }), ERROR_CODES.VALIDATION_ERROR, 'tiada kunci');
         TestAssert.apiFail(TestHelpers.call(a.token, 'ai.kunci', { kunci: 'pendek' }), ERROR_CODES.VALIDATION_ERROR);
         const KEY = 'kunciUjian_' + Utilities.getUuid().replace(/-/g, '');
-        const st = TestAssert.apiOk(TestHelpers.call(a.token, 'ai.kunci', { kunci: KEY }));
+        /* Kunci diuji dengan Google sebelum disimpan; sebab penolakan dijelaskan */
+        const saved = reply;
+        reply = { code: 400, text: JSON.stringify({ error: { code: 400, status: 'INVALID_ARGUMENT', message: 'API key not valid. Please pass a valid API key.', details: [{ reason: 'API_KEY_INVALID' }] } }) };
+        const inv = TestAssert.apiFail(TestHelpers.call(a.token, 'ai.kunci', { kunci: KEY }), ERROR_CODES.VALIDATION_ERROR);
+        t.ok(/tidak disimpan/.test(inv.message) && /tidak sah/.test(inv.message), inv.message);
+        t.ok(!PropertiesService.getScriptProperties().getProperty(AiService.KEY_PROP), 'kunci ditolak tidak disimpan');
+        reply = { code: 403, text: JSON.stringify({ error: { code: 403, status: 'PERMISSION_DENIED', message: 'Generative Language API has not been used in project 123 before or it is disabled.', details: [{ reason: 'SERVICE_DISABLED' }] } }) };
+        t.ok(/belum diaktifkan/.test(TestAssert.apiFail(TestHelpers.call(a.token, 'ai.kunci', { kunci: KEY }), ERROR_CODES.VALIDATION_ERROR).message), 'API belum diaktifkan');
+        reply = { code: 403, text: JSON.stringify({ error: { code: 403, status: 'PERMISSION_DENIED', message: 'Requests from referer <empty> are blocked.', details: [{ reason: 'API_KEY_HTTP_REFERRER_BLOCKED' }] } }) };
+        t.ok(/sekatan aplikasi/.test(TestAssert.apiFail(TestHelpers.call(a.token, 'ai.kunci', { kunci: KEY }), ERROR_CODES.VALIDATION_ERROR).message), 'sekatan referrer');
+        reply = saved;
+        const sentBefore = sent.length;
+        const st = TestAssert.apiOk(TestHelpers.call(a.token, 'ai.kunci', { kunci: ' "' + KEY.slice(0, 10) + ' ' + KEY.slice(10) + '"\n' }));
+        t.ok(st.diuji && sent[sentBefore].params.method === 'get' && sent[sentBefore].params.headers['x-goog-api-key'] === KEY, 'ruang/petikan dibuang & kunci diuji (GET models)');
         t.ok(st.adaKunci && st.kunciHujung === KEY.slice(-4) && JSON.stringify(st).indexOf(KEY) < 0, 'kunci tidak dipulangkan');
         /* Data peribadi dalam rekod tidak boleh sampai ke AI */
         KhFx.assets(a, [{ noAset: 'AI-1', jenis: 'DESKTOP', pegawaiBertanggungjawab: 'Penjaga Rahsia Ujian', emailPenjaga: 'rahsia.penjaga@test.local', noPekerjaPenjaga: 'P99887' }]);
@@ -1430,7 +1443,7 @@ const TestSuiteAi = {
         TestAssert.apiFail(TestHelpers.call(a.token, 'ai.tanya', { soalan: 'Soalan kuota' }), ERROR_CODES.RATE_LIMITED);
         reply = { code: 400, text: JSON.stringify({ error: { message: 'API key not valid. Please pass a valid API key.' } }) };
         const bad = TestAssert.apiFail(TestHelpers.call(a.token, 'ai.tanya', { soalan: 'Soalan kunci' }), ERROR_CODES.VALIDATION_ERROR);
-        t.ok(/Kunci API/.test(bad.message), bad.message);
+        t.ok(/kunci API tidak sah/.test(bad.message), bad.message);
         reply = { code: 200, text: JSON.stringify({ candidates: [{ content: { parts: [{ text: 'ok' }] } }] }) };
         /* Had harian */
         const hadAsal = SettingsService.get('AI_HAD_SEHARI');

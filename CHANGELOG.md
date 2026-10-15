@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 1.21.1 — 2026-10-15 · AI Advisor: semakan kunci API
+### Diperbaiki
+- Kunci API **diuji dengan Google sebelum disimpan** (models.get, tiada kuota token digunakan). Kunci yang ditolak tidak disimpan.
+- Ruang, baris baharu dan tanda petikan yang ikut tersalin dibuang secara automatik.
+- Mesej ralat kini menyatakan sebab sebenar penolakan oleh Google:
+  - kunci salah / dipadam / tamat tempoh
+  - Generative Language API belum diaktifkan
+  - sekatan aplikasi pada kunci (referrer / IP)
+  - sekatan API pada kunci
+  - lokasi tidak disokong
+  - kuota habis
+
 ## 1.21.0 — 2026-10-15 · AI Advisor (Google Gemini, peringkat percuma)
 ### Ditambah
 - **AI Advisor** untuk Pengurusan dan Unit IT (menu "AI Advisor"; `#/admin/ai` dan `#/pengurusan/ai`)

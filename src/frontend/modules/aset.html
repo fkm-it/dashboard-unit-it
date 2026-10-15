@@ -1147,7 +1147,7 @@
       on(box, 'submit', '[data-ai-key]', (e, f) => {
         e.preventDefault();
         busy(qs('button[type="submit"]', f), async () => {
-          try { st = await KD.api.call('ai.kunci', { kunci: f.kunci.value.trim() }); f.kunci.value = ''; toast('Kunci disimpan. AI Advisor aktif.'); draw(); } catch (err) { toastError(err); }
+          try { st = await KD.api.call('ai.kunci', { kunci: f.kunci.value.trim() }); f.kunci.value = ''; toast(st.nota || 'Kunci disahkan oleh Google dan disimpan. AI Advisor aktif.'); draw(); } catch (err) { toastError(err); }
         });
       });
       on(box, 'click', '[data-ai-rmkey]', async (e, b) => {
