@@ -37,6 +37,9 @@ const SETTINGS_DEFS = Object.freeze({
   KEPERLUAN_DOMAIN_EMAIL: { type: 'string', default: 'utm.my', max: 200, minRole: 'ADMIN', public: true, description: 'Borang banci makmal: domain email dibenarkan (dipisah koma; subdomain diterima, cth. utm.my). * = semua domain' },
   ASET_DOMAIN_EMAIL: { type: 'string', default: 'utm.my', max: 200, minRole: 'ADMIN', public: true, description: 'Borang awam pinjaman / aduan kerosakan / kehilangan aset: domain email dibenarkan (dipisah koma; subdomain diterima, cth. utm.my merangkumi graduate.utm.my). * = semua domain' },
   PINJAMAN_MAX_HARI: { type: 'int', default: 30, min: 1, max: 365, minRole: 'ADMIN', public: true, description: 'Pinjaman aset: tempoh maksimum (hari)' },
+  AI_AKTIF: { type: 'bool', default: true, minRole: 'ADMIN', public: false, description: 'AI Advisor (Gemini): hidupkan untuk Pengurusan & Unit IT (kunci API ditetapkan di Perancangan → AI Advisor)' },
+  AI_MODEL: { type: 'string', default: 'gemini-flash-latest', max: 60, minRole: 'ADMIN', public: false, description: 'AI Advisor: nama model Gemini (cth. gemini-flash-latest, gemini-flash-lite-latest)' },
+  AI_HAD_SEHARI: { type: 'int', default: 200, min: 1, max: 5000, minRole: 'ADMIN', public: false, description: 'AI Advisor: had soalan sehari untuk seluruh sistem (kekal dalam kuota percuma)' },
   UNJURAN_PELAJAR: { type: 'text', default: '', max: 6000, minRole: 'ADMIN', public: false, hidden: true, description: 'Andaian unjuran pelajar → keperluan PC (JSON; disunting melalui Perancangan → Unjuran pelajar)' },
   EMAIL_RINGKASAN_TAMBAHAN: { type: 'string', default: '', max: 400, minRole: 'ADMIN', public: false, description: 'Penerima tambahan email ringkasan bulanan (dipisah koma), cth. pejabat Dekan' }
 });

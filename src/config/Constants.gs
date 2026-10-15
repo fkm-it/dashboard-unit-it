@@ -41,6 +41,7 @@ const CATEGORY_ICONS = Object.freeze([
 ]);
 
 const AUDIT_ACTIONS = Object.freeze({
+  AI_QUERY: 'AI_QUERY',
   USER_REGISTERED: 'USER_REGISTERED',
   USER_LOGIN: 'USER_LOGIN',
   ADMIN_LOGIN: 'ADMIN_LOGIN',

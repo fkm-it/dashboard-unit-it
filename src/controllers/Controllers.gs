@@ -60,6 +60,14 @@ const NotificationController = {
   markAllRead: function (p, ctx) { return NotificationService.markAllRead(ctx); }
 };
 
+/** AI Advisor (logik dalam AiService). */
+const AiController = {
+  status: function (p, ctx) { return AiService.status(ctx); },
+  ask: function (p, ctx) { return AiService.ask(p || {}, ctx); },
+  briefing: function (p, ctx) { return AiService.briefing(p || {}, ctx); },
+  setKey: function (p, ctx) { return AiService.setKey(p || {}, ctx); }
+};
+
 const AdminController = {
   stats: function () { return DashboardService.adminStats(); },
 

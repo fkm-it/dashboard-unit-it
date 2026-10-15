@@ -24,6 +24,10 @@ export const SHARED_KV = ['kd1:rl:', 'kd1:loginfail:', 'kd1:reset:', 'kd1:idem:'
 export const TIME_ZONE = 'Asia/Kuala_Lumpur';
 const APPEND_BASE = 1000000;
 
+/** Hos HTTP keluar yang dibenarkan untuk kod .gs (EDGE_HTTP). */
+const HTTP_ALLOW = ['generativelanguage.googleapis.com'];
+const HTTP_TIMEOUT_MS = 90000;
+
 class NeedData extends Error {
   constructor(what) { super('Data belum dimuat: ' + what); this.name = 'NeedData'; }
 }
@@ -200,8 +204,10 @@ export function createRuntime(opts) {
   }
 
   /** Perkhidmatan GAS untuk satu larian. */
-  function makeContext(vers, kvLoaded, filesDone) {
+  function makeContext(vers, kvLoaded, filesDone, httpDone) {
     const ctx = {
+      missingHttp: new Map(), /* kunci → permintaan HTTP keluar (hos senarai putih) yang belum dibuat */
+      httpSeq: 0,
       missingFiles: new Map(), /* kunci → tugasan lampiran (Google Drive melalui Apps Script) yang belum dibuat */
       vers,
       working: new Map(), /* name → Sheet (disalin semasa diakses) */
@@ -422,6 +428,25 @@ export function createRuntime(opts) {
           throw new NeedData('lampiran');
         },
         trash: (id) => { ctx.outbox.push({ kind: 'drive', payload: { op: 'trash', id: String(id) } }); }
+      },
+      /*
+       * HTTP keluar (cth. AI Advisor → Gemini API). Kod GAS segerak → permintaan direkod, larian dihentikan (NeedData),
+       * runtime membuat fetch (async) & mengulang larian dengan jawapan. Hanya hos dalam HTTP_ALLOW.
+       * params ikut UrlFetchApp: { method, contentType, headers, payload } → { code, text }
+       */
+      EDGE_HTTP: {
+        fetch: (url, params) => {
+          const u = new URL(String(url));
+          if (u.protocol !== 'https:' || HTTP_ALLOW.indexOf(u.hostname) < 0) throw new Error('Hos HTTP tidak dibenarkan: ' + u.hostname);
+          const p = params || {};
+          const req = { url: u.toString(), method: String(p.method || 'get').toUpperCase(), headers: Object.assign({}, p.headers || {}), body: p.payload === undefined ? undefined : String(p.payload) };
+          if (p.contentType) req.headers['content-type'] = p.contentType;
+          /* Kunci = urutan panggilan + kaedah + URL (badan boleh berubah antara larian, cth. cap masa dalam konteks) */
+          const key = 'h|' + (ctx.httpSeq++) + '|' + req.method + ' ' + req.url;
+          if (httpDone.has(key)) return httpDone.get(key);
+          ctx.missingHttp.set(key, req);
+          throw new NeedData('http');
+        }
       }
     };
     return ctx;
@@ -499,6 +524,7 @@ export function createRuntime(opts) {
     const maxPasses = o.maxPasses || 10;
     const kvLoaded = new Map();
     const filesDone = new Map();
+    const httpDone = new Map();
     const pre = o.preloadKv && o.preloadKv.length ? store.loadKv(o.preloadKv) : null;
     let vers;
     if (!cache.props && cache.sheets.size === 0 && store.boot) {
@@ -514,11 +540,26 @@ export function createRuntime(opts) {
     for (let pass = 0; pass < maxPasses; pass++) {
       stats.passes++;
       await refresh(vers, wantedLazy);
-      const ctx = makeContext(vers, kvLoaded, filesDone);
+      const ctx = makeContext(vers, kvLoaded, filesDone, httpDone);
       const B = createBackend(ctx.globals);
       let result;
       let error = null;
       try { result = task(B, ctx); } catch (e) { error = e; }
+      if (ctx.missingHttp.size) {
+        const doFetch = opts.fetch || globalThis.fetch;
+        for (const [key, req] of ctx.missingHttp) {
+          let r;
+          try {
+            const ac = new AbortController();
+            const timer = setTimeout(() => ac.abort(), HTTP_TIMEOUT_MS);
+            const res = await doFetch(req.url, { method: req.method, headers: req.headers, body: req.body, signal: ac.signal });
+            r = { code: res.status, text: (await res.text()).slice(0, 2000000) };
+            clearTimeout(timer);
+          } catch (e) { r = { code: 0, text: '', error: String(e && e.message || e) }; }
+          httpDone.set(key, r);
+        }
+        if (!ctx.missingFiles.size && !ctx.missingSheets.size && !ctx.missingKv.size) continue;
+      }
       if (ctx.missingFiles.size) {
         if (!opts.files) throw new Error('Lampiran tidak tersedia (pelayan fail Apps Script tidak dikonfigurasi).');
         for (const [key, job] of ctx.missingFiles) {

@@ -57,7 +57,7 @@
 .im-scroll { overflow-x: auto; max-width: 100%; }
 .im-scroll table { min-width: 560px; }
 .lp-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: var(--sp-4); overflow-x: auto; }
-.lp-tab { padding: 10px 14px; font-weight: 600; font-size: var(--fs-sm); color: var(--muted); text-decoration: none; border-bottom: 2px solid transparent; white-space: nowrap; }
+.lp-tab { background: none; border-top: 0; border-left: 0; border-right: 0; cursor: pointer; padding: 10px 14px; font-weight: 600; font-size: var(--fs-sm); color: var(--muted); text-decoration: none; border-bottom: 2px solid transparent; white-space: nowrap; }
 .lp-tab.is-active { color: var(--brand); border-bottom-color: var(--brand); }
 .lp-filters { display: flex; gap: var(--sp-2); flex-wrap: wrap; align-items: center; margin-bottom: var(--sp-4); }
 .lp-filters .select { width: auto; min-width: 0; max-width: 100%; }
@@ -77,6 +77,18 @@
 .uj-track i { display: block; height: 100%; border-radius: 6px; }
 .uj-track .is-ada { background: #94A3B8; } .uj-track .is-ok { background: var(--success); } .uj-track .is-kurang { background: var(--danger); }
 .uj-red { color: var(--danger); font-weight: 600; }
+.ai-chat { display: grid; gap: var(--sp-4); }
+.ai-log { display: grid; gap: var(--sp-3); max-height: 60vh; overflow: auto; align-content: start; }
+.ai-msg { padding: 10px 14px; border-radius: var(--r-md); max-width: 92%; overflow-wrap: anywhere; }
+.ai-msg--u { justify-self: end; background: var(--brand); color: #fff; white-space: pre-wrap; }
+.ai-msg--a { justify-self: start; background: var(--canvas-200); }
+.ai-wait { color: var(--muted); }
+.ai-md p, .ai-md ul, .ai-md ol { margin: 0 0 8px; } .ai-md ul, .ai-md ol { padding-left: 1.3em; } .ai-md li { margin: 2px 0; }
+.ai-md .ai-h { font-size: var(--fs-md, 1rem); margin: 10px 0 6px; }
+.ai-sugg { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; } .ai-sugg .chip { text-align: left; white-space: normal; }
+.ai-ask { display: grid; gap: var(--sp-2); }
+.ai-setup ol { padding-left: 1.2em; display: grid; gap: 6px; }
+@media print { .ai-brief { box-shadow: none; border: 0; } }
 .lp-note { font-size: var(--fs-xs); color: var(--muted); margin-top: var(--sp-2); }
 .tr-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-4); }
 .tr-grid > .panel { min-width: 0; }
@@ -1029,14 +1041,132 @@
   KD.extraRoutes.push({ path: '/admin/import-aset', view: 'importAset', access: 'admin', layout: 'admin', title: 'Import aset' });
   KD.extraRoutes.push({ path: '/admin/sistem', view: 'adminSistem', access: 'admin', layout: 'admin', title: 'Statistik sistem' });
   KD.extraRoutes.push({ path: '/admin/laporan-aset', view: 'laporanAset', access: 'admin', layout: 'admin', title: 'Laporan aset' });
+  /* ================================================================ AI Advisor (Gemini) — Pengurusan + Unit IT */
+  /** Markdown ringkas → HTML. Setiap baris di-escape dahulu (html``) sebelum format; tiada HTML mentah daripada AI. */
+  const mdLite = (text) => {
+    const fmt = (escaped) => escaped.replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>').replace(/`([^`]+)`/g, '<code>$1</code>');
+    const out = [];
+    let list = null;
+    const close = () => { if (list) { out.push('</' + list + '>'); list = null; } };
+    String(text || '').split(/\r?\n/).forEach((line) => {
+      const t = line.trim();
+      if (!t) { close(); return; }
+      const esc = (x) => fmt(html`${x}`.s);
+      let m;
+      if ((m = /^#{1,4}\s+(.*)$/.exec(t))) { close(); out.push('<h4 class="ai-h">' + esc(m[1]) + '</h4>'); return; }
+      if ((m = /^[-*•]\s+(.*)$/.exec(t))) { if (list !== 'ul') { close(); out.push('<ul>'); list = 'ul'; } out.push('<li>' + esc(m[1]) + '</li>'); return; }
+      if ((m = /^\d+[.)]\s+(.*)$/.exec(t))) { if (list !== 'ol') { close(); out.push('<ol>'); list = 'ol'; } out.push('<li>' + esc(m[1]) + '</li>'); return; }
+      close();
+      out.push('<p>' + esc(t) + '</p>');
+    });
+    close();
+    return raw(out.join(''));
+  };
+  const CADANGAN = [
+    'Makmal mana paling kritikal dan apa tindakan yang dicadangkan?',
+    'Jika bajet tahun depan RM300,000, apakah susunan penggantian komputer yang dicadangkan?',
+    'Berapa komputer masih Windows 10 dan apa pelan naik tarafnya?',
+    'Ringkaskan keperluan makmal (komputer & peralatan lain) dan jumlah kosnya.',
+    'Apakah jenis aduan IT yang paling kerap dan cadangan untuk mengurangkannya?'
+  ];
+
+  function aiSetup(st) {
+    if (!st.bolehUrus) return html`<section class="panel"><h3>AI Advisor belum diaktifkan</h3><p class="small muted mt-2">Unit IT perlu menetapkan kunci API Google Gemini terlebih dahulu. Sila hubungi Unit IT FKM.</p></section>`;
+    return html`<section class="panel ai-setup"><div class="panel-head"><h3>${st.adaKunci ? 'Tukar kunci API' : 'Aktifkan AI Advisor (sekali sahaja)'}</h3></div>
+      <ol class="small">
+        <li>Buka <b>aistudio.google.com</b> dan log masuk dengan akaun Google.</li>
+        <li>Pilih <b>Get API key</b> → <b>Create API key</b>, kemudian salin kunci.</li>
+        <li>Tampal kunci di bawah dan tekan <b>Simpan kunci</b>. Kunci disimpan tersulit di pelayan dan tidak akan dipaparkan semula.</li></ol>
+      <form data-ai-key class="row row-wrap mt-4" autocomplete="off"><input class="input" type="password" name="kunci" placeholder="Tampal kunci API Gemini" aria-label="Kunci API Gemini" autocomplete="off" style="flex:1 1 260px">
+        <button class="btn btn-primary" type="submit">${icon('lock')}Simpan kunci</button>${st.adaKunci ? html`<button class="btn btn-ghost" type="button" data-ai-rmkey>Buang kunci</button>` : ''}</form>
+      <p class="lp-note">Peringkat percuma Google: kandungan yang dihantar boleh digunakan oleh Google untuk menambah baik produk. Sistem hanya menghantar angka agregat (tiada nama, email atau no. pekerja).</p></section>`;
+  }
+
+  KD.views.aiAdvisor = {
+    async render(el) {
+      el.innerHTML = html`<div class="page-head"><div><h1>AI Advisor</h1><p>Tanya tentang aset ICT, makmal, aduan dan keperluan FKM, atau jana taklimat mesyuarat. Jawapan berdasarkan data sistem (agregat).</p></div></div><div data-ai>${skeletonStats(2)}</div>`.s;
+      const box = qs('[data-ai]', el);
+      let st;
+      try { st = await KD.api.call('ai.status', {}); } catch (err) { box.innerHTML = errorState(err).s; return; }
+      const hist = [];
+      let tab = 'tanya';
+      const draw = () => {
+        if (!st.adaKunci || !st.aktif) { box.innerHTML = aiSetup(st).s; return; }
+        box.innerHTML = html`<nav class="lp-tabs"><button type="button" class="lp-tab ${tab === 'tanya' ? 'is-active' : ''}" data-ai-tab="tanya">Tanya</button><button type="button" class="lp-tab ${tab === 'taklimat' ? 'is-active' : ''}" data-ai-tab="taklimat">Jana taklimat</button></nav>
+          ${tab === 'tanya' ? html`<section class="panel ai-chat"><div class="ai-log" data-ai-log>${hist.length ? '' : html`<div class="ai-empty"><p class="small muted">Contoh soalan:</p><div class="ai-sugg">${CADANGAN.map((c) => html`<button class="chip" data-ai-sugg="${c}">${c}</button>`)}</div></div>`}</div>
+              <form data-ai-ask class="ai-ask"><textarea class="textarea" name="soalan" rows="2" maxlength="1500" placeholder="Tulis soalan… (Enter untuk hantar, Shift+Enter baris baharu)" aria-label="Soalan"></textarea>
+                <div class="row row-wrap"><button class="btn btn-primary" type="submit">${icon('send')}Tanya</button>${hist.length ? html`<button class="btn btn-ghost" type="button" data-ai-clear>Perbualan baharu</button>` : ''}</div></form></section>`
+            : html`<section class="panel no-print"><div class="uj-grid">
+                <label class="small">Untuk<select class="select mt-1" data-ai-aud><option value="DEKAN">Dekan FKM</option><option value="NC">Naib Canselor (pertemuan Dekan–NC)</option><option value="JKF">Jawatankuasa Fakulti (JKF)</option><option value="UNIT_IT">Mesyuarat Unit IT</option></select></label>
+                <label class="small">Fokus tambahan (pilihan)<input class="input mt-1" data-ai-fokus maxlength="500" placeholder="cth. keperluan komputer untuk unjuran pelajar"></label></div>
+                <button class="btn btn-primary mt-4" data-ai-brief>${icon('sparkle')}Jana taklimat</button></section><div data-ai-out class="mt-4"></div>`}
+          <p class="lp-note">Model: ${st.model} · ${st.penyedia}. AI boleh tersilap: semak angka dengan dashboard sebelum digunakan secara rasmi. Hanya angka agregat dihantar (tiada nama, email atau no. pekerja).</p>
+          ${st.bolehUrus ? html`<details class="mt-4 no-print"><summary class="small">Urus kunci API (…${st.kunciHujung})</summary>${aiSetup(st)}</details>` : ''}`.s;
+        const log = qs('[data-ai-log]', box);
+        if (log) {
+          if (hist.length) log.innerHTML = hist.map((h) => (h.role === 'user'
+            ? html`<div class="ai-msg ai-msg--u">${h.text}</div>`
+            : html`<div class="ai-msg ai-msg--a"><div class="ai-md">${mdLite(h.text)}</div><button class="btn btn-ghost btn-sm" data-ai-copy="${h.text}">${icon('copy', 'i-sm')}Salin</button></div>`).s).join('');
+          log.scrollTop = log.scrollHeight;
+        }
+      };
+      draw();
+      const send = async (q, btn) => {
+        const text = String(q || '').trim();
+        if (text.length < 3) return;
+        const sejarah = hist.slice(-6);
+        hist.push({ role: 'user', text });
+        draw();
+        const log = qs('[data-ai-log]', box);
+        log.insertAdjacentHTML('beforeend', html`<div class="ai-msg ai-msg--a ai-wait" data-ai-wait>${icon('sparkle', 'i-sm')} Sedang berfikir…</div>`.s);
+        log.scrollTop = log.scrollHeight;
+        const ta = qs('[data-ai-ask] textarea', box); if (ta) ta.disabled = true;
+        try {
+          const r = await KD.api.call('ai.tanya', { soalan: text, sejarah });
+          hist.push({ role: 'model', text: r.jawapan });
+        } catch (err) { hist.pop(); toastError(err); if (ta) ta.value = text; }
+        draw();
+        const ta2 = qs('[data-ai-ask] textarea', box); if (ta2) ta2.focus();
+      };
+      on(box, 'submit', '[data-ai-ask]', (e, f) => { e.preventDefault(); const v = f.soalan.value; f.soalan.value = ''; send(v); });
+      on(box, 'keydown', '[data-ai-ask] textarea', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.form.requestSubmit(); } });
+      on(box, 'click', '[data-ai-sugg]', (e, b) => send(b.getAttribute('data-ai-sugg')));
+      on(box, 'click', '[data-ai-clear]', () => { hist.length = 0; draw(); });
+      on(box, 'click', '[data-ai-tab]', (e, b) => { e.preventDefault(); tab = b.getAttribute('data-ai-tab'); draw(); });
+      on(box, 'click', '[data-ai-copy]', async (e, b) => { try { await navigator.clipboard.writeText(b.getAttribute('data-ai-copy')); toast('Disalin.'); } catch (err) { toastError(err); } });
+      on(box, 'click', '[data-ai-brief]', (e, b) => busy(b, async () => {
+        const out = qs('[data-ai-out]', box);
+        out.innerHTML = html`<section class="panel"><p class="small muted">${icon('sparkle', 'i-sm')} Menjana taklimat… (biasanya 10–40 saat)</p></section>`.s;
+        try {
+          const r = await KD.api.call('ai.taklimat', { audiens: qs('[data-ai-aud]', box).value, fokus: qs('[data-ai-fokus]', box).value });
+          out.innerHTML = html`<section class="panel ai-brief"><div class="panel-head"><h3>Taklimat: ${r.audiens}</h3><div class="row no-print"><button class="btn btn-outline btn-sm" data-ai-copy="${r.taklimat}">${icon('copy', 'i-sm')}Salin</button><button class="btn btn-outline btn-sm" data-ai-print>${icon('pdf', 'i-sm')}Cetak</button></div></div>
+            <div class="ai-md">${mdLite(r.taklimat)}</div><p class="lp-note">Draf dijana AI pada ${fmtDate(r.dijana, true)} daripada data sistem. Semak sebelum diedarkan.</p></section>`.s;
+        } catch (err) { out.innerHTML = ''; toastError(err); }
+      }));
+      on(box, 'click', '[data-ai-print]', () => window.print());
+      on(box, 'submit', '[data-ai-key]', (e, f) => {
+        e.preventDefault();
+        busy(qs('button[type="submit"]', f), async () => {
+          try { st = await KD.api.call('ai.kunci', { kunci: f.kunci.value.trim() }); f.kunci.value = ''; toast('Kunci disimpan. AI Advisor aktif.'); draw(); } catch (err) { toastError(err); }
+        });
+      });
+      on(box, 'click', '[data-ai-rmkey]', async (e, b) => {
+        if (!(await confirm({ title: 'Buang kunci API?', message: 'AI Advisor akan dimatikan sehingga kunci baharu ditetapkan.', confirmText: 'Buang' }))) return;
+        busy(b, async () => { try { st = await KD.api.call('ai.kunci', { buang: true }); draw(); } catch (err) { toastError(err); } });
+      });
+    }
+  };
+  KD.extraRoutes.push({ path: '/admin/ai', view: 'aiAdvisor', access: 'admin', layout: 'admin', title: 'AI Advisor' });
+  KD.extraRoutes.push({ path: '/pengurusan/ai', view: 'aiAdvisor', access: 'management', layout: 'app', title: 'AI Advisor' });
+
   KD.extraRoutes.push({ path: '/admin/perancangan', view: 'perancangan', access: 'admin', layout: 'admin', title: 'Perancangan' });
   KD.extraRoutes.push({ path: '/admin/laporan-eksekutif', view: 'laporanEksekutif', access: 'admin', layout: 'admin', title: 'Laporan Eksekutif' });
   KD.extraRoutes.push({ path: '/pengurusan', view: 'perancangan', access: 'management', layout: 'app', title: 'Perancangan aset IT' });
   KD.extraRoutes.push({ path: '/pengurusan/laporan', view: 'laporanEksekutif', access: 'management', layout: 'app', title: 'Laporan Eksekutif' });
   KD.extraRoutes.push({ path: '/pengurusan/laporan-aset', view: 'laporanAset', access: 'management', layout: 'app', title: 'Laporan aset' });
-  KD.extraNav.user.push(['/pengurusan', 'chart', 'Perancangan', 'management'], ['/pengurusan/laporan-aset', 'list', 'Laporan aset', 'management'], ['/pengurusan/laporan', 'pdf', 'Laporan Eksekutif', 'management']);
+  KD.extraNav.user.push(['/pengurusan', 'chart', 'Perancangan', 'management'], ['/pengurusan/ai', 'sparkle', 'AI Advisor', 'management'], ['/pengurusan/laporan-aset', 'list', 'Laporan aset', 'management'], ['/pengurusan/laporan', 'pdf', 'Laporan Eksekutif', 'management']);
   KD.homePath = (role) => (role === 'PENGURUSAN' ? '/pengurusan' : null);
-  KD.bottomNavFor = (items, role) => (role === 'PENGURUSAN' ? [['/pengurusan', 'chart', 'Perancangan'], ['/pengurusan/laporan-aset', 'list', 'Laporan'], ['/pengurusan/laporan', 'pdf', 'Eksekutif'], ['/notifikasi', 'bell', 'Notifikasi'], ['/profil', 'user', 'Profil']] : null);
-  KD.extraNav.admin.push(['/admin/perancangan', 'sparkle', 'Perancangan'], ['/admin/laporan-aset', 'chart', 'Laporan aset'], ['/admin/import-aset', 'download', 'Import aset'], ['/admin/sistem', 'activity', 'Statistik sistem']);
+  KD.bottomNavFor = (items, role) => (role === 'PENGURUSAN' ? [['/pengurusan', 'chart', 'Perancangan'], ['/pengurusan/laporan-aset', 'list', 'Laporan'], ['/pengurusan/ai', 'sparkle', 'AI'], ['/notifikasi', 'bell', 'Notifikasi'], ['/profil', 'user', 'Profil']] : null);
+  KD.extraNav.admin.push(['/admin/perancangan', 'sparkle', 'Perancangan'], ['/admin/ai', 'sparkle', 'AI Advisor'], ['/admin/laporan-aset', 'chart', 'Laporan aset'], ['/admin/import-aset', 'download', 'Import aset'], ['/admin/sistem', 'activity', 'Statistik sistem']);
 })(window.KD);
 </script>

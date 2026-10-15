@@ -285,7 +285,10 @@ function createGasEnvironment(options = {}) {
    * Lalai: token OAuth sah & FCM 200. Semua permintaan direkod dalam state.fetches.
    */
   const makeResponse = (r) => ({ getResponseCode: () => r.code, getContentText: () => (typeof r.body === 'string' ? r.body : JSON.stringify(r.body || {})) });
-  const defaultFetch = (url) => (/oauth2\.googleapis\.com\/token/.test(url)
+  const DEMO_AI = '## Jawapan contoh (pelayan pembangunan)\n- **Makmal ME-03** paling kritikal: 4 daripada 8 PC rosak.\n- Cadangan: ganti **6 unit** (anggaran **RM 27,000**).\n\n1. Sahkan data dengan penyelaras makmal.\n2. Masukkan dalam permohonan bajet tahun depan.';
+  const defaultFetch = (url) => (/generativelanguage\.googleapis\.com/.test(url)
+    ? { code: 200, body: { candidates: [{ content: { parts: [{ text: DEMO_AI }] } }] } }
+    : /oauth2\.googleapis\.com\/token/.test(url)
     ? { code: 200, body: { access_token: 'ya29.mock', expires_in: 3599, token_type: 'Bearer' } }
     : { code: 200, body: { name: 'projects/x/messages/1' } });
   const UrlFetchApp = {

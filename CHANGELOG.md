@@ -1,5 +1,20 @@
 # CHANGELOG
 
+## 1.21.0 — 2026-10-15 · AI Advisor (Google Gemini, peringkat percuma)
+### Ditambah
+- **AI Advisor** untuk Pengurusan dan Unit IT (menu "AI Advisor"; `#/admin/ai` dan `#/pengurusan/ai`)
+  - **Tanya:** sembang dengan contoh soalan dan sejarah perbualan ringkas. Jawapan berdasarkan data sistem.
+  - **Jana taklimat:** untuk Dekan, NC, JKF atau Unit IT, dengan fokus tambahan. Hasil boleh disalin atau dicetak.
+- Keselamatan
+  - AI hanya menerima **konteks agregat** daripada laporan sistem melalui senarai putih medan. Nama penjaga, pegawai, pemohon, email dan no. pekerja tidak dihantar; ada penapis kunci peribadi sebagai lapisan tambahan.
+  - Baca sahaja.
+  - Kunci API ditetapkan oleh Admin dalam halaman AI Advisor (tulis sahaja). Kunci disimpan dalam Script Properties `GEMINI_API_KEY` (tersulit di Supabase) dan tidak pernah dipulangkan ke pelayar.
+  - Had 30 soalan sejam bagi setiap pengguna, dan had harian sistem melalui `AI_HAD_SEHARI` (lalai 200).
+  - Setiap soalan direkod dalam log audit.
+- Tetapan baharu: `AI_AKTIF`, `AI_MODEL` (lalai `gemini-flash-latest`), `AI_HAD_SEHARI`.
+- Runtime Supabase: `EDGE_HTTP` untuk HTTP keluar daripada kod .gs. Hanya hos dalam senarai putih (`generativelanguage.googleapis.com`) dibenarkan.
+- `scan-secrets` mengesan kunci API Google (`AIza…`).
+
 ## 1.20.0 — 2026-10-15 · Penapis Aset IT
 ### Ditambah
 - Penapis baharu dalam senarai Aset IT

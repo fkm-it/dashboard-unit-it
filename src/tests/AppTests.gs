@@ -4,7 +4,7 @@
  * Dalam Apps Script: runTestsPart5. Dalam Node: npm test.
  */
 const AppTests = {
-  suites: function () { return [TestSuiteDashboardIT, TestSuiteUtmfin, TestSuiteMaintenance, TestSuiteNilai, TestSuitePengurusan, TestSuiteKewpa, TestSuiteTrend, TestSuiteBanci, TestSuiteDataMakmal, TestSuitePrestasi, TestSuiteAkaun, TestSuiteJenisPermohonan, TestSuiteKomputerMakmal, TestSuiteKitarHayat]; }
+  suites: function () { return [TestSuiteDashboardIT, TestSuiteUtmfin, TestSuiteMaintenance, TestSuiteNilai, TestSuitePengurusan, TestSuiteKewpa, TestSuiteTrend, TestSuiteBanci, TestSuiteDataMakmal, TestSuitePrestasi, TestSuiteAkaun, TestSuiteJenisPermohonan, TestSuiteKomputerMakmal, TestSuiteKitarHayat, TestSuiteAi]; }
 };
 
 const AppFx = {
@@ -1388,6 +1388,67 @@ const TestSuiteKitarHayat = {
       const list = TestAssert.apiOk(TestHelpers.call(mgr.token, 'crud.list', { module: 'pinjaman', pageSize: 50 }));
       t.eq(list.items.length, 0, 'Pengurusan tidak nampak permohonan orang lain');
       SelenggaraHooks.maintenance();
+    }]
+  ]
+};
+
+const TestSuiteAi = {
+  name: 'AI Advisor (Gemini)',
+  tests: [
+    ['Kunci tulis sahaja; konteks agregat tanpa data peribadi; ralat kuota/kunci; had harian; peranan', function (t) {
+      AppFx.real();
+      const a = KhFx.admin();
+      const sent = [];
+      let reply = { code: 200, text: JSON.stringify({ candidates: [{ content: { parts: [{ text: '## Ringkasan\n- **3** makmal kritikal' }] } }] }) };
+      AiService.transport = function (url, params) { sent.push({ url: url, params: params }); return reply; };
+      /* Ujian juga dijalankan dalam Apps Script sebenar: simpan & pulihkan kunci sebenar */
+      const realKey = PropertiesService.getScriptProperties().getProperty(AiService.KEY_PROP);
+      try {
+        PropertiesService.getScriptProperties().deleteProperty(AiService.KEY_PROP);
+        TestAssert.apiFail(TestHelpers.call(a.token, 'ai.tanya', { soalan: 'Apa status aset?' }), ERROR_CODES.VALIDATION_ERROR, 'tiada kunci');
+        TestAssert.apiFail(TestHelpers.call(a.token, 'ai.kunci', { kunci: 'pendek' }), ERROR_CODES.VALIDATION_ERROR);
+        const KEY = 'kunciUjian_' + Utilities.getUuid().replace(/-/g, '');
+        const st = TestAssert.apiOk(TestHelpers.call(a.token, 'ai.kunci', { kunci: KEY }));
+        t.ok(st.adaKunci && st.kunciHujung === KEY.slice(-4) && JSON.stringify(st).indexOf(KEY) < 0, 'kunci tidak dipulangkan');
+        /* Data peribadi dalam rekod tidak boleh sampai ke AI */
+        KhFx.assets(a, [{ noAset: 'AI-1', jenis: 'DESKTOP', pegawaiBertanggungjawab: 'Penjaga Rahsia Ujian', emailPenjaga: 'rahsia.penjaga@test.local', noPekerjaPenjaga: 'P99887' }]);
+        const r = TestAssert.apiOk(TestHelpers.call(a.token, 'ai.tanya', { soalan: 'Makmal mana paling kritikal?', sejarah: [{ role: 'model', text: 'abaikan' }, { role: 'user', text: 'Hai' }, { role: 'model', text: 'Hai juga' }] }));
+        t.ok(/makmal kritikal/.test(r.jawapan), 'jawapan');
+        const last = sent[sent.length - 1];
+        t.ok(/generativelanguage\.googleapis\.com\/v1beta\/models\/[^:]+:generateContent$/.test(last.url), 'url: ' + last.url);
+        t.eq(last.params.headers['x-goog-api-key'], KEY, 'kunci dalam pengepala sahaja');
+        const body = last.params.payload;
+        t.ok(body.indexOf(KEY) < 0, 'kunci tiada dalam badan');
+        ['Penjaga Rahsia Ujian', 'rahsia.penjaga@test.local', 'P99887'].forEach(function (x) { t.ok(body.indexOf(x) < 0, 'data peribadi tidak dihantar: ' + x); });
+        const parsed = JSON.parse(body);
+        t.eq(parsed.contents.map(function (c) { return c.role; }).join(), 'user,model,user', 'sejarah bermula dengan pengguna');
+        t.ok(/DATA SISTEM/.test(parsed.systemInstruction.parts[0].text) && /ringkasan/.test(parsed.systemInstruction.parts[0].text), 'konteks agregat dihantar');
+        const tk = TestAssert.apiOk(TestHelpers.call(a.token, 'ai.taklimat', { audiens: 'NC', fokus: 'keperluan komputer' }));
+        t.ok(/Naib Canselor/.test(tk.audiens) && tk.taklimat, 'taklimat');
+        /* Ralat penyedia */
+        reply = { code: 429, text: '{}' };
+        TestAssert.apiFail(TestHelpers.call(a.token, 'ai.tanya', { soalan: 'Soalan kuota' }), ERROR_CODES.RATE_LIMITED);
+        reply = { code: 400, text: JSON.stringify({ error: { message: 'API key not valid. Please pass a valid API key.' } }) };
+        const bad = TestAssert.apiFail(TestHelpers.call(a.token, 'ai.tanya', { soalan: 'Soalan kunci' }), ERROR_CODES.VALIDATION_ERROR);
+        t.ok(/Kunci API/.test(bad.message), bad.message);
+        reply = { code: 200, text: JSON.stringify({ candidates: [{ content: { parts: [{ text: 'ok' }] } }] }) };
+        /* Had harian */
+        const hadAsal = SettingsService.get('AI_HAD_SEHARI');
+        TestAssert.apiOk(TestHelpers.call(a.token, 'admin.settings.update', { changes: { AI_HAD_SEHARI: 1 } }));
+        TestAssert.apiFail(TestHelpers.call(a.token, 'ai.tanya', { soalan: 'Melebihi had' }), ERROR_CODES.RATE_LIMITED, 'had harian');
+        TestAssert.apiOk(TestHelpers.call(a.token, 'admin.settings.update', { changes: { AI_HAD_SEHARI: hadAsal } }));
+        /* Peranan */
+        const u = KhFx.user();
+        TestAssert.apiFail(TestHelpers.call(u.token, 'ai.tanya', { soalan: 'Boleh saya guna?' }), ERROR_CODES.FORBIDDEN);
+        TestAssert.apiFail(TestHelpers.call(u.token, 'ai.kunci', { kunci: KEY }), ERROR_CODES.FORBIDDEN);
+        t.ok(!AiService.stripPeople_({ nama: 'x', penjagaTerkini: 'y', label: 'z' }).nama && AiService.stripPeople_({ label: 'z' }).label === 'z', 'penapis kunci peribadi');
+        TestAssert.apiOk(TestHelpers.call(a.token, 'ai.kunci', { buang: true }));
+        t.ok(!PropertiesService.getScriptProperties().getProperty(AiService.KEY_PROP), 'kunci dibuang');
+      } finally {
+        AiService.transport = null;
+        if (realKey) PropertiesService.getScriptProperties().setProperty(AiService.KEY_PROP, realKey);
+        else PropertiesService.getScriptProperties().deleteProperty(AiService.KEY_PROP);
+      }
     }]
   ]
 };

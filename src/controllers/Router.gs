@@ -60,6 +60,11 @@ const Router = {
       'notification.markRead': { role: U, fn: NotificationController.markRead },
       'notification.markAllRead': { role: U, fn: NotificationController.markAllRead },
 
+      'ai.status': { role: ROLES.PENGURUSAN, fn: AiController.status },
+      'ai.tanya': { role: ROLES.PENGURUSAN, fn: AiController.ask },
+      'ai.taklimat': { role: ROLES.PENGURUSAN, fn: AiController.briefing },
+      'ai.kunci': { role: A, fn: AiController.setKey },
+
       'admin.stats': { role: A, fn: AdminController.stats, allowInMaintenance: true },
       'admin.users': { role: A, fn: AdminController.users, allowInMaintenance: true },
       'admin.user.status': { role: A, fn: AdminController.userStatus, allowInMaintenance: true },

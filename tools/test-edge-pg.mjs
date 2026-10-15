@@ -137,6 +137,29 @@ await test('Log masuk dengan kata laluan sedia ada (AUTH_PEPPER tersulit dibawa 
   assert(me.user.role === 'SUPER_ADMIN', 'peranan');
 });
 
+await test('AI Advisor: HTTP keluar melalui EDGE_HTTP (hos senarai putih), kunci API tersulit, konteks tanpa data peribadi', async () => {
+  const calls = [];
+  const fakeFetch = async (url, init) => {
+    calls.push({ url, init });
+    return { status: 200, text: async () => JSON.stringify({ candidates: [{ content: { parts: [{ text: 'Jawapan ujian AI' }] } }] }) };
+  };
+  const rt = createRuntime({ store, createBackend, log: quiet, fetch: fakeFetch });
+  const KEY = 'ujian' + nodeCrypto.randomBytes(12).toString('hex');
+  ok(await call(rt, 'ai.kunci', { kunci: KEY }, sup.token));
+  const st = ok(await call(rt, 'ai.status', {}, sup.token));
+  assert(st.adaKunci && st.kunciHujung === KEY.slice(-4) && JSON.stringify(st).indexOf(KEY) < 0, 'status tanpa kunci penuh');
+  const r = ok(await call(rt, 'ai.tanya', { soalan: 'Makmal mana paling kritikal?' }, sup.token));
+  assert(r.jawapan === 'Jawapan ujian AI', 'jawapan: ' + JSON.stringify(r));
+  assert(calls.length === 1 && calls[0].url.indexOf('https://generativelanguage.googleapis.com/') === 0, 'hos: ' + (calls[0] && calls[0].url));
+  assert(calls[0].init.headers['x-goog-api-key'] === KEY, 'kunci dalam pengepala');
+  assert(calls[0].init.body.indexOf(KEY) < 0 && calls[0].init.body.indexOf('unit.it.rahsia@utm.my') < 0, 'tiada kunci / email dalam badan');
+  await assertNoPlain([KEY]);
+  let blocked = '';
+  try { await rt.execute((B2, ctx) => ctx.globals.EDGE_HTTP.fetch('https://contoh-jahat.example.com/x', {})); } catch (e) { blocked = e.message; }
+  assert(/tidak dibenarkan/.test(blocked), 'hos lain disekat: ' + blocked);
+  ok(await call(rt, 'ai.kunci', { buang: true }, sup.token));
+});
+
 let labs;
 await test('Data diimport boleh dibaca (makmal, aset, tiket, overview)', async () => {
   const boot = ok(await call(A, 'public.bootstrap'));

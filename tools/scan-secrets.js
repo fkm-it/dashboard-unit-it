@@ -18,7 +18,8 @@ const RULES = [
   [/\bAUTH_PEPPER\s*[:=]\s*['"][A-Za-z0-9_-]{20,}['"]/, 'nilai AUTH_PEPPER'],
   [/\b(SUPABASE_)?DATA_KEY(_SALINAN)?\s*[:=]\s*['"]?([A-Za-z0-9+\/_-]{43}=?|[0-9a-fA-F]{64})\b/, 'kunci penyulitan data Supabase (DATA_KEY)'],
   [/\bsbp_[0-9a-f]{40}\b/, 'token akses Supabase (sbp_)'],
-  [/\bsb_secret_[A-Za-z0-9_-]{20,}/, 'kunci rahsia Supabase (sb_secret_)']
+  [/\bsb_secret_[A-Za-z0-9_-]{20,}/, 'kunci rahsia Supabase (sb_secret_)'],
+  [/\bAIza[0-9A-Za-z_-]{35}\b/, 'kunci API Google / Gemini (AIza…)'],
 ];
 const BAD_NAMES = [/firebase-adminsdk.*\.json$/i, /^\.clasprc\.json$/, /service[-_]?account.*\.json$/i];
 
