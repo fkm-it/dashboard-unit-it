@@ -7,7 +7,8 @@
   .scan-video .scan-hint { position: absolute; inset: auto 0 10px; text-align: center; color: #fff; font-size: var(--fs-xs); }
   .scan-counts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
   .scan-counts div { background: var(--white); border: 1px solid var(--line); border-radius: var(--r-md); padding: 10px; text-align: center; }
-  .scan-counts b { display: block; font-size: var(--fs-xl); }
+  .scan-counts div { container-type: inline-size; min-width: 0; }
+  .scan-counts b { display: block; font-size: clamp(1rem, 16cqi, var(--fs-xl)); overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
   .scan-log { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; max-height: 420px; overflow: auto; }
   .scan-log li { display: flex; gap: 8px; align-items: flex-start; padding: 8px 10px; border-radius: var(--r-md); background: var(--white); border: 1px solid var(--line); min-width: 0; overflow-wrap: anywhere; }
   .scan-log li.is-ok { border-color: #BBF7D0; background: #F0FDF4; } .scan-log li.is-warn { border-color: #FDE68A; background: #FFFBEB; }

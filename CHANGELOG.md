@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 1.21.3 — 2026-10-16 · Nilai kad tidak lagi terkeluar
+### Diperbaiki
+- Kad KPI Executive Overview (cth. "Anggaran bajet RM 323,600"): saiz nilai kini menyesuaikan lebar kad (container query) dan dibalut dengan kemas, jadi nilai tidak lagi terkeluar daripada kad.
+- Perkara yang sama dibetulkan pada:
+  - kad ringkasan Perancangan / Laporan aset
+  - kotak kiraan borang banci makmal (sebelum ini nilai dipotong "RM 13,00…")
+  - kiraan halaman Imbas aset
+- Disemak secara automatik pada 8 lebar skrin (1920 hingga 360px) di 19 halaman, termasuk dengan nilai besar (RM 1,214,731.98).
+
 ## 1.21.2 — 2026-10-15 · AI Advisor: tahan model sesak
 ### Diperbaiki
 - Ralat 503 / 500 (model Gemini sesak) dan ralat sambungan: sistem cuba semula sekali, kemudian beralih kepada **model sandaran** (Tetapan `AI_MODEL_SANDARAN`, lalai `gemini-flash-lite-latest`).

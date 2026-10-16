@@ -12,7 +12,8 @@
 .xo-kpi__ic { flex: none; width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; color: #fff; }
 .xo-kpi__ic .i { width: 22px; height: 22px; }
 .xo-kpi__label { font-size: var(--fs-sm); font-weight: 600; color: var(--ink); }
-.xo-kpi__value { white-space: nowrap; font-size: clamp(1.15rem, 1.55vw, var(--fs-2xl)); font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; color: var(--ink); line-height: 1.15; margin-top: 2px; }
+.xo-kpi__body { flex: 1 1 auto; align-self: stretch; min-width: 0; container-type: inline-size; }
+.xo-kpi__value { overflow-wrap: anywhere; font-size: clamp(1rem, 15.5cqi, var(--fs-2xl)); font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; color: var(--ink); line-height: 1.15; margin-top: 2px; }
 .xo-kpi__note { font-size: var(--fs-xs); color: var(--muted); margin-top: 2px; }
 .xo-blue { background: #2563EB; } .xo-green { background: #15803D; } .xo-violet { background: #7C3AED; } .xo-amber { background: #D97706; } .xo-red { background: #DC2626; }
 .xo-kpi--alert { border-color: #FECACA; background: #FFF7F7; }
@@ -63,7 +64,8 @@
 .lp-filters .select { width: auto; min-width: 0; max-width: 100%; }
 .lp-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--sp-3); }
 .lp-card { background: var(--white); border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--sp-4); min-width: 0; }
-.lp-card b { display: block; font-size: var(--fs-xl); font-variant-numeric: tabular-nums; margin-top: 2px; }
+.lp-card { container-type: inline-size; }
+.lp-card b { display: block; overflow-wrap: anywhere; font-size: clamp(1rem, 11cqi, var(--fs-xl)); font-variant-numeric: tabular-nums; margin-top: 2px; }
 .lp-card.is-danger { border-color: #FECACA; background: #FFF7F7; } .lp-card.is-warn { border-color: #FDE68A; background: #FFFBEB; }
 .lp-chip { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 999px; background: var(--canvas-200); margin: 1px 2px 1px 0; white-space: nowrap; }
 .uj-in .input { max-width: 140px; margin-left: auto; text-align: right; }
@@ -115,7 +117,7 @@
   .xo-kpi { padding: var(--sp-3); flex-direction: column; gap: var(--sp-2); }
   .xo-kpi__ic { width: 34px; height: 34px; border-radius: 10px; }
   .xo-kpi__ic .i { width: 18px; height: 18px; }
-  .xo-kpi__value { font-size: 1.1rem; white-space: normal; overflow-wrap: anywhere; }
+  .xo-kpi__value { font-size: clamp(1rem, 15.5cqi, 1.25rem); }
   .xo-grid4, .xo-grid2 { grid-template-columns: 1fr; }
   .xo-donut svg { width: 120px; height: 120px; }
   .im-steps { grid-template-columns: 1fr; }
@@ -138,7 +140,7 @@
 
   const kpi = (href, color, ic, label, value, note, alert) => html`<a class="xo-kpi ${alert ? 'xo-kpi--alert' : ''}" href="#${href}">
       <span class="xo-kpi__ic ${color}">${icon(ic)}</span>
-      <span style="min-width:0"><span class="xo-kpi__label">${label}</span><div class="xo-kpi__value">${value}</div>${note ? html`<div class="xo-kpi__note">${note}</div>` : ''}</span></a>`;
+      <span class="xo-kpi__body"><span class="xo-kpi__label">${label}</span><div class="xo-kpi__value">${value}</div>${note ? html`<div class="xo-kpi__note">${note}</div>` : ''}</span></a>`;
 
   /** Carta donat SVG dengan legenda (status aset). */
   function donut(items, total, centerLabel) {

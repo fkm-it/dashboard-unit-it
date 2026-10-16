@@ -8,7 +8,8 @@
 .bm-num { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--brand); color: #fff; font-size: var(--fs-sm); font-weight: 700; flex: none; }
 .bm-calc { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--sp-3); margin-top: var(--sp-4); }
 .bm-calc div { background: var(--canvas-200); border-radius: var(--r-md); padding: 10px 12px; min-width: 0; }
-.bm-calc b { display: block; font-size: var(--fs-xl); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bm-calc div { container-type: inline-size; }
+.bm-calc b { display: block; font-size: clamp(1rem, 13cqi, var(--fs-xl)); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .bm-warn { color: var(--danger); font-weight: 600; }
 .bm-status { border-radius: var(--r-md); padding: 12px 14px; margin-top: var(--sp-4); background: var(--canvas-200); }
 .bm-status.is-warn { background: #FEF3C7; }
